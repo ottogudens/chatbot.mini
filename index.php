@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkaleBot - Asistente IA</title>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+
+<body>
+
+    <div class="glass-bg"></div>
+
+    <div class="wrapper glass-panel">
+        <div class="header">
+            <div class="bot-info">
+                <div class="bot-avatar">
+                    <i class="fa-solid fa-robot"></i>
+                    <span class="status-indicator"></span>
+                </div>
+                <div class="bot-details">
+                    <div class="title">SkaleBot</div>
+                    <div class="status-text">En línea</div>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button id="theme-toggle" title="Cambiar tema">
+                    <i class="fa-solid fa-moon"></i>
+                </button>
+                <a href="admin.php" id="admin-btn" title="Panel de Administración">
+                    <i class="fa-solid fa-gear"></i>
+                </a>
+            </div>
+        </div>
+
+        <div class="form" id="chat-box">
+            <!-- Initial Greeting -->
+            <div class="bot-inbox inbox init-anim">
+                <div class="icon">
+                    <i class="fa-solid fa-robot"></i>
+                </div>
+                <div class="msg-header">
+                    <p>¡Hola! Soy SkaleBot. ¿En qué te puedo ayudar hoy?</p>
+                    <span class="timestamp" id="init-time"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Typing Indicator (Hidden by default) -->
+        <div id="typing-indicator" class="bot-inbox inbox hidden">
+            <div class="icon">
+                <i class="fa-solid fa-robot"></i>
+            </div>
+            <div class="msg-header typing-bubble">
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+            </div>
+        </div>
+
+        <!-- Quick Suggestions Area (Dynamic) -->
+        <div id="suggestions-area" class="suggestions-container"></div>
+
+        <div class="typing-field">
+            <div class="input-data">
+                <input id="data" type="text" placeholder="Escribe tu mensaje aquí..." autocomplete="off" required>
+                <button id="send-btn"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        $(document).ready(function () {
+            // Set initial timestamp
+            const now = new Date();
+            const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+            $('#init-time').text(timeStr);
+
+            // Theme Toggle Logic
+            const themeToggleBtn = $('#theme-toggle');
+            themeToggleBtn.on('click', function () {
+                const htmlTag = $('html');
+                const isDark = htmlTag.attr('data-theme') === 'dark';
+
+                if (isDark) {
+                    htmlTag.attr('data-theme', 'light');
+                    themeToggleBtn.html('<i class="fa-solid fa-sun"></i>');
+                } else {
+                    htmlTag.attr('data-theme', 'dark');
+                    themeToggleBtn.html('<i class="fa-solid fa-moon"></i>');
+                }
+            });
+
+            // Auto-scroll function
+            function scrollToBottom() {
+                const chatBox = $("#chat-box");
+                chatBox.animate({ scrollTop: chatBox.prop("scrollHeight") }, 400);
+            }
+
+            // Enter key support
+            $("#data").keypress(function (e) {
+                if (e.which == 13) {
+                    $("#send-btn").click();
+                    return false;
+                }
+            });
+
+            // Handle suggestions click
+            $(document).on('click', '.sugg-btn', function () {
+                const text = $(this).text();
+                $("#data").val(text);
+                $("#send-btn").click();
+                $("#suggestions-area").empty(); // Clear suggestions
+            });
+
+            // Send message logic
+            $("#send-btn").on("click", function () {
+                let textValue = $("#data").val().trim();
+                if (textValue === "") return; // Prevent empty sends
+
+                let currentTime = new Date();
+                let timeString = currentTime.getHours().toString().padStart(2, '0') + ':' + currentTime.getMinutes().toString().padStart(2, '0');
+
+                // 1. Append User Message
+                let userMsgHtml = `
+                    <div class="user-inbox inbox msg-anim">
+                        <div class="msg-header">
+                            <p>${textValue}</p>
+                            <span class="timestamp">${timeString}</span>
+                        </div>
+                    </div>`;
+
+                $("#chat-box").append(userMsgHtml);
+                $("#data").val(''); // Clear input
+                $("#suggestions-area").empty(); // Clear previous suggestions
+                scrollToBottom();
+
+                // 2. Show Typing Indicator
+                $("#typing-indicator").removeClass('hidden');
+                scrollToBottom();
+
+                // 3. AJAX Request
+                // Use setTimeout to simulate a "thinking" delay for better UX (500-1000ms)
+                setTimeout(() => {
+                    $.ajax({
+                        url: 'message.php',
+                        type: 'POST',
+                        dataType: 'json',
+                        data: { text: textValue },
+                        success: function (result) {
+                            // Hide typing indicator
+                            $("#typing-indicator").addClass('hidden');
+
+                            // Append Bot Reply
+                            let botReplyHtml = `
+                                <div class="bot-inbox inbox msg-anim">
+                                    <div class="icon">
+                                        <i class="fa-solid fa-robot"></i>
+                                    </div>
+                                    <div class="msg-header">
+                                        <p>${result.reply}</p>
+                                        <span class="timestamp">${result.timestamp || timeString}</span>
+                                    </div>
+                                </div>`;
+
+                            $("#chat-box").append(botReplyHtml);
+
+                            // Add suggestions if available
+                            if (result.suggestions && result.suggestions.length > 0) {
+                                let suggHtml = '';
+                                result.suggestions.forEach(sugg => {
+                                    suggHtml += `<button class="sugg-btn">${sugg}</button>`;
+                                });
+                                $("#suggestions-area").html(suggHtml);
+                            }
+
+                            scrollToBottom();
+                        },
+                        error: function () {
+                            // Fallback on error
+                            $("#typing-indicator").addClass('hidden');
+                            let errorHtml = `
+                                <div class="bot-inbox inbox msg-anim">
+                                    <div class="icon" style="background:var(--danger)">
+                                        <i class="fa-solid fa-triangle-exclamation"></i>
+                                    </div>
+                                    <div class="msg-header">
+                                        <p style="background:var(--danger)">Error de conexión con el servidor.</p>
+                                        <span class="timestamp">${timeString}</span>
+                                    </div>
+                                </div>`;
+                            $("#chat-box").append(errorHtml);
+                            scrollToBottom();
+                        }
+                    });
+                }, 800); // 800ms delay for realism
+            });
+        });
+    </script>
+</body>
+
+</html>
