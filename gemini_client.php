@@ -60,7 +60,7 @@ class GeminiClient
 
         if ($http_code !== 200) {
             error_log("Gemini API Error: " . $response);
-            return null;
+            return "API Error ($http_code): " . $response;
         }
 
         $result = json_decode($response, true);
