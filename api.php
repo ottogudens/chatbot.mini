@@ -100,6 +100,25 @@ switch ($action) {
         ]);
         break;
 
+    case 'chart_data':
+        // Get counts for the last 7 days
+        $query = "SELECT DATE(created_at) as date, COUNT(*) as count 
+                  FROM conversation_logs 
+                  WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                  GROUP BY DATE(created_at) 
+                  ORDER BY date ASC";
+        $result = mysqli_query($conn, $query);
+        $labels = [];
+        $values = [];
+
+        while ($row = mysqli_fetch_assoc($result)) {
+            $labels[] = date('d M', strtotime($row['date']));
+            $values[] = (int) $row['count'];
+        }
+
+        echo json_encode(['status' => 'success', 'labels' => $labels, 'values' => $values]);
+        break;
+
     default:
         echo json_encode(['status' => 'error', 'message' => 'Acción no válida']);
         break;

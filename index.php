@@ -30,6 +30,9 @@
                 </div>
             </div>
             <div class="header-actions">
+                <button id="clear-chat" title="Limpiar chat">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
                 <button id="theme-toggle" title="Cambiar tema">
                     <i class="fa-solid fa-moon"></i>
                 </button>
@@ -77,10 +80,69 @@
 
     <script>
         $(document).ready(function () {
-            // Set initial timestamp
+            // Set initial timestamp (no longer used for a specific element, but good for current time)
             const now = new Date();
             const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
-            $('#init-time').text(timeStr);
+
+            // --- History Persistence Logic ---
+            const STORAGE_KEY = 'skalebot_history';
+
+            function loadHistory() {
+                const history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+                history.forEach(item => {
+                    appendMessage(item.type, item.text, item.time, false); // 'false' means don't save again
+                });
+                // Add initial greeting if history is empty
+                if (history.length === 0) {
+                    const initialTime = new Date();
+                    const initialTimeStr = initialTime.getHours().toString().padStart(2, '0') + ':' + initialTime.getMinutes().toString().padStart(2, '0');
+                    appendMessage('bot', '¡Hola! Soy SkaleBot. ¿En qué te puedo ayudar hoy?', initialTimeStr, true);
+                }
+            }
+
+            function saveToHistory(type, text, time) {
+                const history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+                history.push({ type, text, time });
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+            }
+
+            function appendMessage(type, text, time, save = true) {
+                let msgHtml = '';
+                if (type === 'user') {
+                    msgHtml = `
+                        <div class="user-inbox inbox msg-anim">
+                            <div class="msg-header">
+                                <p>${text}</p>
+                                <span class="timestamp">${time}</span>
+                            </div>
+                        </div>`;
+                } else { // type === 'bot'
+                    msgHtml = `
+                        <div class="bot-inbox inbox msg-anim">
+                            <div class="icon">
+                                <i class="fa-solid fa-robot"></i>
+                            </div>
+                            <div class="msg-header">
+                                <p>${text}</p>
+                                <span class="timestamp">${time}</span>
+                            </div>
+                        </div>`;
+                }
+                $("#chat-box").append(msgHtml);
+                if (save) saveToHistory(type, text, time);
+            }
+            // ---------------------------------
+
+            loadHistory();
+            scrollToBottom(); // Scroll to bottom after loading history
+
+            // Clear Chat Logic
+            $('#clear-chat').on('click', function () {
+                if (confirm('¿Seguro que quieres borrar todo el historial?')) {
+                    localStorage.removeItem(STORAGE_KEY);
+                    location.reload(); // Reload to show fresh state with initial greeting
+                }
+            });
 
             // Theme Toggle Logic
             const themeToggleBtn = $('#theme-toggle');
@@ -127,16 +189,9 @@
                 let currentTime = new Date();
                 let timeString = currentTime.getHours().toString().padStart(2, '0') + ':' + currentTime.getMinutes().toString().padStart(2, '0');
 
-                // 1. Append User Message
-                let userMsgHtml = `
-                    <div class="user-inbox inbox msg-anim">
-                        <div class="msg-header">
-                            <p>${textValue}</p>
-                            <span class="timestamp">${timeString}</span>
-                        </div>
-                    </div>`;
-
-                $("#chat-box").append(userMsgHtml);
+                // 1. Append and Save User Message
+                appendMessage('user', textValue, timeString, true);
+                
                 $("#data").val(''); // Clear input
                 $("#suggestions-area").empty(); // Clear previous suggestions
                 scrollToBottom();
@@ -146,7 +201,6 @@
                 scrollToBottom();
 
                 // 3. AJAX Request
-                // Use setTimeout to simulate a "thinking" delay for better UX (500-1000ms)
                 setTimeout(() => {
                     $.ajax({
                         url: 'message.php',
@@ -157,19 +211,9 @@
                             // Hide typing indicator
                             $("#typing-indicator").addClass('hidden');
 
-                            // Append Bot Reply
-                            let botReplyHtml = `
-                                <div class="bot-inbox inbox msg-anim">
-                                    <div class="icon">
-                                        <i class="fa-solid fa-robot"></i>
-                                    </div>
-                                    <div class="msg-header">
-                                        <p>${result.reply}</p>
-                                        <span class="timestamp">${result.timestamp || timeString}</span>
-                                    </div>
-                                </div>`;
-
-                            $("#chat-box").append(botReplyHtml);
+                            // Append and Save Bot Reply
+                            const botTime = result.timestamp || timeString;
+                            appendMessage('bot', result.reply, botTime, true);
 
                             // Add suggestions if available
                             if (result.suggestions && result.suggestions.length > 0) {
@@ -185,21 +229,11 @@
                         error: function () {
                             // Fallback on error
                             $("#typing-indicator").addClass('hidden');
-                            let errorHtml = `
-                                <div class="bot-inbox inbox msg-anim">
-                                    <div class="icon" style="background:var(--danger)">
-                                        <i class="fa-solid fa-triangle-exclamation"></i>
-                                    </div>
-                                    <div class="msg-header">
-                                        <p style="background:var(--danger)">Error de conexión con el servidor.</p>
-                                        <span class="timestamp">${timeString}</span>
-                                    </div>
-                                </div>`;
-                            $("#chat-box").append(errorHtml);
+                            appendMessage('bot', '<span style="color:var(--danger)">Error de conexión con el servidor.</span>', timeString, false); // Don't save errors
                             scrollToBottom();
                         }
                     });
-                }, 800); // 800ms delay for realism
+                }, 800);
             });
         });
     </script>

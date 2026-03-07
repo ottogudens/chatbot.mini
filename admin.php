@@ -13,6 +13,8 @@ check_auth();
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <style>
         :root {
@@ -368,6 +370,14 @@ check_auth();
             </div>
         </div>
 
+        <div class="panel" style="padding: 20px;">
+            <h3 style="margin-bottom: 20px; font-size: 16px; color: var(--text-muted); text-transform: uppercase;"><i
+                    class="fa-solid fa-chart-line"></i> Actividad últimos 7 días</h3>
+            <div style="height: 250px; position: relative;">
+                <canvas id="activityChart"></canvas>
+            </div>
+        </div>
+
         <div class="panel">
             <div class="nav-tabs">
                 <button class="nav-tab active" data-target="rules-tab"><i class="fa-solid fa-book"></i> Reglas de
@@ -465,6 +475,7 @@ check_auth();
         $(document).ready(function () {
             loadStats();
             loadRules();
+            initChart();
 
             // Tabs Logic
             $('.nav-tab').on('click', function () {
@@ -521,6 +532,56 @@ check_auth();
                             <div class="card-info"><h3>${d.accuracy}%</h3><p>Tasa de Precisión</p></div>
                         </div>
                     `);
+                }
+            }, 'json');
+        }
+
+        let activityChart = null;
+
+        function initChart() {
+            $.get('api.php?action=chart_data', function (res) {
+                if (res.status === 'success') {
+                    const canvas = document.getElementById('activityChart');
+                    if (!canvas) return;
+                    const ctx = canvas.getContext('2d');
+                    
+                    if (activityChart) activityChart.destroy();
+                    
+                    activityChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: res.labels,
+                            datasets: [{
+                                label: 'Interacciones',
+                                data: res.values,
+                                borderColor: '#8b5cf6',
+                                backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                                borderWidth: 3,
+                                fill: true,
+                                tension: 0.4,
+                                pointBackgroundColor: '#8b5cf6',
+                                pointRadius: 4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                                    ticks: { color: '#94a3b8', stepSize: 1 }
+                                },
+                                x: {
+                                    grid: { display: false },
+                                    ticks: { color: '#94a3b8' }
+                                }
+                            }
+                        }
+                    });
                 }
             }, 'json');
         }
