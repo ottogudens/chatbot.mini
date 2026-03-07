@@ -62,7 +62,19 @@ if ($matched === 0) {
     }
 }
 
-// 3. Fallback and Suggestions
+// 3. AI Fallback (New Stage 2)
+if ($matched === 0 && !empty($clean_msg)) {
+    require_once 'gemini_client.php';
+    $gemini = new GeminiClient();
+    $ai_reply = $gemini->get_response($user_msg);
+
+    if ($ai_reply) {
+        $reply = $ai_reply;
+        $matched = 1; // Mark as matched via AI
+    }
+}
+
+// 4. Final Fallback and Suggestions (If AI also fails or is not configured)
 if ($matched === 0) {
     if (empty($clean_msg)) {
         $reply = "Por favor, escribe algo para poder ayudarte.";
