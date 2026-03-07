@@ -1,8 +1,19 @@
 <?php
 require 'db.php';
+require 'auth.php';
 header('Content-Type: application/json');
 
 $action = isset($_GET['action']) ? $_GET['action'] : '';
+
+// Actions that REQUIRE authentication
+$secure_actions = ['create', 'update', 'delete'];
+if (in_array($action, $secure_actions)) {
+    if (!check_auth(false)) {
+        http_response_code(401);
+        echo json_encode(['status' => 'error', 'message' => 'No autorizado. Por favor inicie sesión.']);
+        exit;
+    }
+}
 
 switch ($action) {
     case 'list':

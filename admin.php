@@ -1,3 +1,7 @@
+<?php
+require_once 'auth.php';
+check_auth();
+?>
 <!DOCTYPE html>
 <html lang="es" data-theme="dark">
 
@@ -346,7 +350,11 @@
     <div class="container">
         <div class="header">
             <h1><i class="fa-solid fa-robot"></i> SkaleBot Admin</h1>
-            <a href="index.php" class="btn btn-outline"><i class="fa-solid fa-arrow-left"></i> Volver al Chat</a>
+            <div class="header-actions" style="display:flex; gap:10px;">
+                <a href="index.php" class="btn btn-outline"><i class="fa-solid fa-arrow-left"></i> Volver al Chat</a>
+                <a href="auth.php?action=logout" class="btn btn-danger"><i class="fa-solid fa-right-from-bracket"></i>
+                    Salir</a>
+            </div>
         </div>
 
         <div class="dashboard-cards" id="stats-container">
