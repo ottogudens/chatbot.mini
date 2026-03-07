@@ -6,20 +6,23 @@
     --bg-color: #0f172a;
     --glass-bg: rgba(30, 41, 59, 0.7);
     --glass-border: rgba(255, 255, 255, 0.1);
-    
-    --primary: #8b5cf6; /* Skale Purple */
+
+    --primary: #8b5cf6;
+    /* Skale Purple */
     --primary-hover: #7c3aed;
     --primary-light: rgba(139, 92, 246, 0.2);
-    
-    --bot-msg-bg: rgba(139, 92, 246, 0.85); /* Bot bubbles */
-    --user-msg-bg: rgba(30, 41, 59, 0.8); /* User bubbles */
+
+    --bot-msg-bg: rgba(139, 92, 246, 0.85);
+    /* Bot bubbles */
+    --user-msg-bg: rgba(30, 41, 59, 0.8);
+    /* User bubbles */
     --msg-text: #f8fafc;
     --msg-subtext: #cbd5e1;
-    
+
     --input-bg: rgba(15, 23, 42, 0.6);
     --input-text: #f8fafc;
     --input-border: rgba(255, 255, 255, 0.15);
-    
+
     --danger: #ef4444;
     --success: #10b981;
 }
@@ -28,17 +31,18 @@
     --bg-color: #f1f5f9;
     --glass-bg: rgba(255, 255, 255, 0.8);
     --glass-border: rgba(0, 0, 0, 0.05);
-    
-    --primary: #6366f1; /* Skale Indigo */
+
+    --primary: #6366f1;
+    /* Skale Indigo */
     --primary-hover: #4f46e5;
     --primary-light: rgba(99, 102, 241, 0.15);
-    
+
     --bot-msg-bg: #6366f1;
     --user-msg-bg: #e2e8f0;
     --msg-text: #ffffff;
     --user-msg-text: #334155;
     --msg-subtext: #94a3b8;
-    
+
     --input-bg: rgba(255, 255, 255, 0.9);
     --input-text: #334155;
     --input-border: rgba(0, 0, 0, 0.1);
@@ -64,31 +68,47 @@ body {
 /* Background animated circles for Glassmorphism effect */
 .glass-bg {
     position: absolute;
-    top: 0; left: 0; width: 100%; height: 100%;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
     z-index: -1;
     overflow: hidden;
     background: radial-gradient(circle at 15% 50%, rgba(139, 92, 246, 0.15), transparent 25%),
-                radial-gradient(circle at 85% 30%, rgba(56, 189, 248, 0.15), transparent 25%);
+        radial-gradient(circle at 85% 30%, rgba(56, 189, 248, 0.15), transparent 25%);
 }
 
 /* SCROLLBAR */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
 ::-webkit-scrollbar-thumb {
     background: var(--glass-border);
     border-radius: 10px;
 }
-::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--primary);
+}
 
 /* SELECTION */
-::selection { background: var(--primary); color: #fff; }
+::selection {
+    background: var(--primary);
+    color: #fff;
+}
 
 /* ============================================================== 
    CHAT WRAPPER (GLASSMORPHISM)
    ============================================================== */
 .wrapper {
     width: 420px;
-    height: 85vh; /* Increased from fixed 400px to dynamic height */
+    height: 85vh;
+    /* Increased from fixed 400px to dynamic height */
     max-height: 800px;
     min-height: 500px;
     display: flex;
@@ -108,9 +128,49 @@ body {
     .wrapper {
         width: 100%;
         height: 100vh;
-        max-height: 100vh;
+        height: 100dvh;
+        /* Better handling of mobile browser address bars */
+        max-height: none;
+        min-height: auto;
         border-radius: 0;
         border: none;
+        box-shadow: none;
+    }
+
+    .header {
+        padding: 12px 15px;
+    }
+
+    .form {
+        padding: 15px;
+        gap: 12px;
+    }
+
+    .inbox {
+        max-width: 90%;
+    }
+
+    .typing-field {
+        padding: 12px 15px 15px;
+    }
+
+    .input-data input {
+        font-size: 16px;
+        /* Mandatory to prevent iOS auto-zoom on focus */
+        padding: 12px 76px 12px 15px;
+    }
+
+    .input-data button {
+        width: 32px;
+        height: 32px;
+    }
+
+    #mic-btn {
+        right: 42px;
+    }
+
+    #send-btn {
+        right: 5px;
     }
 }
 
@@ -159,9 +219,17 @@ body {
 }
 
 @keyframes pulse {
-    0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-    70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    0% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    }
+
+    70% {
+        box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
 }
 
 .bot-details .title {
@@ -181,7 +249,8 @@ body {
     gap: 10px;
 }
 
-.header-actions button, .header-actions a {
+.header-actions button,
+.header-actions a {
     background: transparent;
     border: none;
     color: var(--msg-subtext);
@@ -196,7 +265,8 @@ body {
     justify-content: center;
 }
 
-.header-actions button:hover, .header-actions a:hover {
+.header-actions button:hover,
+.header-actions a:hover {
     color: var(--primary);
     background: var(--primary-light);
 }
@@ -221,8 +291,14 @@ body {
     max-width: 85%;
 }
 
-.bot-inbox { align-self: flex-start; }
-.user-inbox { align-self: flex-end; flex-direction: row-reverse; }
+.bot-inbox {
+    align-self: flex-start;
+}
+
+.user-inbox {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+}
 
 .inbox .icon {
     width: 32px;
@@ -235,7 +311,7 @@ body {
     align-items: center;
     justify-content: center;
     font-size: 14px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .msg-header {
@@ -247,7 +323,8 @@ body {
     padding: 12px 16px;
     font-size: 14.5px;
     line-height: 1.5;
-    word-break: break-word; /* Prevents overflow of long words */
+    word-break: break-word;
+    /* Prevents overflow of long words */
 }
 
 /* Bot Message specific styles */
@@ -255,7 +332,7 @@ body {
     background: var(--bot-msg-bg);
     color: #fff;
     border-radius: 16px 16px 16px 4px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
 }
 
 /* User Message specific styles */
@@ -263,7 +340,7 @@ body {
     background: var(--user-msg-bg);
     color: var(--input-text);
     border-radius: 16px 16px 4px 16px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
 }
 
 [data-theme="light"] .user-inbox .msg-header p {
@@ -275,26 +352,44 @@ body {
     color: var(--msg-subtext);
     margin-top: 4px;
 }
-.bot-inbox .timestamp { align-self: flex-start; margin-left: 4px; }
-.user-inbox .timestamp { align-self: flex-end; margin-right: 4px; }
+
+.bot-inbox .timestamp {
+    align-self: flex-start;
+    margin-left: 4px;
+}
+
+.user-inbox .timestamp {
+    align-self: flex-end;
+    margin-right: 4px;
+}
 
 /* Message Entrance Animation */
 .msg-anim {
     animation: slideUp 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
+
 .init-anim {
     animation: slideUp 0.5s ease 0.5s both;
 }
 
 @keyframes slideUp {
-    from { opacity: 0; transform: translateY(20px) scale(0.95); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
+    from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
 /* ============================================================== 
    TYPING INDICATOR
    ============================================================== */
-.hidden { display: none !important; }
+.hidden {
+    display: none !important;
+}
 
 .typing-bubble {
     background: var(--user-msg-bg);
@@ -314,14 +409,34 @@ body {
     border-radius: 50%;
     animation: blink 1.4s infinite both;
 }
-.typing-dot:nth-child(1) { animation-delay: 0.2s; }
-.typing-dot:nth-child(2) { animation-delay: 0.4s; }
-.typing-dot:nth-child(3) { animation-delay: 0.6s; }
+
+.typing-dot:nth-child(1) {
+    animation-delay: 0.2s;
+}
+
+.typing-dot:nth-child(2) {
+    animation-delay: 0.4s;
+}
+
+.typing-dot:nth-child(3) {
+    animation-delay: 0.6s;
+}
 
 @keyframes blink {
-    0% { opacity: 0.2; transform: scale(0.8); }
-    20% { opacity: 1; transform: scale(1.1); }
-    100% { opacity: 0.2; transform: scale(0.8); }
+    0% {
+        opacity: 0.2;
+        transform: scale(0.8);
+    }
+
+    20% {
+        opacity: 1;
+        transform: scale(1.1);
+    }
+
+    100% {
+        opacity: 0.2;
+        transform: scale(0.8);
+    }
 }
 
 /* ============================================================== 
@@ -356,13 +471,19 @@ body {
 [data-theme="light"] .sugg-btn {
     background: #fff;
 }
+
 [data-theme="light"] .sugg-btn:hover {
     background: var(--primary);
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 /* ============================================================== 
@@ -384,7 +505,8 @@ body {
     width: 100%;
     background: var(--input-bg);
     border: 1px solid var(--input-border);
-    padding: 14px 90px 14px 20px; /* Increased right padding for two buttons */
+    padding: 14px 90px 14px 20px;
+    /* Increased right padding for two buttons */
     border-radius: 25px;
     color: var(--input-text);
     font-size: 15px;
@@ -431,7 +553,7 @@ body {
 }
 
 /* Only show send button as active when typing */
-.input-data input:valid ~ #send-btn {
+.input-data input:valid~#send-btn {
     opacity: 1;
     transform: scale(1);
 }
@@ -457,7 +579,18 @@ body {
 }
 
 @keyframes mic-pulse {
-    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
-    70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
-    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+    }
+
+    70% {
+        transform: scale(1.1);
+        box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+    }
+
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    }
 }
