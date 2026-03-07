@@ -73,6 +73,9 @@
         <div class="typing-field">
             <div class="input-data">
                 <input id="data" type="text" placeholder="Escribe tu mensaje aquí..." autocomplete="off" required>
+                <!-- Mic Button -->
+                <button id="mic-btn" type="button" title="Usar micrófono"><i
+                        class="fa-solid fa-microphone"></i></button>
                 <button id="send-btn"><i class="fa-solid fa-paper-plane"></i></button>
             </div>
         </div>
@@ -191,7 +194,7 @@
 
                 // 1. Append and Save User Message
                 appendMessage('user', textValue, timeString, true);
-                
+
                 $("#data").val(''); // Clear input
                 $("#suggestions-area").empty(); // Clear previous suggestions
                 scrollToBottom();
@@ -235,6 +238,57 @@
                     });
                 }, 800);
             });
+
+            // ==========================================
+            // Web Speech API Logic for Voice Messages
+            // ==========================================
+            const micBtn = document.getElementById('mic-btn');
+            const dataInput = document.getElementById('data');
+
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                const recognition = new SpeechRecognition();
+                recognition.continuous = false; // Stop when the user stops talking
+                recognition.interimResults = false; // Only get final results
+                recognition.lang = 'es-ES'; // Set language to Spanish
+
+                let isRecording = false;
+
+                recognition.onstart = function () {
+                    isRecording = true;
+                    micBtn.classList.add('recording');
+                    dataInput.placeholder = "Escuchando...";
+                };
+
+                recognition.onresult = function (event) {
+                    const transcript = event.results[0][0].transcript;
+                    dataInput.value = transcript;
+                    // Automatically send the message after transcribing
+                    $("#send-btn").click();
+                };
+
+                recognition.onerror = function (event) {
+                    console.error("Error de reconocimiento de voz:", event.error);
+                    dataInput.placeholder = "Error al escuchar. Usa el teclado.";
+                };
+
+                recognition.onend = function () {
+                    isRecording = false;
+                    micBtn.classList.remove('recording');
+                    dataInput.placeholder = "Escribe tu mensaje aquí...";
+                };
+
+                micBtn.addEventListener('click', function () {
+                    if (isRecording) {
+                        recognition.stop();
+                    } else {
+                        recognition.start();
+                    }
+                });
+            } else {
+                console.warn("La API de reconocimiento de voz no está soportada en este navegador.");
+                micBtn.style.display = 'none'; // Hide if not supported
+            }
         });
     </script>
 </body>

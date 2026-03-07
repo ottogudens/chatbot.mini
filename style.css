@@ -384,7 +384,7 @@ body {
     width: 100%;
     background: var(--input-bg);
     border: 1px solid var(--input-border);
-    padding: 14px 50px 14px 20px;
+    padding: 14px 90px 14px 20px; /* Increased right padding for two buttons */
     border-radius: 25px;
     color: var(--input-text);
     font-size: 15px;
@@ -403,7 +403,6 @@ body {
 
 .input-data button {
     position: absolute;
-    right: 6px;
     width: 36px;
     height: 36px;
     background: var(--primary);
@@ -416,17 +415,49 @@ body {
     font-size: 14px;
     cursor: pointer;
     transition: all 0.2s;
+}
+
+#send-btn {
+    right: 6px;
     opacity: 0.5;
     transform: scale(0.9);
 }
 
-/* Only show button as active when typing */
-.input-data input:valid ~ button {
+#mic-btn {
+    right: 48px;
+    background: transparent;
+    color: var(--msg-subtext);
+    opacity: 0.8;
+}
+
+/* Only show send button as active when typing */
+.input-data input:valid ~ #send-btn {
     opacity: 1;
     transform: scale(1);
 }
 
 .input-data button:hover {
-    background: var(--primary-hover);
     transform: scale(1.05) !important;
+}
+
+#send-btn:hover {
+    background: var(--primary-hover);
+}
+
+#mic-btn:hover {
+    color: var(--primary);
+    background: var(--primary-light);
+}
+
+/* Recording Animation */
+#mic-btn.recording {
+    color: var(--danger);
+    background: rgba(239, 68, 68, 0.15);
+    animation: mic-pulse 1.5s infinite;
+}
+
+@keyframes mic-pulse {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+    70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
 }
