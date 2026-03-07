@@ -64,9 +64,20 @@ if ($matched === 0) {
 
 // 3. AI Fallback (New Stage 2)
 if ($matched === 0 && !empty($clean_msg)) {
+    // Fetch last 5 messages for context
+    $history = [];
+    $hist_query = "SELECT user_message, bot_reply FROM conversation_logs ORDER BY id DESC LIMIT 5";
+    $hist_result = mysqli_query($conn, $hist_query);
+    if ($hist_result) {
+        while ($row = mysqli_fetch_assoc($hist_result)) {
+            // Unshift to put oldest first
+            array_unshift($history, $row);
+        }
+    }
+
     require_once 'gemini_client.php';
     $gemini = new GeminiClient();
-    $ai_reply = $gemini->get_response($user_msg);
+    $ai_reply = $gemini->get_response($user_msg, $history);
 
     if ($ai_reply) {
         $reply = $ai_reply;

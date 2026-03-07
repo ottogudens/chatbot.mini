@@ -19,7 +19,7 @@ class GeminiClient
     /**
      * Get a response from Gemini
      */
-    public function get_response($user_message)
+    public function get_response($user_message, $history = [])
     {
         if (!$this->api_key) {
             return "Error: GEMINI_API_KEY no configurada.";
@@ -33,14 +33,35 @@ class GeminiClient
 
         $url = $this->api_url . $this->model . ":generateContent?key=" . $this->api_key;
 
+        $contents = [];
+
+        // Add chat history
+        foreach ($history as $msg) {
+            if (!empty($msg['user_message'])) {
+                $contents[] = [
+                    "role" => "user",
+                    "parts" => [["text" => $msg['user_message']]]
+                ];
+            }
+            if (!empty($msg['bot_reply'])) {
+                $contents[] = [
+                    "role" => "model",
+                    "parts" => [["text" => $msg['bot_reply']]]
+                ];
+            }
+        }
+
+        // Add current user message
+        $contents[] = [
+            "role" => "user",
+            "parts" => [["text" => $user_message]]
+        ];
+
         $data = [
-            "contents" => [
-                [
-                    "parts" => [
-                        ["text" => $system_prompt . "\n\nUsuario dice: " . $user_message]
-                    ]
-                ]
+            "system_instruction" => [
+                "parts" => [["text" => $system_prompt]]
             ],
+            "contents" => $contents,
             "generationConfig" => [
                 "temperature" => 0.7,
                 "maxOutputTokens" => 800,
