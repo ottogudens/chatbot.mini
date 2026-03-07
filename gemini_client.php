@@ -7,7 +7,7 @@
 class GeminiClient
 {
     private $api_key;
-    private $model = "gemini-3.0-flash";
+    private $model = "gemini-3-flash-preview";
     private $api_url = "https://generativelanguage.googleapis.com/v1beta/models/";
 
     public function __construct()
