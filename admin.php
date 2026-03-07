@@ -8,7 +8,7 @@ check_auth();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SkaleBot - Panel de Administración</title>
+    <title>SkaleBot - Panel Administrativo Múltiple</title>
     <!-- Google Fonts: Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- FontAwesome -->
@@ -51,8 +51,7 @@ check_auth();
             width: 100%;
             height: 100%;
             z-index: -1;
-            background: radial-gradient(circle at 15% 50%, rgba(139, 92, 246, 0.15), transparent 25%),
-                radial-gradient(circle at 85% 30%, rgba(56, 189, 248, 0.15), transparent 25%);
+            background: radial-gradient(circle at 15% 50%, rgba(139, 92, 246, 0.15), transparent 25%), radial-gradient(circle at 85% 30%, rgba(56, 189, 248, 0.15), transparent 25%);
         }
 
         .container {
@@ -65,6 +64,8 @@ check_auth();
             justify-content: space-between;
             align-items: center;
             margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 15px;
         }
 
         .header h1 {
@@ -91,6 +92,7 @@ check_auth();
             align-items: center;
             gap: 8px;
             transition: all 0.2s;
+            font-size: 14px;
         }
 
         .btn:hover {
@@ -112,6 +114,25 @@ check_auth();
 
         .btn-outline:hover {
             background: rgba(139, 92, 246, 0.1);
+        }
+
+        .global-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--glass-bg);
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 1px solid var(--glass-border);
+        }
+
+        .global-selector select {
+            background: var(--input-bg);
+            color: white;
+            border: 1px solid var(--glass-border);
+            padding: 8px 12px;
+            border-radius: 6px;
+            outline: none;
         }
 
         .dashboard-cards {
@@ -161,6 +182,7 @@ check_auth();
             border-radius: 12px;
             padding: 24px;
             margin-bottom: 30px;
+            overflow: hidden;
         }
 
         .panel-header {
@@ -210,7 +232,47 @@ check_auth();
             color: #6ee7b7;
         }
 
-        /* Modal Styles */
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--td-border);
+            padding-bottom: 10px;
+            overflow-x: auto;
+        }
+
+        .nav-tab {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 8px 16px;
+            font-size: 15px;
+            font-weight: 500;
+            border-radius: 6px;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .nav-tab.active {
+            background: rgba(139, 92, 246, 0.15);
+            color: var(--primary);
+        }
+
+        .nav-tab:hover:not(.active) {
+            color: white;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Modals */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -236,8 +298,10 @@ check_auth();
         .modal {
             background: #1e293b;
             border: 1px solid var(--glass-border);
-            width: 500px;
+            width: 600px;
             max-width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
             border-radius: 16px;
             padding: 24px;
             transform: translateY(20px);
@@ -253,10 +317,6 @@ check_auth();
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
-        }
-
-        .modal-header h2 {
-            font-size: 20px;
         }
 
         .close-modal {
@@ -279,19 +339,21 @@ check_auth();
         }
 
         .form-group input,
-        .form-group textarea {
+        .form-group textarea,
+        .form-group select {
             width: 100%;
             background: var(--input-bg);
             border: 1px solid var(--glass-border);
             color: white;
             padding: 12px;
             border-radius: 8px;
-            font-family: 'Inter', sans-serif;
             outline: none;
+            font-family: 'Inter', sans-serif;
         }
 
         .form-group input:focus,
-        .form-group textarea:focus {
+        .form-group textarea:focus,
+        .form-group select:focus {
             border-color: var(--primary);
         }
 
@@ -305,44 +367,6 @@ check_auth();
             color: var(--text-muted);
             margin-top: 6px;
         }
-
-        .nav-tabs {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            border-bottom: 1px solid var(--td-border);
-            padding-bottom: 10px;
-        }
-
-        .nav-tab {
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            cursor: pointer;
-            padding: 8px 16px;
-            font-size: 15px;
-            font-weight: 500;
-            border-radius: 6px;
-            transition: all 0.2s;
-        }
-
-        .nav-tab.active {
-            background: rgba(139, 92, 246, 0.15);
-            color: var(--primary);
-        }
-
-        .nav-tab:hover:not(.active) {
-            color: white;
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
     </style>
 </head>
 
@@ -352,60 +376,158 @@ check_auth();
     <div class="container">
         <div class="header">
             <h1><i class="fa-solid fa-robot"></i> SkaleBot Admin</h1>
+
+            <div class="global-selector">
+                <label for="global-assistant-select"><i class="fa-solid fa-headset"></i> Asistente Activo:</label>
+                <select id="global-assistant-select">
+                    <option value="">Global (Todos)</option>
+                    <!-- Populated by JS -->
+                </select>
+                <button class="btn btn-outline" style="padding: 6px 10px;" onclick="copyChatLink()"
+                    title="Copiar Link del Chat"><i class="fa-solid fa-link"></i></button>
+            </div>
+
             <div class="header-actions" style="display:flex; gap:10px;">
-                <a href="index.php" class="btn btn-outline"><i class="fa-solid fa-arrow-left"></i> Volver al Chat</a>
+                <a href="index.php" class="btn btn-outline" id="btn-chat-link"><i class="fa-solid fa-comment-dots"></i>
+                    Ir al Chat</a>
                 <a href="auth.php?action=logout" class="btn btn-danger"><i class="fa-solid fa-right-from-bracket"></i>
                     Salir</a>
             </div>
         </div>
 
-        <div class="dashboard-cards" id="stats-container">
-            <!-- Stats loaded via JS -->
-            <div class="card">
-                <div class="card-icon"><i class="fa-solid fa-spinner fa-spin"></i></div>
-                <div class="card-info">
-                    <h3>...</h3>
-                    <p>Cargando stats...</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="panel" style="padding: 20px;">
-            <h3 style="margin-bottom: 20px; font-size: 16px; color: var(--text-muted); text-transform: uppercase;"><i
-                    class="fa-solid fa-chart-line"></i> Actividad últimos 7 días</h3>
-            <div style="height: 250px; position: relative;">
-                <canvas id="activityChart"></canvas>
-            </div>
-        </div>
-
         <div class="panel">
             <div class="nav-tabs">
-                <button class="nav-tab active" data-target="rules-tab"><i class="fa-solid fa-book"></i> Reglas de
-                    Q&A</button>
-                <button class="nav-tab" data-target="logs-tab"><i class="fa-solid fa-list"></i> Logs de
-                    Conversación</button>
+                <button class="nav-tab active" data-target="dashboard-tab"><i class="fa-solid fa-chart-line"></i>
+                    Resumen</button>
+                <button class="nav-tab" data-target="clients-tab"><i class="fa-solid fa-building"></i> Clientes</button>
+                <button class="nav-tab" data-target="assistants-tab"><i class="fa-solid fa-robot"></i>
+                    Asistentes</button>
+                <button class="nav-tab" data-target="info-tab"><i class="fa-solid fa-database"></i> Fuentes de
+                    Info</button>
+                <button class="nav-tab" data-target="rules-tab"><i class="fa-solid fa-book"></i> Reglas Q&A</button>
+                <button class="nav-tab" data-target="logs-tab"><i class="fa-solid fa-list"></i> Logs</button>
+            </div>
+
+            <!-- DASHBOARD TAB -->
+            <div id="dashboard-tab" class="tab-content active">
+                <div class="dashboard-cards" id="stats-container">
+                    <div class="card">
+                        <div class="card-icon"><i class="fa-solid fa-spinner fa-spin"></i></div>
+                        <div class="card-info">
+                            <h3>...</h3>
+                            <p>Cargando stats...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="panel" style="padding: 20px; border:none; background:rgba(0,0,0,0.2);">
+                    <h3
+                        style="margin-bottom: 20px; font-size: 14px; color: var(--text-muted); text-transform: uppercase;">
+                        <i class="fa-solid fa-chart-line"></i> Actividad últimos 7 días</h3>
+                    <div style="height: 250px; position: relative;">
+                        <canvas id="activityChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CLIENTS TAB -->
+            <div id="clients-tab" class="tab-content">
+                <div class="panel-header">
+                    <h2>Gestión de Clientes</h2>
+                    <button class="btn" onclick="openClientModal()"><i class="fa-solid fa-plus"></i> Nuevo
+                        Cliente</button>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table id="clients-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nombre</th>
+                                <th>Email Contacto</th>
+                                <th>Creado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="5" style="text-align:center;">Cargando...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ASSISTANTS TAB -->
+            <div id="assistants-tab" class="tab-content">
+                <div class="panel-header">
+                    <h2>Gestión de Asistentes</h2>
+                    <button class="btn" onclick="openAssistantModal()"><i class="fa-solid fa-plus"></i> Nuevo
+                        Asistente</button>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table id="assistants-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nombre</th>
+                                <th>Cliente ID</th>
+                                <th>Prompt</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="5" style="text-align:center;">Cargando...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- INFO SOURCES TAB -->
+            <div id="info-tab" class="tab-content">
+                <div class="panel-header">
+                    <h2>Fuentes de Información (Contexto)</h2>
+                    <button class="btn" onclick="openInfoModal()"><i class="fa-solid fa-plus"></i> Nueva Fuente</button>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table id="info-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Título</th>
+                                <th>Contenido Corto</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="4" style="text-align:center;">Seleccione un asistente o cargando...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <!-- RULES TAB -->
-            <div id="rules-tab" class="tab-content active">
+            <div id="rules-tab" class="tab-content">
                 <div class="panel-header">
-                    <h2>Base de Conocimiento</h2>
-                    <button class="btn" onclick="openModal()"><i class="fa-solid fa-plus"></i> Nueva Regla</button>
+                    <h2>Reglas Exactas de Q&A</h2>
+                    <button class="btn" onclick="openRuleModal()"><i class="fa-solid fa-plus"></i> Nueva Regla</button>
                 </div>
                 <div style="overflow-x: auto;">
                     <table id="rules-table">
                         <thead>
                             <tr>
                                 <th>ID</th>
-                                <th>Categoría</th>
-                                <th>Consultas (separadas por |)</th>
-                                <th>Respuesta del Bot</th>
+                                <th>Cat.</th>
+                                <th>Consultas</th>
+                                <th>Respuesta</th>
                                 <th>Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
-                                <td colspan="5" style="text-align:center; padding:20px;">Cargando reglas...</td>
+                                <td colspan="5" style="text-align:center;">Cargando...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -415,21 +537,21 @@ check_auth();
             <!-- LOGS TAB -->
             <div id="logs-tab" class="tab-content">
                 <div class="panel-header">
-                    <h2>Últimas 100 Interacciones</h2>
+                    <h2>Últimas Interacciones</h2>
                 </div>
                 <div style="overflow-x: auto;">
                     <table id="logs-table">
                         <thead>
                             <tr>
-                                <th>Fecha/Hora</th>
-                                <th>Mensaje del Usuario</th>
-                                <th>Respuesta Entregada</th>
+                                <th>Fecha</th>
+                                <th>Usuario</th>
+                                <th>Bot</th>
                                 <th>Estado</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
-                                <td colspan="4" style="text-align:center; padding:20px;">Cargando logs...</td>
+                                <td colspan="4" style="text-align:center;">Cargando...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -438,231 +560,343 @@ check_auth();
         </div>
     </div>
 
+    <!-- MODALS -->
+
+    <!-- Client Modal -->
+    <div class="modal-overlay" id="client-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="client-modal-title">Nuevo Cliente</h2>
+                <button type="button" class="close-modal" onclick="closeModal('client-modal')"><i
+                        class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="client-form" onsubmit="submitClient(event)">
+                <input type="hidden" id="client-id" name="id">
+                <div class="form-group">
+                    <label>Nombre del Cliente o Empresa</label>
+                    <input type="text" id="client-name" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label>Email de Contacto</label>
+                    <input type="email" id="client-email" name="contact_email">
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('client-modal')">Cancelar</button>
+                    <button type="submit" class="btn">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Assistant Modal -->
+    <div class="modal-overlay" id="assistant-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="assistant-modal-title">Nuevo Asistente</h2>
+                <button type="button" class="close-modal" onclick="closeModal('assistant-modal')"><i
+                        class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="assistant-form" onsubmit="submitAssistant(event)">
+                <input type="hidden" id="assistant-id" name="id">
+                <div class="form-group">
+                    <label>Cliente</label>
+                    <select id="assistant-client" name="client_id" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Nombre del Asistente</label>
+                    <input type="text" id="assistant-name" name="name" required placeholder="Ej. Soporte Ventas">
+                </div>
+                <div class="form-group">
+                    <label>System Prompt (Instrucciones para la IA)</label>
+                    <textarea id="assistant-prompt" name="system_prompt"
+                        placeholder="Eres un asistente experto en..."></textarea>
+                    <div class="form-help">Define su personalidad, formato de respuesta y reglas generales.</div>
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                    <button type="button" class="btn btn-outline"
+                        onclick="closeModal('assistant-modal')">Cancelar</button>
+                    <button type="submit" class="btn">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Info Source Modal -->
+    <div class="modal-overlay" id="info-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="info-modal-title">Nueva Fuente de Información</h2>
+                <button type="button" class="close-modal" onclick="closeModal('info-modal')"><i
+                        class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="info-form" onsubmit="submitInfo(event)">
+                <input type="hidden" id="info-id" name="id">
+                <input type="hidden" id="info-assistant-id" name="assistant_id">
+                <div class="form-group">
+                    <label>Título / Referencia</label>
+                    <input type="text" id="info-title" name="title" required placeholder="Ej. Políticas de Devolución">
+                </div>
+                <div class="form-group">
+                    <label>Contenido (Texto Largo)</label>
+                    <textarea id="info-content" name="content_text" required style="min-height:200px;"></textarea>
+                    <div class="form-help">Pega aquí el texto que servirá como contexto base para que la IA responda
+                        mejor.</div>
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('info-modal')">Cancelar</button>
+                    <button type="submit" class="btn">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Rule Modal -->
     <div class="modal-overlay" id="rule-modal">
         <div class="modal">
             <div class="modal-header">
-                <h2 id="modal-title">Nueva Regla</h2>
-                <button class="close-modal" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+                <h2 id="rule-modal-title">Nueva Regla</h2>
+                <button type="button" class="close-modal" onclick="closeModal('rule-modal')"><i
+                        class="fa-solid fa-xmark"></i></button>
             </div>
-            <form id="rule-form">
+            <form id="rule-form" onsubmit="submitRule(event)">
                 <input type="hidden" id="rule-id" name="id">
+                <input type="hidden" id="rule-assistant-id" name="assistant_id">
                 <div class="form-group">
                     <label>Categoría</label>
-                    <input type="text" id="rule-category" name="category" placeholder="Ej. saludo, soporte, general"
-                        required value="general">
+                    <input type="text" id="rule-category" name="category" required value="general">
                 </div>
                 <div class="form-group">
-                    <label>Consultas Relacionadas (separadas por el símbolo |)</label>
-                    <input type="text" id="rule-queries" name="queries" placeholder="Ej. hola|buenas|que tal" required>
-                    <div class="form-help">Si el usuario escribe algo que contenga ALGUNA de estas palabras/frases, el
-                        bot enviará esta respuesta.</div>
+                    <label>Consultas (separadas por |)</label>
+                    <input type="text" id="rule-queries" name="queries" required>
                 </div>
                 <div class="form-group">
-                    <label>Respuesta del Chatbot</label>
-                    <textarea id="rule-replies" name="replies" placeholder="¡Hola! ¿En qué te puedo ayudar?"
-                        required></textarea>
+                    <label>Respuesta</label>
+                    <textarea id="rule-replies" name="replies" required></textarea>
                 </div>
                 <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
-                    <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
-                    <button type="submit" class="btn"><i class="fa-solid fa-save"></i> Guardar Regla</button>
+                    <button type="button" class="btn btn-outline" onclick="closeModal('rule-modal')">Cancelar</button>
+                    <button type="submit" class="btn">Guardar</button>
                 </div>
             </form>
         </div>
     </div>
 
     <script>
+        let clientsCache = [];
+        let assistantsCache = [];
+        let currentAssistantId = '';
+
         $(document).ready(function () {
-            loadStats();
-            loadRules();
-            initChart();
-
-            // Tabs Logic
+            // Setup Tabs
             $('.nav-tab').on('click', function () {
-                $('.nav-tab').removeClass('active');
-                $(this).addClass('active');
-
-                $('.tab-content').removeClass('active');
-                $('#' + $(this).data('target')).addClass('active');
-
-                if ($(this).data('target') === 'logs-tab') {
-                    loadLogs();
-                }
+                $('.nav-tab').removeClass('active'); $(this).addClass('active');
+                $('.tab-content').removeClass('active'); $('#' + $(this).data('target')).addClass('active');
             });
 
-            // Form Submit Logic
-            $('#rule-form').on('submit', function (e) {
-                e.preventDefault();
-                const id = $('#rule-id').val();
-                const action = id ? 'update' : 'create';
-
-                $.ajax({
-                    url: 'api.php?action=' + action,
-                    type: 'POST',
-                    data: $(this).serialize(),
-                    dataType: 'json',
-                    success: function (res) {
-                        if (res.status === 'success') {
-                            closeModal();
-                            loadRules();
-                            loadStats();
-                        } else {
-                            alert(res.message);
-                        }
-                    }
-                });
+            // Handle Global Assistant Change
+            $('#global-assistant-select').on('change', function () {
+                currentAssistantId = $(this).val();
+                let url = currentAssistantId ? 'index.php?assistant=' + currentAssistantId : 'index.php';
+                $('#btn-chat-link').attr('href', url);
+                reloadAssistantDependantViews();
             });
+
+            // Initial Loads
+            loadClients();
+            loadAssistants(true); // true = also reload select
         });
 
-        function loadStats() {
-            $.get('api.php?action=stats', function (res) {
-                if (res.status === 'success') {
-                    const d = res.data;
-                    $('#stats-container').html(`
-                        <div class="card">
-                            <div class="card-icon"><i class="fa-solid fa-book-open"></i></div>
-                            <div class="card-info"><h3>${d.total_rules}</h3><p>Reglas Activas</p></div>
-                        </div>
-                        <div class="card">
-                            <div class="card-icon"><i class="fa-solid fa-comments"></i></div>
-                            <div class="card-info"><h3>${d.total_interactions}</h3><p>Interacciones Totales</p></div>
-                        </div>
-                        <div class="card">
-                            <div class="card-icon"><i class="fa-solid fa-bullseye"></i></div>
-                            <div class="card-info"><h3>${d.accuracy}%</h3><p>Tasa de Precisión</p></div>
-                        </div>
-                    `);
-                }
-            }, 'json');
+        function reloadAssistantDependantViews() {
+            loadStats();
+            initChart();
+            loadInfoSources();
+            loadRules();
+            loadLogs();
         }
 
-        let activityChart = null;
-
-        function initChart() {
-            $.get('api.php?action=chart_data', function (res) {
+        // --- Clients ---
+        function loadClients() {
+            $.get('api.php?action=clients_list', function (res) {
                 if (res.status === 'success') {
-                    const canvas = document.getElementById('activityChart');
-                    if (!canvas) return;
-                    const ctx = canvas.getContext('2d');
-                    
-                    if (activityChart) activityChart.destroy();
-                    
-                    activityChart = new Chart(ctx, {
-                        type: 'line',
-                        data: {
-                            labels: res.labels,
-                            datasets: [{
-                                label: 'Interacciones',
-                                data: res.values,
-                                borderColor: '#8b5cf6',
-                                backgroundColor: 'rgba(139, 92, 246, 0.1)',
-                                borderWidth: 3,
-                                fill: true,
-                                tension: 0.4,
-                                pointBackgroundColor: '#8b5cf6',
-                                pointRadius: 4
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: { display: false }
-                            },
-                            scales: {
-                                y: {
-                                    beginAtZero: true,
-                                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                                    ticks: { color: '#94a3b8', stepSize: 1 }
-                                },
-                                x: {
-                                    grid: { display: false },
-                                    ticks: { color: '#94a3b8' }
-                                }
-                            }
-                        }
+                    clientsCache = res.data;
+                    let html = '';
+                    let optHtml = '';
+                    res.data.forEach(c => {
+                        html += `<tr><td>${c.id}</td><td>${c.name}</td><td>${c.contact_email || '-'}</td><td>${c.created_at}</td>
+                            <td><button class="btn btn-outline" onclick='editClient(${JSON.stringify(c).replace(/'/g, "&#39;")})'><i class="fa-solid fa-pen"></i></button>
+                            <button class="btn btn-danger" onclick="deleteClient(${c.id})"><i class="fa-solid fa-trash"></i></button></td></tr>`;
+                        optHtml += `<option value="${c.id}">${c.name}</option>`;
                     });
+                    $('#clients-table tbody').html(html || '<tr><td colspan="5">No hay clientes.</td></tr>');
+                    $('#assistant-client').html(optHtml);
                 }
             }, 'json');
         }
+        function openClientModal() { $('#client-form')[0].reset(); $('#client-id').val(''); $('#client-modal-title').text('Nuevo Cliente'); $('#client-modal').addClass('active'); }
+        function editClient(c) { $('#client-id').val(c.id); $('#client-name').val(c.name); $('#client-email').val(c.contact_email); $('#client-modal-title').text('Editar Cliente'); $('#client-modal').addClass('active'); }
+        function submitClient(e) {
+            e.preventDefault();
+            const action = $('#client-id').val() ? 'clients_update' : 'clients_create';
+            $.post('api.php?action=' + action, $('#client-form').serialize(), function (res) {
+                if (res.status === 'success') { closeModal('client-modal'); loadClients(); } else alert(res.message || 'Error');
+            }, 'json');
+        }
+        function deleteClient(id) { if (confirm('¿Eliminar cliente? Se borrarán sus asistentes asociados.')) { $.post('api.php?action=clients_delete', { id }, res => { if (res.status === 'success') { loadClients(); loadAssistants(true); } else alert('Error'); }, 'json'); } }
 
+        // --- Assistants ---
+        function loadAssistants(updateSelects = false) {
+            $.get('api.php?action=assistants_list', function (res) {
+                if (res.status === 'success') {
+                    assistantsCache = res.data;
+                    let html = '';
+                    let optHtml = '<option value="">Global (Todos)</option>';
+                    res.data.forEach(a => {
+                        let clientName = clientsCache.find(c => c.id == a.client_id)?.name || a.client_id;
+                        html += `<tr><td>${a.id}</td><td><b>${a.name}</b></td><td>${clientName}</td><td><span style="font-size:11px">${(a.system_prompt || '').substring(0, 30)}...</span></td>
+                            <td><button class="btn btn-outline" onclick='editAssistant(${JSON.stringify(a).replace(/'/g, "&#39;")})'><i class="fa-solid fa-pen"></i></button>
+                            <button class="btn btn-danger" onclick="deleteAssistant(${a.id})"><i class="fa-solid fa-trash"></i></button></td></tr>`;
+                        optHtml += `<option value="${a.id}">${a.name} (${clientName})</option>`;
+                    });
+                    $('#assistants-table tbody').html(html || '<tr><td colspan="5">No hay asistentes.</td></tr>');
+                    if (updateSelects) {
+                        $('#global-assistant-select').html(optHtml);
+                        $('#global-assistant-select').val(currentAssistantId);
+                        reloadAssistantDependantViews();
+                    }
+                }
+            }, 'json');
+        }
+        function openAssistantModal() { $('#assistant-form')[0].reset(); $('#assistant-id').val(''); $('#assistant-modal-title').text('Nuevo Asistente'); $('#assistant-modal').addClass('active'); }
+        function editAssistant(a) { $('#assistant-id').val(a.id); $('#assistant-client').val(a.client_id); $('#assistant-name').val(a.name); $('#assistant-prompt').val(a.system_prompt); $('#assistant-modal-title').text('Editar Asistente'); $('#assistant-modal').addClass('active'); }
+        function submitAssistant(e) {
+            e.preventDefault();
+            const action = $('#assistant-id').val() ? 'assistants_update' : 'assistants_create';
+            $.post('api.php?action=' + action, $('#assistant-form').serialize(), function (res) {
+                if (res.status === 'success') { closeModal('assistant-modal'); loadAssistants(true); } else alert(res.message || 'Error');
+            }, 'json');
+        }
+        function deleteAssistant(id) { if (confirm('¿Eliminar asistente? Se borrarán sus fuentes de información y reglas asociadas.')) { $.post('api.php?action=assistants_delete', { id }, res => { if (res.status === 'success') { loadAssistants(true); } else alert('Error'); }, 'json'); } }
+
+        // --- Info Sources ---
+        function loadInfoSources() {
+            if (!currentAssistantId) { $('#info-table tbody').html('<tr><td colspan="4" style="text-align:center;">Seleccione un asistente en el menú superior para ver sus fuentes.</td></tr>'); return; }
+            $.get('api.php?action=info_list&assistant_id=' + currentAssistantId, function (res) {
+                if (res.status === 'success') {
+                    let html = '';
+                    res.data.forEach(i => {
+                        html += `<tr><td>${i.id}</td><td>${i.title}</td><td><span style="font-size:11px">${(i.content_text || '').substring(0, 50)}...</span></td>
+                            <td><button class="btn btn-outline" onclick='editInfo(${JSON.stringify(i).replace(/'/g, "&#39;")})'><i class="fa-solid fa-pen"></i></button>
+                            <button class="btn btn-danger" onclick="deleteInfo(${i.id})"><i class="fa-solid fa-trash"></i></button></td></tr>`;
+                    });
+                    $('#info-table tbody').html(html || '<tr><td colspan="4" style="text-align:center;">No hay fuentes.</td></tr>');
+                }
+            }, 'json');
+        }
+        function openInfoModal() {
+            if (!currentAssistantId) { alert("Debes seleccionar un asistente primero en el selector superior."); return; }
+            $('#info-form')[0].reset(); $('#info-id').val(''); $('#info-assistant-id').val(currentAssistantId); $('#info-modal-title').text('Nueva Fuente'); $('#info-modal').addClass('active');
+        }
+        function editInfo(i) { $('#info-id').val(i.id); $('#info-assistant-id').val(i.assistant_id); $('#info-title').val(i.title); $('#info-content').val(i.content_text); $('#info-modal-title').text('Editar Fuente'); $('#info-modal').addClass('active'); }
+        function submitInfo(e) {
+            e.preventDefault();
+            const action = $('#info-id').val() ? 'info_update' : 'info_create';
+            $.post('api.php?action=' + action, $('#info-form').serialize(), function (res) {
+                if (res.status === 'success') { closeModal('info-modal'); loadInfoSources(); } else alert(res.message || 'Error');
+            }, 'json');
+        }
+        function deleteInfo(id) { if (confirm('¿Eliminar fuente?')) { $.post('api.php?action=info_delete', { id }, res => { if (res.status === 'success') { loadInfoSources(); } else alert('Error'); }, 'json'); } }
+
+        // --- Rules ---
         function loadRules() {
-            $.get('api.php?action=list', function (res) {
+            let u = 'api.php?action=list';
+            if (currentAssistantId) u += '&assistant_id=' + currentAssistantId;
+            $.get(u, function (res) {
                 if (res.status === 'success') {
                     let html = '';
                     res.data.forEach(r => {
-                        html += `
-                            <tr>
-                                <td style="color:var(--text-muted)">#${r.id}</td>
-                                <td><span class="badge">${r.category || 'general'}</span></td>
-                                <td style="max-width:300px; word-wrap:break-word">${r.queries}</td>
-                                <td style="max-width:400px; word-wrap:break-word">${r.replies}</td>
-                                <td>
-                                    <button class="btn btn-outline" style="padding:6px 10px; font-size:12px;" onclick='editRule(${JSON.stringify(r).replace(/'/g, "&#39;")})'><i class="fa-solid fa-pen"></i></button>
-                                    <button class="btn btn-danger" style="padding:6px 10px; font-size:12px;" onclick="deleteRule(${r.id})"><i class="fa-solid fa-trash"></i></button>
-                                </td>
-                            </tr>
-                        `;
+                        html += `<tr><td>#${r.id}</td><td><span class="badge">${r.category || 'general'}</span></td>
+                            <td style="max-width:200px;word-break:break-all;">${r.queries}</td><td style="max-width:300px;">${r.replies}</td>
+                            <td><button class="btn btn-outline" onclick='editRule(${JSON.stringify(r).replace(/'/g, "&#39;")})'><i class="fa-solid fa-pen"></i></button>
+                            <button class="btn btn-danger" onclick="deleteRule(${r.id})"><i class="fa-solid fa-trash"></i></button></td></tr>`;
                     });
-                    $('#rules-table tbody').html(html || '<tr><td colspan="5" style="text-align:center;">No hay reglas creadas.</td></tr>');
+                    $('#rules-table tbody').html(html || '<tr><td colspan="5" style="text-align:center;">No hay reglas.</td></tr>');
                 }
             }, 'json');
         }
+        function openRuleModal() { $('#rule-form')[0].reset(); $('#rule-id').val(''); $('#rule-assistant-id').val(currentAssistantId); $('#rule-modal-title').text('Nueva Regla'); $('#rule-modal').addClass('active'); }
+        function editRule(r) { $('#rule-id').val(r.id); $('#rule-assistant-id').val(r.assistant_id); $('#rule-category').val(r.category); $('#rule-queries').val(r.queries); $('#rule-replies').val(r.replies); $('#rule-modal-title').text('Editar Regla'); $('#rule-modal').addClass('active'); }
+        function submitRule(e) {
+            e.preventDefault();
+            const action = $('#rule-id').val() ? 'update' : 'create';
+            $.post('api.php?action=' + action, $('#rule-form').serialize(), function (res) {
+                if (res.status === 'success') { closeModal('rule-modal'); loadRules(); loadStats(); } else alert(res.message || 'Error');
+            }, 'json');
+        }
+        function deleteRule(id) { if (confirm('¿Eliminar regla?')) { $.post('api.php?action=delete', { id }, res => { if (res.status === 'success') { loadRules(); loadStats(); } else alert('Error'); }, 'json'); } }
 
+        // --- Logs ---
         function loadLogs() {
-            $.get('api.php?action=logs', function (res) {
+            let u = 'api.php?action=logs';
+            if (currentAssistantId) u += '&assistant_id=' + currentAssistantId;
+            $.get(u, function (res) {
                 if (res.status === 'success') {
                     let html = '';
                     res.data.forEach(l => {
-                        html += `
-                            <tr>
-                                <td style="color:var(--text-muted); font-size:12px;">${l.created_at}</td>
-                                <td>${l.user_message}</td>
-                                <td style="max-width:400px; font-size:13px; color:var(--text-muted)">${l.bot_reply.substring(0, 80)}${l.bot_reply.length > 80 ? '...' : ''}</td>
-                                <td>
-                                    ${l.matched == 1
-                                ? '<span class="badge success"><i class="fa-solid fa-check"></i> Entendido</span>'
-                                : '<span class="badge failed"><i class="fa-solid fa-xmark"></i> Fallido</span>'}
-                                </td>
-                            </tr>
-                        `;
+                        let status = l.matched == 1 ? '<span class="badge success"><i class="fa-solid fa-check"></i> OK</span>' : '<span class="badge failed"><i class="fa-solid fa-xmark"></i> Fail</span>';
+                        html += `<tr><td style="font-size:12px">${l.created_at}</td><td>${l.user_message}</td><td style="max-width:400px; font-size:12px">${l.bot_reply.substring(0, 80)}...</td><td>${status}</td></tr>`;
                     });
                     $('#logs-table tbody').html(html || '<tr><td colspan="4" style="text-align:center;">No hay interacciones registradas.</td></tr>');
                 }
             }, 'json');
         }
 
-        function openModal() {
-            $('#rule-form')[0].reset();
-            $('#rule-id').val('');
-            $('#modal-title').text('Nueva Regla');
-            $('#rule-modal').addClass('active');
+        // --- Stats & Charts ---
+        function loadStats() {
+            let u = 'api.php?action=stats';
+            if (currentAssistantId) u += '&assistant_id=' + currentAssistantId;
+            $.get(u, function (res) {
+                if (res.status === 'success') {
+                    $('#stats-container').html(`
+                        <div class="card"><div class="card-icon"><i class="fa-solid fa-book-open"></i></div><div class="card-info"><h3>${res.data.total_rules}</h3><p>Reglas / Contexto</p></div></div>
+                        <div class="card"><div class="card-icon"><i class="fa-solid fa-comments"></i></div><div class="card-info"><h3>${res.data.total_interactions}</h3><p>Interacciones</p></div></div>
+                        <div class="card"><div class="card-icon"><i class="fa-solid fa-bullseye"></i></div><div class="card-info"><h3>${res.data.accuracy}%</h3><p>Precisión</p></div></div>
+                    `);
+                }
+            }, 'json');
         }
 
-        function closeModal() {
-            $('#rule-modal').removeClass('active');
+        let activityChart = null;
+        function initChart() {
+            let u = 'api.php?action=chart_data';
+            if (currentAssistantId) u += '&assistant_id=' + currentAssistantId;
+            $.get(u, function (res) {
+                if (res.status === 'success') {
+                    const canvas = document.getElementById('activityChart');
+                    if (!canvas) return;
+                    if (activityChart) activityChart.destroy();
+                    activityChart = new Chart(canvas.getContext('2d'), {
+                        type: 'line',
+                        data: {
+                            labels: res.labels,
+                            datasets: [{ label: 'Interacciones', data: res.values, borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)', borderWidth: 3, fill: true, tension: 0.4 }]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+                            scales: { y: { beginAtZero: true, grid: { color: 'rgba(255, 255, 255, 0.05)' } }, x: { grid: { display: false } } }
+                        }
+                    });
+                }
+            }, 'json');
         }
 
-        function editRule(rule) {
-            $('#rule-id').val(rule.id);
-            $('#rule-category').val(rule.category);
-            $('#rule-queries').val(rule.queries);
-            $('#rule-replies').val(rule.replies);
-            $('#modal-title').text('Editar Regla');
-            $('#rule-modal').addClass('active');
-        }
-
-        function deleteRule(id) {
-            if (confirm('¿Estás seguro de que deseas eliminar esta regla?')) {
-                $.post('api.php?action=delete', { id: id }, function (res) {
-                    if (res.status === 'success') {
-                        loadRules();
-                        loadStats();
-                    } else {
-                        alert(res.message);
-                    }
-                }, 'json');
-            }
+        // --- Utilities ---
+        function closeModal(id) { $('#' + id).removeClass('active'); }
+        function copyChatLink() {
+            let url = window.location.origin + window.location.pathname.replace('admin.php', 'index.php');
+            if (currentAssistantId) url += '?assistant=' + currentAssistantId;
+            navigator.clipboard.writeText(url).then(() => {
+                alert("Link copiado: " + url);
+            });
         }
     </script>
 </body>

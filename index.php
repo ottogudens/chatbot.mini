@@ -1,10 +1,25 @@
+<?php
+require_once 'db.php';
+
+$assistant_id = isset($_GET['assistant']) && is_numeric($_GET['assistant']) ? intval($_GET['assistant']) : null;
+$bot_name = "SkaleBot";
+if ($assistant_id) {
+    $ast_query = "SELECT name FROM assistants WHERE id = $assistant_id";
+    $ast_res = mysqli_query($conn, $ast_query);
+    if ($ast_row = mysqli_fetch_assoc($ast_res)) {
+        $bot_name = htmlspecialchars($ast_row['name']);
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="es" data-theme="dark">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SkaleBot - Asistente IA</title>
+    <title>
+        <?php echo $bot_name; ?> - Asistente IA
+    </title>
     <!-- Google Fonts: Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- FontAwesome -->
@@ -25,7 +40,9 @@
                     <span class="status-indicator"></span>
                 </div>
                 <div class="bot-details">
-                    <div class="title">SkaleBot</div>
+                    <div class="title">
+                        <?php echo $bot_name; ?>
+                    </div>
                     <div class="status-text">En línea</div>
                 </div>
             </div>
@@ -49,7 +66,7 @@
                     <i class="fa-solid fa-robot"></i>
                 </div>
                 <div class="msg-header">
-                    <p>¡Hola! Soy SkaleBot. ¿En qué te puedo ayudar hoy?</p>
+                    <p>¡Hola! Soy <?php echo $bot_name; ?>. ¿En qué te puedo ayudar hoy?</p>
                     <span class="timestamp" id="init-time"></span>
                 </div>
             </div>
@@ -87,8 +104,12 @@
             const now = new Date();
             const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
 
+            // Assistant Context
+            const assistantId = <?php echo $assistant_id ? $assistant_id : 'null'; ?>;
+            const botName = "<?php echo $bot_name; ?>";
+
             // --- History Persistence Logic ---
-            const STORAGE_KEY = 'skalebot_history';
+            const STORAGE_KEY = 'skalebot_history_' + (assistantId || 'global');
 
             function loadHistory() {
                 const history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
@@ -99,7 +120,7 @@
                 if (history.length === 0) {
                     const initialTime = new Date();
                     const initialTimeStr = initialTime.getHours().toString().padStart(2, '0') + ':' + initialTime.getMinutes().toString().padStart(2, '0');
-                    appendMessage('bot', '¡Hola! Soy SkaleBot. ¿En qué te puedo ayudar hoy?', initialTimeStr, true);
+                    appendMessage('bot', `¡Hola! Soy ${botName}. ¿En qué te puedo ayudar hoy?`, initialTimeStr, true);
                 }
             }
 
@@ -209,7 +230,7 @@
                         url: 'message.php',
                         type: 'POST',
                         dataType: 'json',
-                        data: { text: textValue },
+                        data: { text: textValue, assistant_id: assistantId },
                         success: function (result) {
                             // Hide typing indicator
                             $("#typing-indicator").addClass('hidden');

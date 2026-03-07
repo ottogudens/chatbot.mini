@@ -19,17 +19,24 @@ class GeminiClient
     /**
      * Get a response from Gemini
      */
-    public function get_response($user_message, $history = [])
+    public function get_response($user_message, $history = [], $custom_system_prompt = "", $info_sources = "")
     {
         if (!$this->api_key) {
             return "Error: GEMINI_API_KEY no configurada.";
         }
 
-        $system_prompt = "Eres SkaleBot, un asistente experto de Skale IA. " .
-            "Eres amable, profesional e innovador. " .
-            "Ayudas con soluciones tecnológicas de IA, automatización y desarrollo web. " .
-            "Responde de forma concisa, útil y siempre en español latinoméricano. " .
-            "Si no sabes algo de un tema técnico específico, ofrece contactar al equipo humano de Skale.";
+        $base_prompt = "Eres un asistente virtual avanzado y profesional de Skale IA. " .
+            "Responde de forma concisa, útil y siempre en español latinoamericano. ";
+
+        if (!empty($custom_system_prompt)) {
+            $system_prompt = $base_prompt . "\n\nINSTRUCCIONES ESPECÍFICAS DEL ASISTENTE:\n" . $custom_system_prompt;
+        } else {
+            $system_prompt = $base_prompt . "\nSi no sabes algo de un tema técnico, ofrece contactar al equipo de soporte.";
+        }
+
+        if (!empty($info_sources)) {
+            $system_prompt .= "\n\nBASA TUS RESPUESTAS ESTRICTAMENTE EN LA SIGUIENTE INFORMACIÓN DE CONTEXTO:\n" . $info_sources;
+        }
 
         $url = $this->api_url . $this->model . ":generateContent?key=" . $this->api_key;
 

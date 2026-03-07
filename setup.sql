@@ -3,24 +3,65 @@
 
 
 
+-- Drop tables in reverse order of dependencies to avoid foreign key constraint errors
+DROP TABLE IF EXISTS information_sources;
+DROP TABLE IF EXISTS chatbot;
+DROP TABLE IF EXISTS conversation_logs;
+DROP TABLE IF EXISTS assistants;
+DROP TABLE IF EXISTS clients;
+
+-- Clients Table
+CREATE TABLE clients (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    contact_email VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Assistants Table
+DROP TABLE IF EXISTS assistants;
+CREATE TABLE assistants (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    client_id INT NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    system_prompt TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
+);
+
+-- Information Sources Table
+DROP TABLE IF EXISTS information_sources;
+CREATE TABLE information_sources (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    assistant_id INT NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    content_text MEDIUMTEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (assistant_id) REFERENCES assistants(id) ON DELETE CASCADE
+);
+
 -- Chatbot Q&A Table
 DROP TABLE IF EXISTS chatbot;
 CREATE TABLE chatbot (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    assistant_id INT NULL,
     queries VARCHAR(255) NOT NULL,
     replies TEXT NOT NULL,
     category VARCHAR(50) DEFAULT 'general',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (assistant_id) REFERENCES assistants(id) ON DELETE CASCADE
 );
 
 -- Conversation Logs Table
 DROP TABLE IF EXISTS conversation_logs;
 CREATE TABLE conversation_logs (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    assistant_id INT NULL,
     user_message TEXT NOT NULL,
     bot_reply TEXT NOT NULL,
     matched BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (assistant_id) REFERENCES assistants(id) ON DELETE CASCADE
 );
 
 -- Clear existing data if re-running
