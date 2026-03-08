@@ -422,7 +422,8 @@ check_auth();
                 <div class="panel" style="padding: 20px; border:none; background:rgba(0,0,0,0.2);">
                     <h3
                         style="margin-bottom: 20px; font-size: 14px; color: var(--text-muted); text-transform: uppercase;">
-                        <i class="fa-solid fa-chart-line"></i> Actividad últimos 7 días</h3>
+                        <i class="fa-solid fa-chart-line"></i> Actividad últimos 7 días
+                    </h3>
                     <div style="height: 250px; position: relative;">
                         <canvas id="activityChart"></canvas>
                     </div>
@@ -629,22 +630,62 @@ check_auth();
                 <button type="button" class="close-modal" onclick="closeModal('info-modal')"><i
                         class="fa-solid fa-xmark"></i></button>
             </div>
-            <form id="info-form" onsubmit="submitInfo(event)">
+            <form id="info-form" onsubmit="submitInfo(event)" enctype="multipart/form-data">
                 <input type="hidden" id="info-id" name="id">
                 <input type="hidden" id="info-assistant-id" name="assistant_id">
+
+                <div class="form-group">
+                    <label>Tipo de Fuente</label>
+                    <div style="display: flex; gap: 15px; margin-top: 5px;">
+                        <label><input type="radio" name="type" value="text" checked onchange="toggleInfoType()">
+                            Texto</label>
+                        <label><input type="radio" name="type" value="link" onchange="toggleInfoType()"> Enlace
+                            (URL)</label>
+                        <label><input type="radio" name="type" value="file" onchange="toggleInfoType()"> Archivo (PDF,
+                            TXT, Img ext)</label>
+                    </div>
+                </div>
+
                 <div class="form-group">
                     <label>Título / Referencia</label>
                     <input type="text" id="info-title" name="title" required placeholder="Ej. Políticas de Devolución">
                 </div>
-                <div class="form-group">
+
+                <div class="form-group" id="info-container-text">
                     <label>Contenido (Texto Largo)</label>
-                    <textarea id="info-content" name="content_text" required style="min-height:200px;"></textarea>
+                    <textarea id="info-content" name="content_text" style="min-height:200px;"></textarea>
                     <div class="form-help">Pega aquí el texto que servirá como contexto base para que la IA responda
                         mejor.</div>
                 </div>
+
+                <div class="form-group" id="info-container-link" style="display:none;">
+                    <label>URL / Enlace</label>
+                    <input type="url" id="info-url" placeholder="https://ejemplo.com/pagina">
+                    <div class="form-help">El sistema intentará extraer el texto de esta página web.</div>
+                </div>
+
+                <div class="form-group" id="info-container-file" style="display:none;">
+                    <label>Archivo (Máx 500MB)</label>
+                    <input type="file" id="info-file" name="file_upload"
+                        accept=".txt,.pdf,.csv,.md,.csv,.jpg,.jpeg,.png,.webp">
+                    <div class="form-help">El archivo se enviará a Gemini. Asegúrate de que no pese más de 500MB ni
+                        contenga información extremadamente sensible permanente.</div>
+
+                    <div id="upload-progress-container" style="display:none; margin-top: 15px;">
+                        <div style="font-size: 12px; margin-bottom: 5px; color: var(--text-muted);"
+                            id="upload-status-text">Subiendo archivo... 0%</div>
+                        <div
+                            style="width: 100%; background: rgba(255,255,255,0.1); border-radius: 10px; height: 10px; overflow: hidden;">
+                            <div id="upload-progress-bar"
+                                style="width: 0%; height: 100%; background: var(--primary); transition: width 0.2s;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
                     <button type="button" class="btn btn-outline" onclick="closeModal('info-modal')">Cancelar</button>
-                    <button type="submit" class="btn">Guardar</button>
+                    <button type="submit" class="btn" id="btn-submit-info">Guardar</button>
                 </div>
             </form>
         </div>
@@ -784,7 +825,11 @@ check_auth();
                 if (res.status === 'success') {
                     let html = '';
                     res.data.forEach(i => {
-                        html += `<tr><td>${i.id}</td><td>${i.title}</td><td><span style="font-size:11px">${(i.content_text || '').substring(0, 50)}...</span></td>
+                        let icon = '<i class="fa-solid fa-align-left"></i>';
+                        if (i.type === 'link') icon = '<i class="fa-solid fa-link"></i>';
+                        if (i.type === 'file') icon = '<i class="fa-solid fa-file"></i>';
+
+                        html += `<tr><td>${i.id}</td><td>${icon} ${i.title}</td><td><span style="font-size:11px">${(i.content_text || '').substring(0, 50)}...</span></td>
                             <td><button class="btn btn-outline" onclick='editInfo(${JSON.stringify(i).replace(/'/g, "&#39;")})'><i class="fa-solid fa-pen"></i></button>
                             <button class="btn btn-danger" onclick="deleteInfo(${i.id})"><i class="fa-solid fa-trash"></i></button></td></tr>`;
                     });
@@ -794,15 +839,123 @@ check_auth();
         }
         function openInfoModal() {
             if (!currentAssistantId) { alert("Debes seleccionar un asistente primero en el selector superior."); return; }
-            $('#info-form')[0].reset(); $('#info-id').val(''); $('#info-assistant-id').val(currentAssistantId); $('#info-modal-title').text('Nueva Fuente'); $('#info-modal').addClass('active');
+            $('#info-form')[0].reset();
+            $('#info-id').val('');
+            $('#info-assistant-id').val(currentAssistantId);
+            $('#info-modal-title').text('Nueva Fuente');
+            $('input[name="type"]').prop('disabled', false); // Allow changing type on new
+            toggleInfoType();
+            $('#upload-progress-container').hide();
+            $('#info-modal').addClass('active');
         }
-        function editInfo(i) { $('#info-id').val(i.id); $('#info-assistant-id').val(i.assistant_id); $('#info-title').val(i.title); $('#info-content').val(i.content_text); $('#info-modal-title').text('Editar Fuente'); $('#info-modal').addClass('active'); }
+        function editInfo(i) {
+            $('#info-id').val(i.id);
+            $('#info-assistant-id').val(i.assistant_id);
+            $('#info-title').val(i.title);
+
+            // Set radio button and disable changes on editing
+            $('input[name="type"]').prop('checked', false);
+            $(`input[name="type"][value="${i.type || 'text'}"]`).prop('checked', true);
+            $('input[name="type"]').prop('disabled', true); // Cannot change type once created
+
+            if (i.type === 'text') {
+                $('#info-content').val(i.content_text);
+            } else if (i.type === 'link') {
+                // Extract URL if we stored it (not strictly necessary to edit as it was scraped)
+                $('#info-content').val(i.content_text);
+            } else if (i.type === 'file') {
+                // Files cannot be "edited", only replacing text or must delete and reupload
+                $('#info-content').val(i.content_text);
+            }
+
+            toggleInfoType();
+            $('#upload-progress-container').hide();
+            $('#info-modal-title').text('Editar Fuente');
+            $('#info-modal').addClass('active');
+        }
+
+        function toggleInfoType() {
+            const type = $('input[name="type"]:checked').val();
+            $('#info-container-text, #info-container-link, #info-container-file').hide();
+
+            if (type === 'text') {
+                $('#info-container-text').show();
+                $('#info-content').prop('required', true);
+                $('#info-url').prop('required', false);
+                $('#info-file').prop('required', false);
+            } else if (type === 'link') {
+                $('#info-container-link').show();
+                $('#info-content').prop('required', false);
+                $('#info-url').prop('required', true);
+                $('#info-file').prop('required', false);
+            } else if (type === 'file') {
+                $('#info-container-file').show();
+                $('#info-content').prop('required', false);
+                $('#info-url').prop('required', false);
+                if (!$('#info-id').val()) { // Only required if new
+                    $('#info-file').prop('required', true);
+                }
+            }
+        }
+
         function submitInfo(e) {
             e.preventDefault();
-            const action = $('#info-id').val() ? 'info_update' : 'info_create';
-            $.post('api.php?action=' + action, $('#info-form').serialize(), function (res) {
-                if (res.status === 'success') { closeModal('info-modal'); loadInfoSources(); } else alert(res.message || 'Error');
-            }, 'json');
+            const isUpdate = $('#info-id').val() !== '';
+            const action = isUpdate ? 'info_update' : 'info_create';
+
+            const formData = new FormData($('#info-form')[0]);
+            const type = $('input[name="type"]:checked').val();
+
+            if (type === 'link') {
+                formData.set('content_text', $('#info-url').val());
+            }
+
+            $('#btn-submit-info').prop('disabled', true).text('Guardando...');
+            $('#upload-progress-container').hide();
+
+            // If file upload, show progress
+            let ajaxSettings = {
+                url: 'api.php?action=' + action,
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                dataType: 'json',
+                success: function (res) {
+                    $('#btn-submit-info').prop('disabled', false).text('Guardar');
+                    if (res.status === 'success') {
+                        closeModal('info-modal');
+                        loadInfoSources();
+                    } else {
+                        alert(res.message || 'Error');
+                    }
+                },
+                error: function () {
+                    $('#btn-submit-info').prop('disabled', false).text('Guardar');
+                    alert('Error en la comunicación con el servidor. Es posible que el archivo sea demasiado grande o haya un fallo de conexión.');
+                }
+            };
+
+            if (type === 'file' && !isUpdate) {
+                $('#upload-progress-container').show();
+                ajaxSettings.xhr = function () {
+                    var xhr = new window.XMLHttpRequest();
+                    xhr.upload.addEventListener("progress", function (evt) {
+                        if (evt.lengthComputable) {
+                            var percentComplete = Math.round((evt.loaded / evt.total) * 100);
+                            $('#upload-progress-bar').css('width', percentComplete + '%');
+                            if (percentComplete < 100) {
+                                $('#upload-status-text').text(`Subiendo archivo... ${percentComplete}%`);
+                            } else {
+                                $('#upload-status-text').text(`Archivo subido. Procesando con Gemini... (Esto puede tomar un minuto)`);
+                            }
+                        }
+                    }, false);
+                    return xhr;
+                };
+            }
+
+            $.ajax(ajaxSettings);
         }
         function deleteInfo(id) { if (confirm('¿Eliminar fuente?')) { $.post('api.php?action=info_delete', { id }, res => { if (res.status === 'success') { loadInfoSources(); } else alert('Error'); }, 'json'); } }
 

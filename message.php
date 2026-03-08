@@ -23,7 +23,8 @@ $matched = 0;
 $suggestions = [];
 
 $custom_system_prompt = "";
-$info_sources = "";
+$info_sources_text = "";
+$info_sources_files = [];
 
 // 1. Fetch Assistant Config (if any)
 if ($assistant_id) {
@@ -35,10 +36,21 @@ if ($assistant_id) {
     }
 
     // Get info sources
-    $info_query = "SELECT content_text FROM information_sources WHERE assistant_id = $assistant_id";
+    $info_query = "SELECT type, content_text, gemini_file_uri, file_type FROM information_sources WHERE assistant_id = $assistant_id";
     $info_res = mysqli_query($conn, $info_query);
+
+    $info_sources_text = "";
+    $info_sources_files = [];
+
     while ($info_row = mysqli_fetch_assoc($info_res)) {
-        $info_sources .= $info_row['content_text'] . "\n\n";
+        if ($info_row['type'] === 'text' || $info_row['type'] === 'link') {
+            $info_sources_text .= $info_row['content_text'] . "\n\n";
+        } elseif ($info_row['type'] === 'file' && !empty($info_row['gemini_file_uri'])) {
+            $info_sources_files[] = [
+                'uri' => $info_row['gemini_file_uri'],
+                'mime_type' => $info_row['file_type']
+            ];
+        }
     }
 }
 
@@ -98,7 +110,7 @@ if ($matched === 0 && !empty($clean_msg)) {
 
     require_once 'gemini_client.php';
     $gemini = new GeminiClient();
-    $ai_reply = $gemini->get_response($user_msg, $history, $custom_system_prompt, $info_sources);
+    $ai_reply = $gemini->get_response($user_msg, $history, $custom_system_prompt, $info_sources_text, $info_sources_files);
 
     if ($ai_reply) {
         $reply = $ai_reply;

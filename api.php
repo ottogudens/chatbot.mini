@@ -126,11 +126,98 @@ switch ($action) {
         break;
     case 'info_create':
         $assistant_id = $_POST['assistant_id'] ?? '';
+        $type = $_POST['type'] ?? 'text';
         $title = $_POST['title'] ?? '';
         $content = $_POST['content_text'] ?? '';
-        $stmt = mysqli_prepare($conn, "INSERT INTO information_sources (assistant_id, title, content_text) VALUES (?, ?, ?)");
-        mysqli_stmt_bind_param($stmt, "iss", $assistant_id, $title, $content);
-        echo json_encode(['status' => mysqli_stmt_execute($stmt) ? 'success' : 'error']);
+
+        $file_path = null;
+        $file_type = null;
+        $file_size = null;
+        $gemini_uri = null;
+
+        if (empty($assistant_id) || empty($title)) {
+            echo json_encode(['status' => 'error', 'message' => 'Faltan datos requeridos.']);
+            exit;
+        }
+
+        // --- Logic for Links ---
+        if ($type === 'link') {
+            $url = trim($content);
+            if (filter_var($url, FILTER_VALIDATE_URL)) {
+                // Basic scraper
+                $ctx = stream_context_create(['http' => ['timeout' => 5]]);
+                $html = @file_get_contents($url, false, $ctx);
+                if ($html !== false) {
+                    // Extract body content roughly
+                    $content = strip_tags(preg_replace('#<script(.*?)>(.*?)</script>#is', '', $html));
+                    $content = preg_replace('/\s+/', ' ', $content); // compress spaces
+                    $content = "Contenido extraído de URL ($url):\n\n" . mb_substr($content, 0, 50000); // Limit size
+                } else {
+                    echo json_encode(['status' => 'error', 'message' => 'No se pudo acceder a la URL proporcionada.']);
+                    exit;
+                }
+            } else {
+                echo json_encode(['status' => 'error', 'message' => 'URL inválida.']);
+                exit;
+            }
+        }
+
+        // --- Logic for Files ---
+        if ($type === 'file' && isset($_FILES['file_upload']) && $_FILES['file_upload']['error'] === UPLOAD_ERR_OK) {
+            $upload_base_dir = __DIR__ . '/uploads';
+
+            // Need client_id for folder structure
+            $client_id_query = mysqli_query($conn, "SELECT client_id FROM assistants WHERE id = " . intval($assistant_id));
+            $client_id = mysqli_fetch_assoc($client_id_query)['client_id'] ?? 'unknown';
+
+            $target_dir = $upload_base_dir . "/clients/{$client_id}/assistants/{$assistant_id}/";
+            if (!file_exists($target_dir)) {
+                mkdir($target_dir, 0777, true);
+            }
+
+            $original_name = basename($_FILES['file_upload']['name']);
+            // Sanitize filename
+            $safe_filename = time() . '_' . preg_replace("/[^a-zA-Z0-9.-]/", "_", $original_name);
+            $target_file = $target_dir . $safe_filename;
+
+            if (move_uploaded_file($_FILES['file_upload']['tmp_name'], $target_file)) {
+                // Save relative path
+                $file_path = "uploads/clients/{$client_id}/assistants/{$assistant_id}/" . $safe_filename;
+                $file_type = $_FILES['file_upload']['type'];
+                $file_size = filesize($target_file);
+                $content = "Archivo subido: $original_name";
+
+                // Upload to Gemini directly
+                require_once 'gemini_client.php';
+                $gemini = new GeminiClient();
+                $uri = $gemini->upload_file_to_gemini($target_file, $file_type, $title);
+                if ($uri) {
+                    $gemini_uri = $uri;
+                } else {
+                    echo json_encode(['status' => 'error', 'message' => 'Error subiendo el archivo a Google Gemini API.']);
+                    exit;
+                }
+            } else {
+                echo json_encode(['status' => 'error', 'message' => 'Error moviendo el archivo subido.']);
+                exit;
+            }
+        } else if ($type === 'file') {
+            echo json_encode(['status' => 'error', 'message' => 'Error en la subida del archivo.']);
+            exit;
+        }
+
+        $stmt = mysqli_prepare($conn, "INSERT INTO information_sources (assistant_id, type, title, content_text, file_path, file_type, file_size, gemini_file_uri) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        mysqli_stmt_bind_param($stmt, "isssssis", $assistant_id, $type, $title, $content, $file_path, $file_type, $file_size, $gemini_uri);
+
+        if (mysqli_stmt_execute($stmt)) {
+            echo json_encode(['status' => 'success']);
+        } else {
+            // Rollback file upload if DB fails
+            if ($file_path && file_exists(__DIR__ . '/' . $file_path)) {
+                unlink(__DIR__ . '/' . $file_path);
+            }
+            echo json_encode(['status' => 'error', 'message' => 'Error guardando en base de datos.']);
+        }
         break;
     case 'info_update':
         $id = $_POST['id'] ?? 0;
@@ -142,6 +229,18 @@ switch ($action) {
         break;
     case 'info_delete':
         $id = $_POST['id'] ?? 0;
+
+        // Before deleting, try to remove the physical file if it exists
+        $info_query = mysqli_query($conn, "SELECT file_path FROM information_sources WHERE id = " . intval($id));
+        if ($row = mysqli_fetch_assoc($info_query)) {
+            if (!empty($row['file_path'])) {
+                $full_path = __DIR__ . '/' . $row['file_path'];
+                if (file_exists($full_path)) {
+                    unlink($full_path);
+                }
+            }
+        }
+
         $stmt = mysqli_prepare($conn, "DELETE FROM information_sources WHERE id=?");
         mysqli_stmt_bind_param($stmt, "i", $id);
         echo json_encode(['status' => mysqli_stmt_execute($stmt) ? 'success' : 'error']);

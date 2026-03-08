@@ -34,8 +34,13 @@ DROP TABLE IF EXISTS information_sources;
 CREATE TABLE information_sources (
     id INT AUTO_INCREMENT PRIMARY KEY,
     assistant_id INT NOT NULL,
+    type ENUM('text', 'file', 'link') DEFAULT 'text',
     title VARCHAR(200) NOT NULL,
-    content_text MEDIUMTEXT NOT NULL,
+    content_text MEDIUMTEXT,
+    file_path VARCHAR(255) NULL,
+    file_type VARCHAR(50) NULL,
+    file_size BIGINT NULL,
+    gemini_file_uri VARCHAR(255) NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (assistant_id) REFERENCES assistants(id) ON DELETE CASCADE
 );

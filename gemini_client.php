@@ -17,9 +17,87 @@ class GeminiClient
     }
 
     /**
+     * Upload a file to Gemini File API
+     * Returns the file URI or false on failure
+     */
+    public function upload_file_to_gemini($file_path, $mime_type, $display_name)
+    {
+        if (!$this->api_key || !file_exists($file_path)) {
+            return false;
+        }
+
+        $file_size = filesize($file_path);
+
+        // 1. Initial Resumable Upload Request
+        $init_url = "https://generativelanguage.googleapis.com/upload/v1beta/files?key=" . $this->api_key;
+
+        $init_headers = [
+            "X-Goog-Upload-Protocol: resumable",
+            "X-Goog-Upload-Command: start",
+            "X-Goog-Upload-Header-Content-Length: " . $file_size,
+            "X-Goog-Upload-Header-Content-Type: " . $mime_type,
+            "Content-Type: application/json"
+        ];
+
+        $init_data = json_encode([
+            "file" => ["displayName" => $display_name]
+        ]);
+
+        $ch = curl_init($init_url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $init_headers);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $init_data);
+        curl_setopt($ch, CURLOPT_HEADER, true); // Need headers to get upload URI
+
+        $response = curl_exec($ch);
+        $header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+        $headers = substr($response, 0, $header_size);
+        curl_close($ch);
+
+        // Extract upload URI from headers
+        $upload_url = "";
+        foreach (explode("\r\n", $headers) as $header) {
+            if (stripos($header, 'x-goog-upload-url:') === 0) {
+                $upload_url = trim(substr($header, 18));
+                break;
+            }
+        }
+
+        if (empty($upload_url)) {
+            return false;
+        }
+
+        // 2. Upload the actual file content
+        $upload_headers = [
+            "Content-Length: " . $file_size,
+            "X-Goog-Upload-Offset: 0",
+            "X-Goog-Upload-Command: upload, finalize"
+        ];
+
+        $ch2 = curl_init($upload_url);
+        curl_setopt($ch2, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch2, CURLOPT_HTTPHEADER, $upload_headers);
+        curl_setopt($ch2, CURLOPT_POST, true);
+        // Using CURLFile for direct streaming would be better for 500MB, but file_get_contents is simpler for now
+        // A robust solution for 500MB would stream the file from disk using CURLOPT_INFILE
+        $file_handle = fopen($file_path, 'r');
+        curl_setopt($ch2, CURLOPT_PUT, true);
+        curl_setopt($ch2, CURLOPT_INFILE, $file_handle);
+        curl_setopt($ch2, CURLOPT_INFILESIZE, $file_size);
+
+        $final_response = curl_exec($ch2);
+        curl_close($ch2);
+        fclose($file_handle);
+
+        $result = json_decode($final_response, true);
+        return $result['file']['uri'] ?? false;
+    }
+
+    /**
      * Get a response from Gemini
      */
-    public function get_response($user_message, $history = [], $custom_system_prompt = "", $info_sources = "")
+    public function get_response($user_message, $history = [], $custom_system_prompt = "", $info_sources_text = "", $info_sources_files = [])
     {
         if (!$this->api_key) {
             return "Error: GEMINI_API_KEY no configurada.";
@@ -34,8 +112,8 @@ class GeminiClient
             $system_prompt = $base_prompt . "\nSi no sabes algo de un tema técnico, ofrece contactar al equipo de soporte.";
         }
 
-        if (!empty($info_sources)) {
-            $system_prompt .= "\n\nBASA TUS RESPUESTAS ESTRICTAMENTE EN LA SIGUIENTE INFORMACIÓN DE CONTEXTO:\n" . $info_sources;
+        if (!empty($info_sources_text)) {
+            $system_prompt .= "\n\nBASA TUS RESPUESTAS ESTRICTAMENTE EN LA SIGUIENTE INFORMACIÓN DE CONTEXTO:\n" . $info_sources_text;
         }
 
         $url = $this->api_url . $this->model . ":generateContent?key=" . $this->api_key;
@@ -58,10 +136,27 @@ class GeminiClient
             }
         }
 
-        // Add current user message
+        // Add current user message and ANY file data
+        $user_parts = [];
+
+        // Add files first
+        foreach ($info_sources_files as $file_data) {
+            if (!empty($file_data['uri']) && !empty($file_data['mime_type'])) {
+                $user_parts[] = [
+                    "fileData" => [
+                        "mimeType" => $file_data['mime_type'],
+                        "fileUri" => $file_data['uri']
+                    ]
+                ];
+            }
+        }
+
+        // Finally add the text message
+        $user_parts[] = ["text" => $user_message];
+
         $contents[] = [
             "role" => "user",
-            "parts" => [["text" => $user_message]]
+            "parts" => $user_parts
         ];
 
         $data = [
