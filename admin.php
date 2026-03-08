@@ -930,9 +930,18 @@ check_auth();
                         alert(res.message || 'Error');
                     }
                 },
-                error: function () {
+                error: function (xhr) {
                     $('#btn-submit-info').prop('disabled', false).text('Guardar');
-                    alert('Error en la comunicación con el servidor. Es posible que el archivo sea demasiado grande o haya un fallo de conexión.');
+                    let errorMsg = 'Error en la comunicación con el servidor.';
+                    if (xhr.responseText) {
+                        try {
+                            let json = JSON.parse(xhr.responseText);
+                            errorMsg = json.message || errorMsg;
+                        } catch(e) {
+                            errorMsg = "Respuesta del servidor: " + xhr.responseText.substring(0, 500);
+                        }
+                    }
+                    alert(errorMsg);
                 }
             };
 
