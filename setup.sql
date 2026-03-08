@@ -4,6 +4,7 @@
 
 
 -- Drop tables in reverse order of dependencies to avoid foreign key constraint errors
+DROP TABLE IF EXISTS client_integrations;
 DROP TABLE IF EXISTS information_sources;
 DROP TABLE IF EXISTS chatbot;
 DROP TABLE IF EXISTS conversation_logs;
@@ -16,6 +17,21 @@ CREATE TABLE clients (
     name VARCHAR(100) NOT NULL,
     contact_email VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Client Integrations Table (Google Drive, etc.)
+DROP TABLE IF EXISTS client_integrations;
+CREATE TABLE client_integrations (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    client_id INT NOT NULL,
+    provider VARCHAR(50) NOT NULL, -- e.g., 'google_drive'
+    access_token TEXT NOT NULL,
+    refresh_token TEXT,
+    expires_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
+    UNIQUE KEY client_provider_unique (client_id, provider)
 );
 
 -- Assistants Table
@@ -34,7 +50,7 @@ DROP TABLE IF EXISTS information_sources;
 CREATE TABLE information_sources (
     id INT AUTO_INCREMENT PRIMARY KEY,
     assistant_id INT NOT NULL,
-    type ENUM('text', 'file', 'link') DEFAULT 'text',
+    type ENUM('text', 'file', 'link', 'drive_file') DEFAULT 'text',
     title VARCHAR(200) NOT NULL,
     content_text MEDIUMTEXT,
     file_path VARCHAR(255) NULL,
