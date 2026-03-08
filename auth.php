@@ -24,7 +24,7 @@ function check_auth($redirect = true)
  */
 function attempt_login($username, $password, $conn)
 {
-    $stmt = mysqli_prepare($conn, "SELECT id, password_hash FROM users WHERE username = ?");
+    $stmt = mysqli_prepare($conn, "SELECT id, password_hash, role, client_id FROM users WHERE username = ?");
     mysqli_stmt_bind_param($stmt, "s", $username);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
@@ -34,6 +34,8 @@ function attempt_login($username, $password, $conn)
             $_SESSION['admin_logged_in'] = true;
             $_SESSION['admin_id'] = $user['id'];
             $_SESSION['admin_user'] = $username;
+            $_SESSION['role'] = $user['role'] ?? 'client';
+            $_SESSION['client_id'] = $user['client_id'];
             return true;
         }
     }

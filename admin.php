@@ -1,6 +1,7 @@
 <?php
 require_once 'auth.php';
 check_auth();
+$is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
 ?>
 <!DOCTYPE html>
 <html lang="es" data-theme="dark">
@@ -399,7 +400,10 @@ check_auth();
             <div class="nav-tabs">
                 <button class="nav-tab active" data-target="dashboard-tab"><i class="fa-solid fa-chart-line"></i>
                     Resumen</button>
+                <?php if ($is_superadmin): ?>
                 <button class="nav-tab" data-target="clients-tab"><i class="fa-solid fa-building"></i> Clientes</button>
+                <button class="nav-tab" data-target="users-tab"><i class="fa-solid fa-users"></i> Usuarios</button>
+                <?php endif; ?>
                 <button class="nav-tab" data-target="assistants-tab"><i class="fa-solid fa-robot"></i>
                     Asistentes</button>
                 <button class="nav-tab" data-target="info-tab"><i class="fa-solid fa-database"></i> Fuentes de
@@ -430,6 +434,7 @@ check_auth();
                 </div>
             </div>
 
+            <?php if ($is_superadmin): ?>
             <!-- CLIENTS TAB -->
             <div id="clients-tab" class="tab-content">
                 <div class="panel-header">
@@ -456,6 +461,34 @@ check_auth();
                     </table>
                 </div>
             </div>
+
+            <!-- USERS TAB -->
+            <div id="users-tab" class="tab-content">
+                <div class="panel-header">
+                    <h2>Gestión de Usuarios App</h2>
+                    <button class="btn" onclick="openUserModal()"><i class="fa-solid fa-plus"></i> Nuevo Usuario</button>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table id="users-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Usuario</th>
+                                <th>Rol</th>
+                                <th>Cliente Asignado</th>
+                                <th>Creado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="6" style="text-align:center;">Cargando...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <?php endif; ?>
 
             <!-- ASSISTANTS TAB -->
             <div id="assistants-tab" class="tab-content">
@@ -589,6 +622,43 @@ check_auth();
         </div>
     </div>
 
+    <!-- User Modal -->
+    <div class="modal-overlay" id="user-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="user-modal-title">Nuevo Usuario</h2>
+                <button type="button" class="close-modal" onclick="closeModal('user-modal')"><i
+                        class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="user-form" onsubmit="submitUser(event)">
+                <input type="hidden" id="user-id" name="id">
+                <div class="form-group">
+                    <label>Nombre de Usuario (Login)</label>
+                    <input type="text" id="user-name" name="username" required autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label>Contraseña</label>
+                    <input type="password" id="user-password" name="password" required autocomplete="new-password">
+                </div>
+                <div class="form-group">
+                    <label>Rol</label>
+                    <select id="user-role" name="role" required onchange="toggleUserClient()">
+                        <option value="client">Cliente Local</option>
+                        <option value="superadmin">Superadmin Global</option>
+                    </select>
+                </div>
+                <div class="form-group" id="user-client-group">
+                    <label>Cliente Asignado</label>
+                    <select id="user-client" name="client_id"></select>
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('user-modal')">Cancelar</button>
+                    <button type="submit" class="btn">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Assistant Modal -->
     <div class="modal-overlay" id="assistant-modal">
         <div class="modal">
@@ -599,10 +669,12 @@ check_auth();
             </div>
             <form id="assistant-form" onsubmit="submitAssistant(event)">
                 <input type="hidden" id="assistant-id" name="id">
+                <?php if ($is_superadmin): ?>
                 <div class="form-group">
                     <label>Cliente</label>
                     <select id="assistant-client" name="client_id" required></select>
                 </div>
+                <?php endif; ?>
                 <div class="form-group">
                     <label>Nombre del Asistente</label>
                     <input type="text" id="assistant-name" name="name" required placeholder="Ej. Soporte Ventas">
@@ -723,9 +795,11 @@ check_auth();
     </div>
 
     <script>
+        // Global State
+        const IS_SUPERADMIN = <?php echo $is_superadmin ? 'true' : 'false'; ?>;
+        let currentAssistantId = null;
         let clientsCache = [];
         let assistantsCache = [];
-        let currentAssistantId = '';
 
         $(document).ready(function () {
             // Setup Tabs
@@ -744,6 +818,9 @@ check_auth();
 
             // Initial Loads
             loadClients();
+            if (IS_SUPERADMIN) {
+                setTimeout(loadUsers, 500); // ensure clientsCache is loaded
+            }
             loadAssistants(true); // true = also reload select
         });
 
@@ -784,6 +861,41 @@ check_auth();
         }
         function deleteClient(id) { if (confirm('¿Eliminar cliente? Se borrarán sus asistentes asociados.')) { $.post('api.php?action=clients_delete', { id }, res => { if (res.status === 'success') { loadClients(); loadAssistants(true); } else alert('Error'); }, 'json'); } }
 
+        // --- Users ---
+        function loadUsers() {
+            if (!IS_SUPERADMIN) return;
+            $.get('api.php?action=users_list', function (res) {
+                if (res.status === 'success') {
+                    let html = '';
+                    res.data.forEach(u => {
+                        let badgeClass = u.role === 'superadmin' ? 'badge success' : 'badge';
+                        html += `<tr><td>${u.id}</td><td>${u.username}</td><td><span class="${badgeClass}">${u.role}</span></td><td>${u.client_name || '-'}</td><td>${u.created_at}</td>
+                            <td><button class="btn btn-danger" onclick="deleteUser(${u.id})"><i class="fa-solid fa-trash"></i></button></td></tr>`;
+                    });
+                    $('#users-table tbody').html(html || '<tr><td colspan="6">No hay usuarios asignables.</td></tr>');
+                    
+                    let optHtml = '<option value="">(Ninguno / Global)</option>';
+                    clientsCache.forEach(c => optHtml += `<option value="${c.id}">${c.name}</option>`);
+                    $('#user-client').html(optHtml);
+                }
+            }, 'json');
+        }
+        function toggleUserClient() {
+            if ($('#user-role').val() === 'superadmin') {
+                $('#user-client-group').hide(); $('#user-client').val('');
+            } else {
+                $('#user-client-group').show();
+            }
+        }
+        function openUserModal() { $('#user-form')[0].reset(); $('#user-id').val(''); $('#user-modal-title').text('Nuevo Usuario app'); $('#user-password').prop('required', true); toggleUserClient(); $('#user-modal').addClass('active'); }
+        function submitUser(e) {
+            e.preventDefault();
+            $.post('api.php?action=users_create', $('#user-form').serialize(), function (res) {
+                if (res.status === 'success') { closeModal('user-modal'); loadUsers(); } else alert(res.message || 'Error');
+            }, 'json');
+        }
+        function deleteUser(id) { if (confirm('¿Eliminar cuenta permanentemente?')) { $.post('api.php?action=users_delete', { id }, res => { if (res.status === 'success') { loadUsers(); } else alert(res.message || 'Error'); }, 'json'); } }
+
         // --- Assistants ---
         function loadAssistants(updateSelects = false) {
             $.get('api.php?action=assistants_list', function (res) {
@@ -800,7 +912,8 @@ check_auth();
                     });
                     $('#assistants-table tbody').html(html || '<tr><td colspan="5">No hay asistentes.</td></tr>');
                     if (updateSelects) {
-                        $('#global-assistant-select').html(optHtml);
+                        let globalOpt = IS_SUPERADMIN ? '<option value="">Global (Todos)</option>' : '';
+                        $('#global-assistant-select').html(globalOpt + optHtml);
                         $('#global-assistant-select').val(currentAssistantId);
                         reloadAssistantDependantViews();
                     }

@@ -28,10 +28,53 @@ if (in_array($action, $secure_actions)) {
     }
 }
 
+$is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
+$session_client_id = $_SESSION['client_id'] ?? null;
+
+function check_ast_owner($conn, $ast_id)
+{
+    global $is_superadmin, $session_client_id;
+    if ($is_superadmin)
+        return true;
+    if (!$ast_id || !$session_client_id)
+        return false;
+    $q = mysqli_query($conn, "SELECT id FROM assistants WHERE id=" . intval($ast_id) . " AND client_id=" . intval($session_client_id));
+    return mysqli_num_rows($q) > 0;
+}
+function check_item_owner($conn, $table, $id)
+{
+    global $is_superadmin, $session_client_id;
+    if ($is_superadmin)
+        return true;
+    if (!$id || !$session_client_id)
+        return false;
+    $q = mysqli_query($conn, "SELECT a.id FROM $table t JOIN assistants a ON t.assistant_id = a.id WHERE t.id=" . intval($id) . " AND a.client_id=" . intval($session_client_id));
+    return mysqli_num_rows($q) > 0;
+}
+
+// Superadmin-only actions
+$superadmin_actions = [
+    'clients_create',
+    'clients_update',
+    'clients_delete',
+    'users_list',
+    'users_create',
+    'users_delete'
+];
+if (in_array($action, $superadmin_actions) && !$is_superadmin) {
+    http_response_code(403);
+    echo json_encode(['status' => 'error', 'message' => 'Acceso denegado. Se requiere ser superadmin.']);
+    exit;
+}
+
 switch ($action) {
     // ---- Clients ----
     case 'clients_list':
-        $query = "SELECT * FROM clients ORDER BY id DESC";
+        if (!$is_superadmin && $session_client_id) {
+            $query = "SELECT * FROM clients WHERE id = " . intval($session_client_id) . " ORDER BY id DESC";
+        } else {
+            $query = "SELECT * FROM clients ORDER BY id DESC";
+        }
         $result = mysqli_query($conn, $query);
         $data = [];
         if ($result) {
@@ -67,6 +110,48 @@ switch ($action) {
         echo json_encode(['status' => mysqli_stmt_execute($stmt) ? 'success' : 'error']);
         break;
 
+    // ---- Users (Superadmin only) ----
+    case 'users_list':
+        $query = "SELECT u.id, u.username, u.role, u.client_id, c.name as client_name, u.created_at FROM users u LEFT JOIN clients c ON u.client_id = c.id ORDER BY u.id DESC";
+        $result = mysqli_query($conn, $query);
+        $data = [];
+        if ($result) {
+            while ($row = mysqli_fetch_assoc($result)) {
+                $data[] = $row;
+            }
+        }
+        echo json_encode(['status' => 'success', 'data' => $data]);
+        break;
+    case 'users_create':
+        $username = $_POST['username'] ?? '';
+        $password = $_POST['password'] ?? '';
+        $role = $_POST['role'] ?? 'client';
+        $client_id = !empty($_POST['client_id']) ? intval($_POST['client_id']) : null;
+
+        if (empty($username) || empty($password)) {
+            echo json_encode(['status' => 'error', 'message' => 'Usuario y contraseña requeridos.']);
+            exit;
+        }
+        $hash = password_hash($password, PASSWORD_DEFAULT);
+        $stmt = mysqli_prepare($conn, "INSERT INTO users (username, password_hash, role, client_id) VALUES (?, ?, ?, ?)");
+        mysqli_stmt_bind_param($stmt, "sssi", $username, $hash, $role, $client_id);
+        if (mysqli_stmt_execute($stmt)) {
+            echo json_encode(['status' => 'success']);
+        } else {
+            echo json_encode(['status' => 'error', 'message' => 'Error al crear usuario. Posible nombre duplicado.']);
+        }
+        break;
+    case 'users_delete':
+        $id = $_POST['id'] ?? 0;
+        if ($id == $_SESSION['admin_id']) {
+            echo json_encode(['status' => 'error', 'message' => 'No puedes eliminar tu propia cuenta.']);
+            exit;
+        }
+        $stmt = mysqli_prepare($conn, "DELETE FROM users WHERE id=?");
+        mysqli_stmt_bind_param($stmt, "i", $id);
+        echo json_encode(['status' => mysqli_stmt_execute($stmt) ? 'success' : 'error']);
+        break;
+
     // ---- Assistants ----
     case 'assistants_list':
         $client_id = $_GET['client_id'] ?? null;
@@ -85,7 +170,7 @@ switch ($action) {
         echo json_encode(['status' => 'success', 'data' => $data]);
         break;
     case 'assistants_create':
-        $client_id = $_POST['client_id'] ?? '';
+        $client_id = !$is_superadmin ? $session_client_id : ($_POST['client_id'] ?? '');
         $name = $_POST['name'] ?? '';
         $sp = $_POST['system_prompt'] ?? '';
         $stmt = mysqli_prepare($conn, "INSERT INTO assistants (client_id, name, system_prompt) VALUES (?, ?, ?)");
@@ -94,6 +179,10 @@ switch ($action) {
         break;
     case 'assistants_update':
         $id = $_POST['id'] ?? 0;
+        if (!check_ast_owner($conn, $id)) {
+            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
+            exit;
+        }
         $name = $_POST['name'] ?? '';
         $sp = $_POST['system_prompt'] ?? '';
         $stmt = mysqli_prepare($conn, "UPDATE assistants SET name=?, system_prompt=? WHERE id=?");
@@ -102,6 +191,10 @@ switch ($action) {
         break;
     case 'assistants_delete':
         $id = $_POST['id'] ?? 0;
+        if (!check_ast_owner($conn, $id)) {
+            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
+            exit;
+        }
         $stmt = mysqli_prepare($conn, "DELETE FROM assistants WHERE id=?");
         mysqli_stmt_bind_param($stmt, "i", $id);
         echo json_encode(['status' => mysqli_stmt_execute($stmt) ? 'success' : 'error']);
@@ -110,7 +203,7 @@ switch ($action) {
     // ---- Info Sources ----
     case 'info_list':
         $assistant_id = $_GET['assistant_id'] ?? null;
-        if (!$assistant_id) {
+        if (!$assistant_id || !check_ast_owner($conn, $assistant_id)) {
             echo json_encode(['status' => 'success', 'data' => []]);
             exit;
         }
@@ -144,6 +237,10 @@ switch ($action) {
 
         if (empty($assistant_id) || empty($title)) {
             echo json_encode(['status' => 'error', 'message' => 'Faltan datos requeridos (Asistente o Título).']);
+            exit;
+        }
+        if (!check_ast_owner($conn, $assistant_id)) {
+            echo json_encode(['status' => 'error', 'message' => 'No tienes permisos sobre este asistente.']);
             exit;
         }
 
@@ -230,6 +327,10 @@ switch ($action) {
         break;
     case 'info_update':
         $id = $_POST['id'] ?? 0;
+        if (!check_item_owner($conn, 'information_sources', $id)) {
+            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
+            exit;
+        }
         $title = $_POST['title'] ?? '';
         $content = $_POST['content_text'] ?? '';
         $stmt = mysqli_prepare($conn, "UPDATE information_sources SET title=?, content_text=? WHERE id=?");
@@ -238,6 +339,10 @@ switch ($action) {
         break;
     case 'info_delete':
         $id = $_POST['id'] ?? 0;
+        if (!check_item_owner($conn, 'information_sources', $id)) {
+            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
+            exit;
+        }
 
         // Before deleting, try to remove the physical file if it exists
         $info_query = mysqli_query($conn, "SELECT file_path FROM information_sources WHERE id = " . intval($id));
@@ -258,6 +363,11 @@ switch ($action) {
     // ---- Chatbot Rules ----
     case 'list':
         $assistant_id = $_GET['assistant_id'] ?? null;
+        if ($assistant_id && !check_ast_owner($conn, $assistant_id)) {
+            echo json_encode(['status' => 'success', 'data' => []]);
+            exit;
+        }
+
         $query = "SELECT * FROM chatbot";
         if ($assistant_id) {
             $query .= " WHERE assistant_id = " . intval($assistant_id);
@@ -277,6 +387,11 @@ switch ($action) {
 
     case 'create':
         $assistant_id = empty($_POST['assistant_id']) ? null : $_POST['assistant_id'];
+        if ($assistant_id && !check_ast_owner($conn, $assistant_id)) {
+            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
+            exit;
+        }
+
         $queries = $_POST['queries'] ?? '';
         $replies = $_POST['replies'] ?? '';
         $category = $_POST['category'] ?? 'general';
@@ -298,6 +413,11 @@ switch ($action) {
 
     case 'update':
         $id = $_POST['id'] ?? 0;
+        if (!check_item_owner($conn, 'chatbot', $id)) {
+            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
+            exit;
+        }
+
         $queries = $_POST['queries'] ?? '';
         $replies = $_POST['replies'] ?? '';
         $category = $_POST['category'] ?? 'general';
@@ -314,6 +434,10 @@ switch ($action) {
 
     case 'delete':
         $id = $_POST['id'] ?? 0;
+        if (!check_item_owner($conn, 'chatbot', $id)) {
+            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
+            exit;
+        }
         $stmt = mysqli_prepare($conn, "DELETE FROM chatbot WHERE id=?");
         mysqli_stmt_bind_param($stmt, "i", $id);
 
@@ -327,6 +451,11 @@ switch ($action) {
     // ---- Logs & Stats ----
     case 'logs':
         $assistant_id = $_GET['assistant_id'] ?? null;
+        if ($assistant_id && !check_ast_owner($conn, $assistant_id)) {
+            echo json_encode(['status' => 'success', 'data' => []]);
+            exit;
+        }
+
         $query = "SELECT * FROM conversation_logs";
         if ($assistant_id) {
             $query .= " WHERE assistant_id = " . intval($assistant_id);
@@ -346,6 +475,11 @@ switch ($action) {
 
     case 'stats':
         $assistant_id = $_GET['assistant_id'] ?? null;
+        if ($assistant_id && !check_ast_owner($conn, $assistant_id)) {
+            echo json_encode(['status' => 'success', 'data' => ['total_rules' => 0, 'total_interactions' => 0, 'failed_matches' => 0, 'accuracy' => 0]]);
+            exit;
+        }
+
         $where = $assistant_id ? "WHERE assistant_id = " . intval($assistant_id) : "WHERE assistant_id IS NULL";
 
         $total_rules = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as c FROM chatbot $where"))['c'] ?? 0;
@@ -365,6 +499,11 @@ switch ($action) {
 
     case 'chart_data':
         $assistant_id = $_GET['assistant_id'] ?? null;
+        if ($assistant_id && !check_ast_owner($conn, $assistant_id)) {
+            echo json_encode(['status' => 'success', 'labels' => [], 'values' => []]);
+            exit;
+        }
+
         $where = $assistant_id ? "assistant_id = " . intval($assistant_id) : "assistant_id IS NULL";
 
         // Get counts for the last 7 days
