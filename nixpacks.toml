@@ -5,9 +5,5 @@ nixPkgs = ["...", "nginx"]
 cmds = [
     "mkdir -p /etc/nginx/conf.d",
     "echo 'client_max_body_size 500M;' > /etc/nginx/conf.d/upload_size.conf",
-    "mkdir -p /app/uploads",
-    "chmod -R 777 /app/uploads"
+    "mkdir -p /app/uploads"
 ]
-
-[start]
-cmd = "chown -R www-data:www-data /app/uploads || true && chmod -R 777 /app/uploads || true && nixpacks-php-start"
