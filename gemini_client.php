@@ -97,7 +97,7 @@ class GeminiClient
     /**
      * Get a response from Gemini
      */
-    public function get_response($user_message, $history = [], $custom_system_prompt = "", $info_sources_text = "", $info_sources_files = [])
+    public function get_response($user_message, $history = [], $custom_system_prompt = "", $info_sources_text = "", $info_sources_files = [], $function_state = null)
     {
         if (!$this->api_key) {
             return "Error: GEMINI_API_KEY no configurada.";
@@ -115,6 +115,8 @@ class GeminiClient
         if (!empty($info_sources_text)) {
             $system_prompt .= "\n\nBASA TUS RESPUESTAS ESTRICTAMENTE EN LA SIGUIENTE INFORMACIÓN DE CONTEXTO:\n" . $info_sources_text;
         }
+
+        $system_prompt .= "\n\nREGLA IMPORTANTE: Si un usuario quiere agendar una cita o reunión, pide su nombre, email y teléfono. Luego, DEBES utilizar las herramientas nativas disponibles para checkear disponibilidad y concretar la cita. Solo puedes confirmar una vez que la herramienta de reservas lo haya confirmado exitosamente. NUNCA inventes confirmaciones o fechas.";
 
         $url = $this->api_url . $this->model . ":generateContent?key=" . $this->api_key;
 
@@ -151,13 +153,31 @@ class GeminiClient
             }
         }
 
-        // Finally add the text message
+        // Add text and manage function states
         $user_parts[] = ["text" => $user_message];
 
         $contents[] = [
             "role" => "user",
             "parts" => $user_parts
         ];
+
+        if ($function_state) {
+            $contents[] = [
+                "role" => "model",
+                "parts" => [["functionCall" => $function_state['call']]]
+            ];
+            $contents[] = [
+                "role" => "function",
+                "parts" => [
+                    [
+                        "functionResponse" => [
+                            "name" => $function_state['call']['name'],
+                            "response" => ["content" => $function_state['result']]
+                        ]
+                    ]
+                ]
+            ];
+        }
 
         $data = [
             "system_instruction" => [
@@ -167,6 +187,37 @@ class GeminiClient
             "generationConfig" => [
                 "temperature" => 0.7,
                 "maxOutputTokens" => 800,
+            ],
+            "tools" => [
+                [
+                    "functionDeclarations" => [
+                        [
+                            "name" => "check_availability",
+                            "description" => "Llama esto para consultar fechas y horarios disponibles en la agenda real del cliente de los proximos 7 dias.",
+                            "parameters" => [
+                                "type" => "OBJECT",
+                                "properties" => [
+                                    "target_date" => ["type" => "STRING", "description" => "Fecha específica a consultar (YYYY-MM-DD). Si el usuario no dio fecha concreta, déjalo vacío o usa palabras como 'hoy', 'mañana' si quieres."],
+                                ]
+                            ]
+                        ],
+                        [
+                            "name" => "book_appointment",
+                            "description" => "Llama esto una vez que tengas acordados la FECHA, HORA, NOMBRE, EMAIL y TELEFONO con el usuario, para hacer la reserva en Google Calendar.",
+                            "parameters" => [
+                                "type" => "OBJECT",
+                                "properties" => [
+                                    "date" => ["type" => "STRING", "description" => "Fecha acordada en formato YYYY-MM-DD"],
+                                    "time" => ["type" => "STRING", "description" => "Hora acordada en formato de 24 hrs HH:MM (ej. 15:30)"],
+                                    "user_name" => ["type" => "STRING", "description" => "Nombre del cliente nuevo"],
+                                    "user_email" => ["type" => "STRING", "description" => "Correo electrónico"],
+                                    "user_phone" => ["type" => "STRING", "description" => "Celular o teléfono del cliente"]
+                                ],
+                                "required" => ["date", "time", "user_name", "user_email", "user_phone"]
+                            ]
+                        ]
+                    ]
+                ]
             ]
         ];
 
@@ -187,7 +238,16 @@ class GeminiClient
         }
 
         $result = json_decode($response, true);
-        return $result['candidates'][0]['content']['parts'][0]['text'] ?? null;
+        $part = $result['candidates'][0]['content']['parts'][0] ?? null;
+
+        if (isset($part['functionCall'])) {
+            return [
+                'type' => 'function_call',
+                'call' => $part['functionCall']
+            ];
+        }
+
+        return $part['text'] ?? null;
     }
 }
 ?>

@@ -525,6 +525,52 @@ switch ($action) {
 
         echo json_encode(['status' => 'success', 'labels' => $labels, 'values' => $values]);
         break;
+    case 'calendar_settings_get':
+        $req_client_id = $_GET['client_id'] ?? $client_id;
+        if (($_SESSION['role'] ?? '') !== 'superadmin' && $req_client_id != $client_id) {
+            echo json_encode(['status' => 'error', 'message' => 'No autorizado para ver este cliente']);
+            exit;
+        }
+        $stmt = mysqli_prepare($conn, "SELECT calendar_id, available_days, start_time, end_time, slot_duration_minutes, timezone FROM calendar_settings WHERE client_id=?");
+        mysqli_stmt_bind_param($stmt, "i", $req_client_id);
+        mysqli_stmt_execute($stmt);
+        $res = mysqli_stmt_get_result($stmt);
+        $data = mysqli_fetch_assoc($res);
+        if (!$data) {
+            $data = [
+                'calendar_id' => 'primary',
+                'available_days' => '1,2,3,4,5',
+                'start_time' => '09:00:00',
+                'end_time' => '18:00:00',
+                'slot_duration_minutes' => 30,
+                'timezone' => 'America/Santiago'
+            ];
+        }
+        echo json_encode(['status' => 'success', 'data' => $data]);
+        break;
+
+    case 'calendar_settings_update':
+        $req_client_id = $_POST['client_id'] ?? $client_id;
+        if (($_SESSION['role'] ?? '') !== 'superadmin' && $req_client_id != $client_id) {
+            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
+            exit;
+        }
+        // $req_client_id was extracted correctly. Now processing form data:
+        $calendar_id = $_POST['calendar_id'] ?? 'primary';
+        $available_days = isset($_POST['available_days']) ? implode(',', (array) $_POST['available_days']) : '1,2,3,4,5';
+        $start_time = $_POST['start_time'] ?? '09:00:00';
+        $end_time = $_POST['end_time'] ?? '18:00:00';
+        $slot_duration_minutes = intval($_POST['slot_duration_minutes'] ?? 30);
+        $timezone = $_POST['timezone'] ?? 'America/Santiago';
+
+        $stmt = mysqli_prepare($conn, "INSERT INTO calendar_settings (client_id, calendar_id, available_days, start_time, end_time, slot_duration_minutes, timezone) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE calendar_id=VALUES(calendar_id), available_days=VALUES(available_days), start_time=VALUES(start_time), end_time=VALUES(end_time), slot_duration_minutes=VALUES(slot_duration_minutes), timezone=VALUES(timezone)");
+        mysqli_stmt_bind_param($stmt, "issssis", $req_client_id, $calendar_id, $available_days, $start_time, $end_time, $slot_duration_minutes, $timezone);
+        if (mysqli_stmt_execute($stmt)) {
+            echo json_encode(['status' => 'success']);
+        } else {
+            echo json_encode(['status' => 'error', 'message' => 'Error guardando configuraciones: ' . mysqli_error($conn)]);
+        }
+        break;
 
     default:
         echo json_encode(['status' => 'error', 'message' => 'Acción no válida']);

@@ -112,7 +112,31 @@ if ($matched === 0 && !empty($clean_msg)) {
     $gemini = new GeminiClient();
     $ai_reply = $gemini->get_response($user_msg, $history, $custom_system_prompt, $info_sources_text, $info_sources_files);
 
-    if ($ai_reply) {
+    // Handle function calling
+    if (is_array($ai_reply) && $ai_reply['type'] === 'function_call') {
+        require_once 'calendar_functions.php';
+        $func_name = $ai_reply['call']['name'];
+        $func_args = $ai_reply['call']['args'] ?? [];
+
+        $func_result = "";
+        if ($func_name === 'check_availability') {
+            $func_result = check_calendar_availability($conn, $assistant_id, $func_args);
+        } else if ($func_name === 'book_appointment') {
+            $func_result = book_calendar_appointment($conn, $assistant_id, $func_args);
+        } else {
+            $func_result = "Function not implemented.";
+        }
+
+        // Pass result back to Gemini for final response
+        $function_state = [
+            'call' => $ai_reply['call'],
+            'result' => is_array($func_result) ? $func_result : ["message" => $func_result]
+        ];
+
+        $ai_reply = $gemini->get_response($user_msg, $history, $custom_system_prompt, $info_sources_text, $info_sources_files, $function_state);
+    }
+
+    if (is_string($ai_reply) && !empty($ai_reply)) {
         $reply = $ai_reply;
         $matched = 1; // Mark as matched via AI
     }

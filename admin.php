@@ -547,9 +547,10 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             <!-- INTEGRATIONS TAB -->
             <div id="integrations-tab" class="tab-content">
                 <div class="panel-header">
-                    <h2>Integración con Google Drive</h2>
+                    <h2>Integraciones (Google Drive & Calendar)</h2>
                 </div>
-                <div class="panel" style="border:none; background:rgba(0,0,0,0.2);">
+                <!-- DRIVE -->
+                <div class="panel" style="border:none; background:rgba(0,0,0,0.2); margin-bottom: 20px;">
                     <div id="drive-status-container" style="margin-bottom: 2rem;">
                          <i class="fa-solid fa-spinner fa-spin"></i> Cargando estado de conexión...
                     </div>
@@ -570,6 +571,50 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                             </table>
                         </div>
                     </div>
+                </div>
+
+                <!-- CALENDAR -->
+                <div class="panel" style="border:none; background:rgba(0,0,0,0.2);" id="calendar-settings-container">
+                    <h3 style="margin-bottom: 10px;"><i class="fa-regular fa-calendar-check" style="color:#f59e0b;"></i> Configuración de Google Calendar</h3>
+                    <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px; margin-top:5px;">Define tu disponibilidad para que el Asistente pueda agendar citas automáticamente en tu calendario de Google vinculado.</p>
+                    <form id="calendar-settings-form" onsubmit="submitCalendarSettings(event)">
+                        <input type="hidden" name="client_id" id="cal-client-id">
+                        <div class="form-group">
+                            <label>Días de Atención (Selecciona los días disponibles)</label>
+                            <div style="display:flex; gap:15px; flex-wrap:wrap; margin-top: 5px;">
+                                <label><input type="checkbox" name="available_days[]" value="1"> Lunes</label>
+                                <label><input type="checkbox" name="available_days[]" value="2"> Martes</label>
+                                <label><input type="checkbox" name="available_days[]" value="3"> Miércoles</label>
+                                <label><input type="checkbox" name="available_days[]" value="4"> Jueves</label>
+                                <label><input type="checkbox" name="available_days[]" value="5"> Viernes</label>
+                                <label><input type="checkbox" name="available_days[]" value="6"> Sábado</label>
+                                <label><input type="checkbox" name="available_days[]" value="0"> Domingo</label>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:20px;">
+                            <div class="form-group" style="flex:1;">
+                                <label>Hora Inicio</label>
+                                <input type="time" name="start_time" id="cal-start-time" required>
+                            </div>
+                            <div class="form-group" style="flex:1;">
+                                <label>Hora Fin</label>
+                                <input type="time" name="end_time" id="cal-end-time" required>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:20px;">
+                            <div class="form-group" style="flex:1;">
+                                <label>Duración de Cita (minutos)</label>
+                                <input type="number" name="slot_duration_minutes" id="cal-duration" placeholder="30" required>
+                            </div>
+                            <div class="form-group" style="flex:1;">
+                                <label>Zona Horaria</label>
+                                <input type="text" name="timezone" id="cal-timezone" placeholder="America/Santiago" value="America/Santiago" required>
+                            </div>
+                        </div>
+                        <div style="margin-top:20px;">
+                            <button type="submit" class="btn" id="btn-save-calendar"><i class="fa-solid fa-save"></i> Guardar Horario</button>
+                        </div>
+                    </form>
                 </div>
             </div>
 
@@ -853,8 +898,15 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 setTimeout(loadUsers, 500); // ensure clientsCache is loaded
             }
             loadAssistants(true); // true = also reload select
-            loadDriveStatus();
         });
+
+        function getClientIdForAPI() {
+            if (IS_SUPERADMIN && currentAssistantId) {
+                let ast = assistantsCache.find(a => a.id == currentAssistantId);
+                return ast ? ast.client_id : null;
+            }
+            return null; // backend will use session client_id if client
+        }
 
         function reloadAssistantDependantViews() {
             loadStats();
@@ -862,19 +914,32 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             loadInfoSources();
             loadRules();
             loadLogs();
+            loadDriveStatus();
+            loadCalendarSettings();
         }
 
         // --- Drive Integrations ---
         function loadDriveStatus() {
-            $.get('api_drive.php?action=status', function(res) {
+            let cid = getClientIdForAPI();
+            if (IS_SUPERADMIN && !cid) {
+                $('#drive-status-container').html('<p style="color:var(--text-muted)">Seleccione un Asistente en el menú superior para ver la integración de su cuenta.</p>');
+                $('#drive-files-container').hide();
+                $('#calendar-settings-container').hide();
+                return;
+            }
+            $('#calendar-settings-container').show();
+
+            let targetUrl = 'api_drive.php?action=status' + (cid ? '&client_id='+cid : '');
+            
+            $.get(targetUrl, function(res) {
                 if (res.status === 'success') {
                     if (res.connected) {
                         $('#drive-status-container').html(`
                             <div style="display:flex; align-items:center; gap:15px;">
                                 <i class="fa-brands fa-google-drive" style="font-size:32px; color:#10b981;"></i>
                                 <div>
-                                    <h3 style="color:#10b981; margin-bottom:5px;">Conectado a Google Drive</h3>
-                                    <p style="color:var(--text-muted); font-size:13px;">Tu cuenta está vinculada. Puedes explorar y sincronizar archivos.</p>
+                                    <h3 style="color:#10b981; margin-bottom:5px;">Conectado a Google</h3>
+                                    <p style="color:var(--text-muted); font-size:13px;">Tu cuenta está vinculada (Drive y Calendar). Puedes explorar y sincronizar archivos.</p>
                                 </div>
                             </div>
                         `);
@@ -882,14 +947,15 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                         loadDriveFiles();
                     } else {
                         $('#drive-files-container').hide();
-                        $.get('api_drive.php?action=auth_url', function(urlRes) {
+                        let authUrlTarget = 'api_drive.php?action=auth_url' + (cid ? '&client_id='+cid : '');
+                        $.get(authUrlTarget, function(urlRes) {
                             if (urlRes.status === 'success') {
                                  $('#drive-status-container').html(`
                                     <div style="display:flex; align-items:center; gap:15px;">
-                                        <i class="fa-brands fa-google-drive" style="font-size:32px; color:var(--text-muted);"></i>
+                                        <i class="fa-brands fa-google" style="font-size:32px; color:var(--text-muted);"></i>
                                         <div>
-                                            <h3 style="margin-bottom:10px;">Google Drive Desconectado</h3>
-                                            <a href="${urlRes.url}" class="btn" style="background:#4285F4;"><i class="fa-brands fa-google"></i> Conectar con Google Drive</a>
+                                            <h3 style="margin-bottom:10px;">Google Drive & Calendar Desconectado</h3>
+                                            <a href="${urlRes.url}" class="btn" style="background:#4285F4;"><i class="fa-brands fa-google"></i> Conectar con Google</a>
                                         </div>
                                     </div>
                                 `);
@@ -904,7 +970,8 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
 
         function loadDriveFiles() {
             $('#drive-files-table tbody').html('<tr><td colspan="3" style="text-align:center;"><i class="fa-solid fa-spinner fa-spin"></i> Cargando archivos...</td></tr>');
-            $.get('api_drive.php?action=list_files', function(res) {
+            let cid = getClientIdForAPI();
+            $.get('api_drive.php?action=list_files' + (cid ? '&client_id='+cid : ''), function(res) {
                 if (res.files) {
                      let html = '';
                      res.files.forEach(f => {
@@ -926,12 +993,16 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 alert("Primero selecciona un Asistente en la parte superior ('Asistente Activo') al cual quieres sincronizar este archivo, o entra a un asistente específico.");
                 return;
             }
+            let cid = getClientIdForAPI();
             if (confirm(`¿Sincronizar "${fileName}" al Asistente actual? (Esto creará una nueva Fuente de Información)`)) {
                 let btn = $(event.currentTarget);
                 let originalText = btn.html();
                 btn.html('<i class="fa-solid fa-spinner fa-spin"></i> Sincronizando...').prop('disabled', true);
                 
-                $.post('api_drive.php?action=sync_file', { file_id: fileId, file_name: fileName, mime_type: mimeType, assistant_id: currentAssistantId }, function(res) {
+                let reqData = { file_id: fileId, file_name: fileName, mime_type: mimeType, assistant_id: currentAssistantId };
+                if (cid) reqData.client_id = cid;
+
+                $.post('api_drive.php?action=sync_file', reqData, function(res) {
                     btn.html(originalText).prop('disabled', false);
                     if (res.status === 'success') {
                         alert(`¡Sincronización exitosa! ${fileName} subido a Gemini.`);
@@ -944,6 +1015,54 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                      alert("Error de red o procesamiento al sincronizar desde Drive.");
                 });
             }
+        }
+
+        // --- Calendar Settings ---
+        function loadCalendarSettings() {
+            let cid = getClientIdForAPI();
+            if (IS_SUPERADMIN && !cid) return; // Wait for selection
+
+            $.get('api.php?action=calendar_settings_get' + (cid ? '&client_id='+cid : ''), function(res) {
+                if (res.status === 'success' && res.data) {
+                    $('#cal-client-id').val(res.data.client_id || cid);
+                    $('#cal-start-time').val(res.data.start_time);
+                    $('#cal-end-time').val(res.data.end_time);
+                    $('#cal-duration').val(res.data.slot_duration_minutes);
+                    $('#cal-timezone').val(res.data.timezone);
+                    
+                    // Checkboxes
+                    $('input[name="available_days[]"]').prop('checked', false);
+                    if (res.data.available_days) {
+                        let days = res.data.available_days.split(',');
+                        days.forEach(d => {
+                            $(`input[name="available_days[]"][value="${d}"]`).prop('checked', true);
+                        });
+                    }
+                }
+            }, 'json');
+        }
+
+        function submitCalendarSettings(e) {
+            e.preventDefault();
+            let btn = $('#btn-save-calendar');
+            let originalText = btn.html();
+            btn.html('<i class="fa-solid fa-spinner fa-spin"></i> Guardando...').prop('disabled', true);
+
+            let formData = $('#calendar-settings-form').serialize();
+            let cid = getClientIdForAPI();
+            if (IS_SUPERADMIN && cid) formData += '&client_id=' + cid;
+
+            $.post('api.php?action=calendar_settings_update', formData, function(res) {
+                 btn.html(originalText).prop('disabled', false);
+                 if (res.status === 'success') {
+                     alert('Configuración de calendario guardada correctamente.');
+                 } else {
+                     alert(res.message || 'Error guardando.');
+                 }
+            }, 'json').fail(function(){
+                 btn.html(originalText).prop('disabled', false);
+                 alert('Error de red al intentar guardar.');
+            });
         }
 
         // --- Clients ---

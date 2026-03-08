@@ -19,6 +19,19 @@ CREATE TABLE clients (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Calendar Settings Table
+DROP TABLE IF EXISTS calendar_settings;
+CREATE TABLE calendar_settings (
+    client_id INT PRIMARY KEY,
+    calendar_id VARCHAR(255) DEFAULT 'primary',
+    available_days VARCHAR(50) DEFAULT '1,2,3,4,5',
+    start_time TIME DEFAULT '09:00:00',
+    end_time TIME DEFAULT '18:00:00',
+    slot_duration_minutes INT DEFAULT 30,
+    timezone VARCHAR(50) DEFAULT 'America/Santiago',
+    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
+);
+
 -- Client Integrations Table (Google Drive, etc.)
 DROP TABLE IF EXISTS client_integrations;
 CREATE TABLE client_integrations (
