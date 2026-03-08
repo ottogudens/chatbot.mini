@@ -408,6 +408,8 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                     Asistentes</button>
                 <button class="nav-tab" data-target="info-tab"><i class="fa-solid fa-database"></i> Fuentes de
                     Info</button>
+                <button class="nav-tab" data-target="integrations-tab"><i class="fa-brands fa-google-drive"></i>
+                    Integraciones</button>
                 <button class="nav-tab" data-target="rules-tab"><i class="fa-solid fa-book"></i> Reglas Q&A</button>
                 <button class="nav-tab" data-target="logs-tab"><i class="fa-solid fa-list"></i> Logs</button>
             </div>
@@ -539,6 +541,35 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                             </tr>
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            <!-- INTEGRATIONS TAB -->
+            <div id="integrations-tab" class="tab-content">
+                <div class="panel-header">
+                    <h2>Integración con Google Drive</h2>
+                </div>
+                <div class="panel" style="border:none; background:rgba(0,0,0,0.2);">
+                    <div id="drive-status-container" style="margin-bottom: 2rem;">
+                         <i class="fa-solid fa-spinner fa-spin"></i> Cargando estado de conexión...
+                    </div>
+                    
+                    <div id="drive-files-container" style="display:none;">
+                        <h3>Tus Archivos en Drive (Google Sheets y Docs)</h3>
+                        <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px; margin-top:5px;">Selecciona los archivos que deseas sincronizar como Fuentes de Información. Se exportarán a formatos locales antes de ir a Gemini.</p>
+                        <div style="overflow-x: auto;">
+                            <table id="drive-files-table">
+                                <thead>
+                                    <tr>
+                                        <th>Nombre del Archivo</th>
+                                        <th>Última Modificación</th>
+                                        <th>Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -822,6 +853,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 setTimeout(loadUsers, 500); // ensure clientsCache is loaded
             }
             loadAssistants(true); // true = also reload select
+            loadDriveStatus();
         });
 
         function reloadAssistantDependantViews() {
@@ -830,6 +862,88 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             loadInfoSources();
             loadRules();
             loadLogs();
+        }
+
+        // --- Drive Integrations ---
+        function loadDriveStatus() {
+            $.get('api_drive.php?action=status', function(res) {
+                if (res.status === 'success') {
+                    if (res.connected) {
+                        $('#drive-status-container').html(`
+                            <div style="display:flex; align-items:center; gap:15px;">
+                                <i class="fa-brands fa-google-drive" style="font-size:32px; color:#10b981;"></i>
+                                <div>
+                                    <h3 style="color:#10b981; margin-bottom:5px;">Conectado a Google Drive</h3>
+                                    <p style="color:var(--text-muted); font-size:13px;">Tu cuenta está vinculada. Puedes explorar y sincronizar archivos.</p>
+                                </div>
+                            </div>
+                        `);
+                        $('#drive-files-container').show();
+                        loadDriveFiles();
+                    } else {
+                        $('#drive-files-container').hide();
+                        $.get('api_drive.php?action=auth_url', function(urlRes) {
+                            if (urlRes.status === 'success') {
+                                 $('#drive-status-container').html(`
+                                    <div style="display:flex; align-items:center; gap:15px;">
+                                        <i class="fa-brands fa-google-drive" style="font-size:32px; color:var(--text-muted);"></i>
+                                        <div>
+                                            <h3 style="margin-bottom:10px;">Google Drive Desconectado</h3>
+                                            <a href="${urlRes.url}" class="btn" style="background:#4285F4;"><i class="fa-brands fa-google"></i> Conectar con Google Drive</a>
+                                        </div>
+                                    </div>
+                                `);
+                            }
+                        }, 'json');
+                    }
+                } else if (res.status === 'error') {
+                     $('#drive-status-container').html(`<p style="color:#ef4444">${res.message}</p>`);
+                }
+            }, 'json');
+        }
+
+        function loadDriveFiles() {
+            $('#drive-files-table tbody').html('<tr><td colspan="3" style="text-align:center;"><i class="fa-solid fa-spinner fa-spin"></i> Cargando archivos...</td></tr>');
+            $.get('api_drive.php?action=list_files', function(res) {
+                if (res.files) {
+                     let html = '';
+                     res.files.forEach(f => {
+                          html += `<tr>
+                             <td><i class="fa-brands fa-google-drive" style="color:#4285F4"></i> <b>${f.name}</b></td>
+                             <td><span style="font-size:12px; color:var(--text-muted);">${new Date(f.modifiedTime).toLocaleString()}</span></td>
+                             <td><button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="syncDriveFile('${f.id}', '${f.name}', '${f.mimeType}')"><i class="fa-solid fa-cloud-arrow-down"></i> Sincronizar al Asistente</button></td>
+                          </tr>`;
+                     });
+                     $('#drive-files-table tbody').html(html || '<tr><td colspan="3" style="text-align:center;">No se encontraron documentos en tu Drive.</td></tr>');
+                } else {
+                     $('#drive-files-table tbody').html('<tr><td colspan="3" style="text-align:center; color:#ef4444;">Error cargando archivos o permisos insuficientes.</td></tr>');
+                }
+            }, 'json');
+        }
+
+        function syncDriveFile(fileId, fileName, mimeType) {
+            if (!currentAssistantId) {
+                alert("Primero selecciona un Asistente en la parte superior ('Asistente Activo') al cual quieres sincronizar este archivo, o entra a un asistente específico.");
+                return;
+            }
+            if (confirm(`¿Sincronizar "${fileName}" al Asistente actual? (Esto creará una nueva Fuente de Información)`)) {
+                let btn = $(event.currentTarget);
+                let originalText = btn.html();
+                btn.html('<i class="fa-solid fa-spinner fa-spin"></i> Sincronizando...').prop('disabled', true);
+                
+                $.post('api_drive.php?action=sync_file', { file_id: fileId, file_name: fileName, mime_type: mimeType, assistant_id: currentAssistantId }, function(res) {
+                    btn.html(originalText).prop('disabled', false);
+                    if (res.status === 'success') {
+                        alert(`¡Sincronización exitosa! ${fileName} subido a Gemini.`);
+                        loadInfoSources();
+                    } else {
+                        alert(res.message || 'Error desconocido al sincronizar.');
+                    }
+                }, 'json').fail(function() {
+                     btn.html(originalText).prop('disabled', false);
+                     alert("Error de red o procesamiento al sincronizar desde Drive.");
+                });
+            }
         }
 
         // --- Clients ---
