@@ -135,8 +135,15 @@ switch ($action) {
         $file_size = null;
         $gemini_uri = null;
 
+        // Check if POST is empty but Content-Length is large (post_max_size exceeded)
+        $content_length = (int) ($_SERVER['CONTENT_LENGTH'] ?? 0);
+        if (empty($_POST) && $content_length > 0) {
+            echo json_encode(['status' => 'error', 'message' => "El archivo subido excede el límite máximo permitido por el servidor (post_max_size). Tamaño intentado: " . round($content_length / 1024 / 1024, 2) . " MB."]);
+            exit;
+        }
+
         if (empty($assistant_id) || empty($title)) {
-            echo json_encode(['status' => 'error', 'message' => 'Faltan datos requeridos.']);
+            echo json_encode(['status' => 'error', 'message' => 'Faltan datos requeridos (Asistente o Título).']);
             exit;
         }
 
@@ -198,11 +205,13 @@ switch ($action) {
                     exit;
                 }
             } else {
-                echo json_encode(['status' => 'error', 'message' => 'Error moviendo el archivo subido.']);
+                $upload_error_msg = error_get_last()['message'] ?? 'Desconocido';
+                echo json_encode(['status' => 'error', 'message' => "Error moviendo el archivo subido al directorio físico. Revisa los permisos de escritura del volumen. " . $upload_error_msg]);
                 exit;
             }
         } else if ($type === 'file') {
-            echo json_encode(['status' => 'error', 'message' => 'Error en la subida del archivo.']);
+            $err_code = $_FILES['file_upload']['error'] ?? 'Ningún archivo recibido (puede que exceda upload_max_filesize)';
+            echo json_encode(['status' => 'error', 'message' => "Error en la subida del archivo. Código PHP: $err_code."]);
             exit;
         }
 
