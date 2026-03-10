@@ -16,7 +16,12 @@ if (!$client_id && ($_SESSION['role'] ?? '') !== 'superadmin') {
     exit;
 }
 if (!$client_id && ($_SESSION['role'] ?? '') === 'superadmin') {
-    $client_id = $_GET['client_id'] ?? null;
+    $client_id = $_GET['client_id'] ?? $_POST['client_id'] ?? null;
+    // Special case for Google Callback: client_id is passed in 'state'
+    if (!$client_id && $action === 'callback') {
+        $client_id = $_GET['state'] ?? null;
+    }
+
     if (!$client_id) {
         echo json_encode(['status' => 'error', 'message' => 'Superadmin debe especificar client_id en la petición (ej. seleccionando un asistente).']);
         exit;
