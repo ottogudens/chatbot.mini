@@ -25,7 +25,8 @@ if (!$client_id && ($_SESSION['role'] ?? '') === 'superadmin') {
 
 $google_client_id = getenv('GOOGLE_CLIENT_ID') ?: 'TU_GOOGLE_CLIENT_ID';
 $google_client_secret = getenv('GOOGLE_CLIENT_SECRET') ?: 'TU_GOOGLE_CLIENT_SECRET';
-$redirect_uri = getenv('GOOGLE_REDIRECT_URI') ?: ((isset($_SERVER['HTTPS']) ? "https" : "http") . "://$_SERVER[HTTP_HOST]" . strtok($_SERVER["REQUEST_URI"], '?') . "?action=callback");
+$protocol = (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') || (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? "https" : "http";
+$redirect_uri = getenv('GOOGLE_REDIRECT_URI') ?: ($protocol . "://$_SERVER[HTTP_HOST]" . strtok($_SERVER["REQUEST_URI"], '?') . "?action=callback");
 
 function refresh_google_token($conn, $client_id_db, $refresh_token, $google_client_id, $google_client_secret)
 {
