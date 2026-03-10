@@ -401,8 +401,8 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 <button class="nav-tab active" data-target="dashboard-tab"><i class="fa-solid fa-chart-line"></i>
                     Resumen</button>
                 <?php if ($is_superadmin): ?>
-                <button class="nav-tab" data-target="clients-tab"><i class="fa-solid fa-building"></i> Clientes</button>
-                <button class="nav-tab" data-target="users-tab"><i class="fa-solid fa-users"></i> Usuarios</button>
+                    <button class="nav-tab" data-target="clients-tab"><i class="fa-solid fa-building"></i> Clientes</button>
+                    <button class="nav-tab" data-target="users-tab"><i class="fa-solid fa-users"></i> Usuarios</button>
                 <?php endif; ?>
                 <button class="nav-tab" data-target="assistants-tab"><i class="fa-solid fa-robot"></i>
                     Asistentes</button>
@@ -437,59 +437,60 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             </div>
 
             <?php if ($is_superadmin): ?>
-            <!-- CLIENTS TAB -->
-            <div id="clients-tab" class="tab-content">
-                <div class="panel-header">
-                    <h2>Gestión de Clientes</h2>
-                    <button class="btn" onclick="openClientModal()"><i class="fa-solid fa-plus"></i> Nuevo
-                        Cliente</button>
+                <!-- CLIENTS TAB -->
+                <div id="clients-tab" class="tab-content">
+                    <div class="panel-header">
+                        <h2>Gestión de Clientes</h2>
+                        <button class="btn" onclick="openClientModal()"><i class="fa-solid fa-plus"></i> Nuevo
+                            Cliente</button>
+                    </div>
+                    <div style="overflow-x: auto;">
+                        <table id="clients-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Nombre</th>
+                                    <th>Email Contacto</th>
+                                    <th>Creado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="5" style="text-align:center;">Cargando...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-                <div style="overflow-x: auto;">
-                    <table id="clients-table">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Nombre</th>
-                                <th>Email Contacto</th>
-                                <th>Creado</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td colspan="5" style="text-align:center;">Cargando...</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
 
-            <!-- USERS TAB -->
-            <div id="users-tab" class="tab-content">
-                <div class="panel-header">
-                    <h2>Gestión de Usuarios App</h2>
-                    <button class="btn" onclick="openUserModal()"><i class="fa-solid fa-plus"></i> Nuevo Usuario</button>
+                <!-- USERS TAB -->
+                <div id="users-tab" class="tab-content">
+                    <div class="panel-header">
+                        <h2>Gestión de Usuarios App</h2>
+                        <button class="btn" onclick="openUserModal()"><i class="fa-solid fa-plus"></i> Nuevo
+                            Usuario</button>
+                    </div>
+                    <div style="overflow-x: auto;">
+                        <table id="users-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Usuario</th>
+                                    <th>Rol</th>
+                                    <th>Cliente Asignado</th>
+                                    <th>Creado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="6" style="text-align:center;">Cargando...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-                <div style="overflow-x: auto;">
-                    <table id="users-table">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Usuario</th>
-                                <th>Rol</th>
-                                <th>Cliente Asignado</th>
-                                <th>Creado</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td colspan="6" style="text-align:center;">Cargando...</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
             <?php endif; ?>
 
             <!-- ASSISTANTS TAB -->
@@ -552,12 +553,14 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 <!-- DRIVE -->
                 <div class="panel" style="border:none; background:rgba(0,0,0,0.2); margin-bottom: 20px;">
                     <div id="drive-status-container" style="margin-bottom: 2rem;">
-                         <i class="fa-solid fa-spinner fa-spin"></i> Cargando estado de conexión...
+                        <i class="fa-solid fa-spinner fa-spin"></i> Cargando estado de conexión...
                     </div>
-                    
+
                     <div id="drive-files-container" style="display:none;">
                         <h3>Tus Archivos en Drive (Google Sheets y Docs)</h3>
-                        <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px; margin-top:5px;">Selecciona los archivos que deseas sincronizar como Fuentes de Información. Se exportarán a formatos locales antes de ir a Gemini.</p>
+                        <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px; margin-top:5px;">
+                            Selecciona los archivos que deseas sincronizar como Fuentes de Información. Se exportarán a
+                            formatos locales antes de ir a Gemini.</p>
                         <div style="overflow-x: auto;">
                             <table id="drive-files-table">
                                 <thead>
@@ -575,8 +578,11 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
 
                 <!-- CALENDAR -->
                 <div class="panel" style="border:none; background:rgba(0,0,0,0.2);" id="calendar-settings-container">
-                    <h3 style="margin-bottom: 10px;"><i class="fa-regular fa-calendar-check" style="color:#f59e0b;"></i> Configuración de Google Calendar</h3>
-                    <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px; margin-top:5px;">Define tu disponibilidad para que el Asistente pueda agendar citas automáticamente en tu calendario de Google vinculado.</p>
+                    <h3 style="margin-bottom: 10px;"><i class="fa-regular fa-calendar-check" style="color:#f59e0b;"></i>
+                        Configuración de Google Calendar</h3>
+                    <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px; margin-top:5px;">Define tu
+                        disponibilidad para que el Asistente pueda agendar citas automáticamente en tu calendario de
+                        Google vinculado.</p>
                     <form id="calendar-settings-form" onsubmit="submitCalendarSettings(event)">
                         <input type="hidden" name="client_id" id="cal-client-id">
                         <div class="form-group">
@@ -604,15 +610,18 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                         <div style="display:flex; gap:20px;">
                             <div class="form-group" style="flex:1;">
                                 <label>Duración de Cita (minutos)</label>
-                                <input type="number" name="slot_duration_minutes" id="cal-duration" placeholder="30" required>
+                                <input type="number" name="slot_duration_minutes" id="cal-duration" placeholder="30"
+                                    required>
                             </div>
                             <div class="form-group" style="flex:1;">
                                 <label>Zona Horaria</label>
-                                <input type="text" name="timezone" id="cal-timezone" placeholder="America/Santiago" value="America/Santiago" required>
+                                <input type="text" name="timezone" id="cal-timezone" placeholder="America/Santiago"
+                                    value="America/Santiago" required>
                             </div>
                         </div>
                         <div style="margin-top:20px;">
-                            <button type="submit" class="btn" id="btn-save-calendar"><i class="fa-solid fa-save"></i> Guardar Horario</button>
+                            <button type="submit" class="btn" id="btn-save-calendar"><i class="fa-solid fa-save"></i>
+                                Guardar Horario</button>
                         </div>
                     </form>
                 </div>
@@ -746,10 +755,10 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             <form id="assistant-form" onsubmit="submitAssistant(event)">
                 <input type="hidden" id="assistant-id" name="id">
                 <?php if ($is_superadmin): ?>
-                <div class="form-group">
-                    <label>Cliente</label>
-                    <select id="assistant-client" name="client_id" required></select>
-                </div>
+                    <div class="form-group">
+                        <label>Cliente</label>
+                        <select id="assistant-client" name="client_id" required></select>
+                    </div>
                 <?php endif; ?>
                 <div class="form-group">
                     <label>Nombre del Asistente</label>
@@ -929,9 +938,9 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             }
             $('#calendar-settings-container').show();
 
-            let targetUrl = 'api_drive.php?action=status' + (cid ? '&client_id='+cid : '');
-            
-            $.get(targetUrl, function(res) {
+            let targetUrl = 'api_drive.php?action=status' + (cid ? '&client_id=' + cid : '');
+
+            $.get(targetUrl, function (res) {
                 if (res.status === 'success') {
                     if (res.connected) {
                         $('#drive-status-container').html(`
@@ -947,10 +956,10 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                         loadDriveFiles();
                     } else {
                         $('#drive-files-container').hide();
-                        let authUrlTarget = 'api_drive.php?action=auth_url' + (cid ? '&client_id='+cid : '');
-                        $.get(authUrlTarget, function(urlRes) {
+                        let authUrlTarget = 'api_drive.php?action=auth_url' + (cid ? '&client_id=' + cid : '');
+                        $.get(authUrlTarget, function (urlRes) {
                             if (urlRes.status === 'success') {
-                                 $('#drive-status-container').html(`
+                                $('#drive-status-container').html(`
                                     <div style="display:flex; align-items:center; gap:15px;">
                                         <i class="fa-brands fa-google" style="font-size:32px; color:var(--text-muted);"></i>
                                         <div>
@@ -963,7 +972,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                         }, 'json');
                     }
                 } else if (res.status === 'error') {
-                     $('#drive-status-container').html(`<p style="color:#ef4444">${res.message}</p>`);
+                    $('#drive-status-container').html(`<p style="color:#ef4444">${res.message}</p>`);
                 }
             }, 'json');
         }
@@ -971,19 +980,19 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
         function loadDriveFiles() {
             $('#drive-files-table tbody').html('<tr><td colspan="3" style="text-align:center;"><i class="fa-solid fa-spinner fa-spin"></i> Cargando archivos...</td></tr>');
             let cid = getClientIdForAPI();
-            $.get('api_drive.php?action=list_files' + (cid ? '&client_id='+cid : ''), function(res) {
+            $.get('api_drive.php?action=list_files' + (cid ? '&client_id=' + cid : ''), function (res) {
                 if (res.files) {
-                     let html = '';
-                     res.files.forEach(f => {
-                          html += `<tr>
+                    let html = '';
+                    res.files.forEach(f => {
+                        html += `<tr>
                              <td><i class="fa-brands fa-google-drive" style="color:#4285F4"></i> <b>${f.name}</b></td>
                              <td><span style="font-size:12px; color:var(--text-muted);">${new Date(f.modifiedTime).toLocaleString()}</span></td>
                              <td><button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="syncDriveFile('${f.id}', '${f.name}', '${f.mimeType}')"><i class="fa-solid fa-cloud-arrow-down"></i> Sincronizar al Asistente</button></td>
                           </tr>`;
-                     });
-                     $('#drive-files-table tbody').html(html || '<tr><td colspan="3" style="text-align:center;">No se encontraron documentos en tu Drive.</td></tr>');
+                    });
+                    $('#drive-files-table tbody').html(html || '<tr><td colspan="3" style="text-align:center;">No se encontraron documentos en tu Drive.</td></tr>');
                 } else {
-                     $('#drive-files-table tbody').html('<tr><td colspan="3" style="text-align:center; color:#ef4444;">Error cargando archivos o permisos insuficientes.</td></tr>');
+                    $('#drive-files-table tbody').html('<tr><td colspan="3" style="text-align:center; color:#ef4444;">Error cargando archivos o permisos insuficientes.</td></tr>');
                 }
             }, 'json');
         }
@@ -998,11 +1007,11 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 let btn = $(event.currentTarget);
                 let originalText = btn.html();
                 btn.html('<i class="fa-solid fa-spinner fa-spin"></i> Sincronizando...').prop('disabled', true);
-                
+
                 let reqData = { file_id: fileId, file_name: fileName, mime_type: mimeType, assistant_id: currentAssistantId };
                 if (cid) reqData.client_id = cid;
 
-                $.post('api_drive.php?action=sync_file', reqData, function(res) {
+                $.post('api_drive.php?action=sync_file', reqData, function (res) {
                     btn.html(originalText).prop('disabled', false);
                     if (res.status === 'success') {
                         alert(`¡Sincronización exitosa! ${fileName} subido a Gemini.`);
@@ -1010,9 +1019,9 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                     } else {
                         alert(res.message || 'Error desconocido al sincronizar.');
                     }
-                }, 'json').fail(function() {
-                     btn.html(originalText).prop('disabled', false);
-                     alert("Error de red o procesamiento al sincronizar desde Drive.");
+                }, 'json').fail(function () {
+                    btn.html(originalText).prop('disabled', false);
+                    alert("Error de red o procesamiento al sincronizar desde Drive.");
                 });
             }
         }
@@ -1022,14 +1031,14 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             let cid = getClientIdForAPI();
             if (IS_SUPERADMIN && !cid) return; // Wait for selection
 
-            $.get('api.php?action=calendar_settings_get' + (cid ? '&client_id='+cid : ''), function(res) {
+            $.get('api.php?action=calendar_settings_get' + (cid ? '&client_id=' + cid : ''), function (res) {
                 if (res.status === 'success' && res.data) {
                     $('#cal-client-id').val(res.data.client_id || cid);
                     $('#cal-start-time').val(res.data.start_time);
                     $('#cal-end-time').val(res.data.end_time);
                     $('#cal-duration').val(res.data.slot_duration_minutes);
                     $('#cal-timezone').val(res.data.timezone);
-                    
+
                     // Checkboxes
                     $('input[name="available_days[]"]').prop('checked', false);
                     if (res.data.available_days) {
@@ -1052,16 +1061,16 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             let cid = getClientIdForAPI();
             if (IS_SUPERADMIN && cid) formData += '&client_id=' + cid;
 
-            $.post('api.php?action=calendar_settings_update', formData, function(res) {
-                 btn.html(originalText).prop('disabled', false);
-                 if (res.status === 'success') {
-                     alert('Configuración de calendario guardada correctamente.');
-                 } else {
-                     alert(res.message || 'Error guardando.');
-                 }
-            }, 'json').fail(function(){
-                 btn.html(originalText).prop('disabled', false);
-                 alert('Error de red al intentar guardar.');
+            $.post('api.php?action=calendar_settings_update', formData, function (res) {
+                btn.html(originalText).prop('disabled', false);
+                if (res.status === 'success') {
+                    alert('Configuración de calendario guardada correctamente.');
+                } else {
+                    alert(res.message || 'Error guardando.');
+                }
+            }, 'json').fail(function () {
+                btn.html(originalText).prop('disabled', false);
+                alert('Error de red al intentar guardar.');
             });
         }
 
@@ -1073,8 +1082,9 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                     let html = '';
                     let optHtml = '';
                     res.data.forEach(c => {
+                        let clientJson = JSON.stringify(c).replace(/'/g, "&#39;");
                         html += `<tr><td>${c.id}</td><td>${c.name}</td><td>${c.contact_email || '-'}</td><td>${c.created_at}</td>
-                            <td><button class="btn btn-outline" onclick='editClient(${JSON.stringify(c).replace(/'/g, "&#39;")})'><i class="fa-solid fa-pen"></i></button>
+                            <td><button class="btn btn-outline" onclick='editClient(${clientJson})'><i class="fa-solid fa-pen"></i></button>
                             <button class="btn btn-danger" onclick="deleteClient(${c.id})"><i class="fa-solid fa-trash"></i></button></td></tr>`;
                         optHtml += `<option value="${c.id}">${c.name}</option>`;
                     });
@@ -1102,11 +1112,13 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                     let html = '';
                     res.data.forEach(u => {
                         let badgeClass = u.role === 'superadmin' ? 'badge success' : 'badge';
+                        let userJson = JSON.stringify(u).replace(/'/g, "&#39;");
                         html += `<tr><td>${u.id}</td><td>${u.username}</td><td><span class="${badgeClass}">${u.role}</span></td><td>${u.client_name || '-'}</td><td>${u.created_at}</td>
-                            <td><button class="btn btn-danger" onclick="deleteUser(${u.id})"><i class="fa-solid fa-trash"></i></button></td></tr>`;
+                            <td><button class="btn btn-outline" onclick='editUser(${userJson})'><i class="fa-solid fa-pen"></i></button>
+                            <button class="btn btn-danger" onclick="deleteUser(${u.id})"><i class="fa-solid fa-trash"></i></button></td></tr>`;
                     });
                     $('#users-table tbody').html(html || '<tr><td colspan="6">No hay usuarios asignables.</td></tr>');
-                    
+
                     let optHtml = '<option value="">(Ninguno / Global)</option>';
                     clientsCache.forEach(c => optHtml += `<option value="${c.id}">${c.name}</option>`);
                     $('#user-client').html(optHtml);
@@ -1120,10 +1132,28 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 $('#user-client-group').show();
             }
         }
-        function openUserModal() { $('#user-form')[0].reset(); $('#user-id').val(''); $('#user-modal-title').text('Nuevo Usuario app'); $('#user-password').prop('required', true); toggleUserClient(); $('#user-modal').addClass('active'); }
+        function openUserModal() {
+            $('#user-form')[0].reset();
+            $('#user-id').val('');
+            $('#user-modal-title').text('Nuevo Usuario app');
+            $('#user-password').prop('required', true);
+            toggleUserClient();
+            $('#user-modal').addClass('active');
+        }
+        function editUser(u) {
+            $('#user-id').val(u.id);
+            $('#user-name').val(u.username);
+            $('#user-role').val(u.role);
+            $('#user-client').val(u.client_id || '');
+            $('#user-password').prop('required', false); // Optional on edit
+            $('#user-modal-title').text('Editar Usuario');
+            toggleUserClient();
+            $('#user-modal').addClass('active');
+        }
         function submitUser(e) {
             e.preventDefault();
-            $.post('api.php?action=users_create', $('#user-form').serialize(), function (res) {
+            const action = $('#user-id').val() ? 'users_update' : 'users_create';
+            $.post('api.php?action=' + action, $('#user-form').serialize(), function (res) {
                 if (res.status === 'success') { closeModal('user-modal'); loadUsers(); } else alert(res.message || 'Error');
             }, 'json');
         }
@@ -1283,7 +1313,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                         try {
                             let json = JSON.parse(xhr.responseText);
                             errorMsg = json.message || errorMsg;
-                        } catch(e) {
+                        } catch (e) {
                             errorMsg = "Respuesta del servidor: " + xhr.responseText.substring(0, 500);
                         }
                     }

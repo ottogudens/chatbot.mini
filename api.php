@@ -141,6 +141,33 @@ switch ($action) {
             echo json_encode(['status' => 'error', 'message' => 'Error al crear usuario. Posible nombre duplicado.']);
         }
         break;
+    case 'users_update':
+        $id = $_POST['id'] ?? 0;
+        $username = $_POST['username'] ?? '';
+        $password = $_POST['password'] ?? '';
+        $role = $_POST['role'] ?? 'client';
+        $client_id = !empty($_POST['client_id']) ? intval($_POST['client_id']) : null;
+
+        if (empty($username)) {
+            echo json_encode(['status' => 'error', 'message' => 'Usuario requerido.']);
+            exit;
+        }
+
+        if (!empty($password)) {
+            $hash = password_hash($password, PASSWORD_DEFAULT);
+            $stmt = mysqli_prepare($conn, "UPDATE users SET username=?, password_hash=?, role=?, client_id=? WHERE id=?");
+            mysqli_stmt_bind_param($stmt, "ssssi", $username, $hash, $role, $client_id, $id);
+        } else {
+            $stmt = mysqli_prepare($conn, "UPDATE users SET username=?, role=?, client_id=? WHERE id=?");
+            mysqli_stmt_bind_param($stmt, "ssii", $username, $role, $client_id, $id);
+        }
+
+        if (mysqli_stmt_execute($stmt)) {
+            echo json_encode(['status' => 'success']);
+        } else {
+            echo json_encode(['status' => 'error', 'message' => 'Error al actualizar usuario.']);
+        }
+        break;
     case 'users_delete':
         $id = $_POST['id'] ?? 0;
         if ($id == $_SESSION['admin_id']) {
