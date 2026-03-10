@@ -219,11 +219,22 @@ switch ($action) {
 
     // ---- Assistants ----
     case 'assistants_list':
-        $client_id = $_GET['client_id'] ?? null;
-        $query = "SELECT * FROM assistants";
-        if ($client_id) {
-            $query .= " WHERE client_id = " . intval($client_id);
+        $requested_client_id = $_GET['client_id'] ?? null;
+
+        // Security: If not superadmin, FORCE the session's client_id
+        if (!$is_superadmin) {
+            $requested_client_id = $session_client_id;
         }
+
+        $query = "SELECT * FROM assistants";
+        if ($requested_client_id) {
+            $query .= " WHERE client_id = " . intval($requested_client_id);
+        } else if (!$is_superadmin) {
+            // Fallback for safety: if somehow session_client_id is null and not superadmin, return empty
+            echo json_encode(['status' => 'success', 'data' => []]);
+            exit;
+        }
+
         $query .= " ORDER BY id DESC";
         $result = mysqli_query($conn, $query);
         $data = [];
@@ -591,8 +602,8 @@ switch ($action) {
         echo json_encode(['status' => 'success', 'labels' => $labels, 'values' => $values]);
         break;
     case 'calendar_settings_get':
-        $req_client_id = $_GET['client_id'] ?? $client_id;
-        if (($_SESSION['role'] ?? '') !== 'superadmin' && $req_client_id != $client_id) {
+        $req_client_id = $_GET['client_id'] ?? $session_client_id;
+        if (!$is_superadmin && $req_client_id != $session_client_id) {
             echo json_encode(['status' => 'error', 'message' => 'No autorizado para ver este cliente']);
             exit;
         }
@@ -615,8 +626,8 @@ switch ($action) {
         break;
 
     case 'calendar_settings_update':
-        $req_client_id = $_POST['client_id'] ?? $client_id;
-        if (($_SESSION['role'] ?? '') !== 'superadmin' && $req_client_id != $client_id) {
+        $req_client_id = $_POST['client_id'] ?? $session_client_id;
+        if (!$is_superadmin && $req_client_id != $session_client_id) {
             echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
             exit;
         }

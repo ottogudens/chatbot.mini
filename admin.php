@@ -558,16 +558,20 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                     </div>
 
                     <div id="drive-files-container" style="display:none;">
-                        <h3>Tus Archivos en Drive (Google Sheets y Docs)</h3>
+                        <h3>Tus Archivos en Drive</h3>
+                        <div id="drive-breadcrumb" style="margin: 10px 0; font-size: 14px; color: var(--primary);">
+                            <span style="cursor:pointer; text-decoration:underline;" onclick="loadDriveFiles('root')">Mi
+                                Unidad</span>
+                        </div>
                         <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px; margin-top:5px;">
-                            Selecciona los archivos que deseas sincronizar como Fuentes de Información. Se exportarán a
-                            formatos locales antes de ir a Gemini.</p>
+                            Selecciona archivos o entra en carpetas. Los archivos se sincronizarán como Fuentes de
+                            Información.</p>
                         <div style="overflow-x: auto;">
                             <table id="drive-files-table">
                                 <thead>
                                     <tr>
-                                        <th>Nombre del Archivo</th>
-                                        <th>Última Modificación</th>
+                                        <th>Nombre</th>
+                                        <th>Modificación</th>
                                         <th>Acción</th>
                                     </tr>
                                 </thead>
@@ -586,6 +590,19 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                         Google vinculado.</p>
                     <form id="calendar-settings-form" onsubmit="submitCalendarSettings(event)">
                         <input type="hidden" name="client_id" id="cal-client-id">
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label>Calendario Específico</label>
+                            <div style="display:flex; gap:10px; margin-top:5px;">
+                                <select name="calendar_id" id="cal-id" style="flex:1;">
+                                    <option value="primary">Calendario Principal (Default)</option>
+                                </select>
+                                <button type="button" class="btn btn-outline btn-sm" onclick="createNewCalendar()">+
+                                    Crear Nuevo</button>
+                            </div>
+                            <p style="font-size:12px; color:var(--text-muted); margin-top:5px;">Selecciona el calendario
+                                donde se guardarán las citas del asistente.</p>
+                        </div>
+
                         <div class="form-group">
                             <label>Días de Atención (Selecciona los días disponibles)</label>
                             <div style="display:flex; gap:15px; flex-wrap:wrap; margin-top: 5px;">
@@ -1050,22 +1067,37 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             }, 'json');
         }
 
-        function loadDriveFiles() {
-            $('#drive-files-table tbody').html('<tr><td colspan="3" style="text-align:center;"><i class="fa-solid fa-spinner fa-spin"></i> Cargando archivos...</td></tr>');
+        function loadDriveFiles(folderId = 'root', folderName = 'Mi Unidad') {
+            $('#drive-files-table tbody').html('<tr><td colspan="3" style="text-align:center;"><i class="fa-solid fa-spinner fa-spin"></i> Cargando...</td></tr>');
             let cid = getClientIdForAPI();
-            $.get('api_drive.php?action=list_files' + (cid ? '&client_id=' + cid : ''), function (res) {
+
+            // Update Breadcrumb
+            if (folderId === 'root') {
+                $('#drive-breadcrumb').html('<span style="cursor:pointer; text-decoration:underline;" onclick="loadDriveFiles(\'root\')">Mi Unidad</span>');
+            } else {
+                // Simplified: just show current vs root
+                $('#drive-breadcrumb').html('<span style="cursor:pointer; text-decoration:underline;" onclick="loadDriveFiles(\'root\')">Mi Unidad</span> / <b>' + folderName + '</b>');
+            }
+
+            $.get('api_drive.php?action=list_files&folder_id=' + folderId + (cid ? '&client_id=' + cid : ''), function (res) {
                 if (res.files) {
                     let html = '';
                     res.files.forEach(f => {
+                        let isFolder = f.mimeType === 'application/vnd.google-apps.folder';
+                        let icon = isFolder ? '<i class="fa-solid fa-folder" style="color:#f59e0b"></i>' : '<i class="fa-brands fa-google-drive" style="color:#4285F4"></i>';
+                        let actionBtn = isFolder
+                            ? `<button class="btn btn-outline btn-sm" onclick="loadDriveFiles('${f.id}', '${f.name}')"><i class="fa-solid fa-folder-open"></i> Abrir</button>`
+                            : `<button class="btn btn-outline btn-sm" onclick="syncDriveFile('${f.id}', '${f.name}', '${f.mimeType}')"><i class="fa-solid fa-cloud-arrow-down"></i> Sincronizar</button>`;
+
                         html += `<tr>
-                             <td><i class="fa-brands fa-google-drive" style="color:#4285F4"></i> <b>${f.name}</b></td>
+                             <td>${icon} <b>${f.name}</b></td>
                              <td><span style="font-size:12px; color:var(--text-muted);">${new Date(f.modifiedTime).toLocaleString()}</span></td>
-                             <td><button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="syncDriveFile('${f.id}', '${f.name}', '${f.mimeType}')"><i class="fa-solid fa-cloud-arrow-down"></i> Sincronizar al Asistente</button></td>
+                             <td>${actionBtn}</td>
                           </tr>`;
                     });
-                    $('#drive-files-table tbody').html(html || '<tr><td colspan="3" style="text-align:center;">No se encontraron documentos en tu Drive.</td></tr>');
+                    $('#drive-files-table tbody').html(html || '<tr><td colspan="3" style="text-align:center;">Carpeta vacía o sin documentos compatibles.</td></tr>');
                 } else {
-                    $('#drive-files-table tbody').html('<tr><td colspan="3" style="text-align:center; color:#ef4444;">Error cargando archivos o permisos insuficientes.</td></tr>');
+                    $('#drive-files-table tbody').html('<tr><td colspan="3" style="text-align:center; color:#ef4444;">Error cargando archivos.</td></tr>');
                 }
             }, 'json');
         }
@@ -1106,20 +1138,52 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
 
             $.get('api.php?action=calendar_settings_get' + (cid ? '&client_id=' + cid : ''), function (res) {
                 if (res.status === 'success' && res.data) {
-                    $('#cal-client-id').val(res.data.client_id || cid);
-                    $('#cal-start-time').val(res.data.start_time);
-                    $('#cal-end-time').val(res.data.end_time);
-                    $('#cal-duration').val(res.data.slot_duration_minutes);
-                    $('#cal-timezone').val(res.data.timezone);
+                    let d = res.data;
+                    $('#cal-client-id').val(d.client_id);
+                    $('#cal-start-time').val(d.start_time);
+                    $('#cal-end-time').val(d.end_time);
+                    $('#cal-duration').val(d.slot_duration_minutes);
+                    $('#cal-timezone').val(d.timezone);
+
+                    // Specific Calendar ID
+                    loadGoogleCalendars(d.calendar_id);
 
                     // Checkboxes
-                    $('input[name="available_days[]"]').prop('checked', false);
-                    if (res.data.available_days) {
-                        let days = res.data.available_days.split(',');
-                        days.forEach(d => {
-                            $(`input[name="available_days[]"][value="${d}"]`).prop('checked', true);
+                    $('#calendar-settings-form input[type=checkbox]').prop('checked', false);
+                    if (d.available_days) {
+                        d.available_days.split(',').forEach(day => {
+                            $(`#calendar-settings-form input[value="${day}"]`).prop('checked', true);
                         });
                     }
+                }
+            }, 'json');
+        }
+
+        function loadGoogleCalendars(selectedId) {
+            let cid = getClientIdForAPI();
+            $.get('api_drive.php?action=list_calendars' + (cid ? '&client_id=' + cid : ''), function (res) {
+                if (res.items) {
+                    let html = '';
+                    res.items.forEach(c => {
+                        let sel = (c.id === selectedId) ? 'selected' : '';
+                        html += `<option value="${c.id}" ${sel}>${c.summary} ${c.primary ? '(Principal)' : ''}</option>`;
+                    });
+                    $('#cal-id').html(html);
+                }
+            }, 'json');
+        }
+
+        function createNewCalendar() {
+            let summary = prompt("Nombre para el nuevo calendario:", "Asistente Skale IA");
+            if (!summary) return;
+
+            let cid = getClientIdForAPI();
+            $.post('api_drive.php?action=create_calendar' + (cid ? '&client_id=' + cid : ''), { summary: summary }, function (res) {
+                if (res.id) {
+                    alert("Calendario creado exitosamente.");
+                    loadGoogleCalendars(res.id);
+                } else {
+                    alert("Error creando calendario.");
                 }
             }, 'json');
         }

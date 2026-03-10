@@ -162,11 +162,13 @@ switch ($action) {
             exit;
         }
 
-        $q = "mimeType='application/vnd.google-apps.spreadsheet' or mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' or mimeType='text/csv' or mimeType='application/pdf' or mimeType='application/msword' or mimeType='application/vnd.openxmlformats-officedocument.wordprocessingml.document' or mimeType='application/vnd.google-apps.document'";
+        $folder_id = $_GET['folder_id'] ?? 'root';
+        $q = "('{$folder_id}' in parents) and (mimeType='application/vnd.google-apps.folder' or mimeType='application/vnd.google-apps.spreadsheet' or mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' or mimeType='text/csv' or mimeType='application/pdf' or mimeType='application/msword' or mimeType='application/vnd.openxmlformats-officedocument.wordprocessingml.document' or mimeType='application/vnd.google-apps.document')";
+
         $url = "https://www.googleapis.com/drive/v3/files?" . http_build_query([
             'q' => $q,
             'fields' => 'files(id, name, mimeType, modifiedTime)',
-            'orderBy' => 'modifiedTime desc',
+            'orderBy' => 'folder,name',
             'pageSize' => 50
         ]);
 
@@ -180,6 +182,46 @@ switch ($action) {
         curl_close($ch);
 
         echo $response; // Return raw google response
+        break;
+
+    case 'list_calendars':
+        $token = get_valid_token($conn, $client_id, $google_client_id, $google_client_secret);
+        if (!$token) {
+            echo json_encode(['status' => 'error', 'message' => 'Sin conexión activa a Google.']);
+            exit;
+        }
+
+        $url = "https://www.googleapis.com/calendar/v3/users/me/calendarList";
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ["Authorization: Bearer $token"]);
+        $response = curl_exec($ch);
+        curl_close($ch);
+        echo $response;
+        break;
+
+    case 'create_calendar':
+        $token = get_valid_token($conn, $client_id, $google_client_id, $google_client_secret);
+        if (!$token) {
+            echo json_encode(['status' => 'error', 'message' => 'Sin conexión activa a Google.']);
+            exit;
+        }
+
+        $summary = $_POST['summary'] ?? 'Asistente Chatbot';
+        $url = "https://www.googleapis.com/calendar/v3/calendars";
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_POST, TRUE);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            "Authorization: Bearer $token",
+            "Content-Type: application/json"
+        ]);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['summary' => $summary]));
+        $response = curl_exec($ch);
+        curl_close($ch);
+        echo $response;
         break;
 
     case 'sync_file':
