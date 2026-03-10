@@ -20,7 +20,7 @@ foreach ($dirs as $dir) {
     $report['directories'][$dir] = [
         'exists' => file_exists($path),
         'writable' => is_writable($path),
-        'perms' => file_exists($path) ? substr(sprintf('%o', file_perms($path)), -4) : null
+        'perms' => file_exists($path) ? substr(sprintf('%o', fileperms($path)), -4) : null
     ];
 }
 

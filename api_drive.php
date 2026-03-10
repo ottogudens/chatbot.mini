@@ -1,6 +1,7 @@
 <?php
 require 'db.php';
 require 'auth.php';
+ini_set('display_errors', 0);
 header('Content-Type: application/json');
 
 if (!check_auth(false)) {
