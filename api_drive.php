@@ -306,16 +306,19 @@ switch ($action) {
             $content_msg = "Sincronizado vía Google Drive: $file_name (Última vez: " . date('Y-m-d H:i:s') . ")";
             $fsize = filesize($target_file);
 
-            mysqli_stmt_bind_param($stmt, "isssssis", $assistant_id, $file_name, $content_msg, $final_path, $calc_mime, $fsize, $uri);
+            mysqli_stmt_bind_param($stmt, "issssis", $assistant_id, $file_name, $content_msg, $final_path, $calc_mime, $fsize, $uri);
             if (mysqli_stmt_execute($stmt)) {
                 echo json_encode(['status' => 'success', 'uri' => $uri]);
             } else {
-                echo json_encode(['status' => 'error', 'message' => 'Error guardando la información cronológica en la BD.']);
+                error_log("DB Error in sync_file: " . mysqli_error($conn));
+                echo json_encode(['status' => 'error', 'message' => 'Error guardando en la BD: ' . mysqli_error($conn)]);
             }
         } else {
             // Rollback si falla subir a Gemini
-            unlink($target_file);
-            echo json_encode(['status' => 'error', 'message' => 'El archivo se descargó de Drive, pero el paso de integración final con Google Gemini falló.']);
+            if (file_exists($target_file))
+                unlink($target_file);
+            error_log("Gemini Upload failed for file: $file_name");
+            echo json_encode(['status' => 'error', 'message' => 'El archivo se descargó de Drive, pero la subida a Google Gemini falló. Revisa los logs del servidor.']);
         }
         break;
 
