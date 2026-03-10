@@ -450,6 +450,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                                 <tr>
                                     <th>ID</th>
                                     <th>Nombre</th>
+                                    <th>Tipo</th>
                                     <th>Email Contacto</th>
                                     <th>Creado</th>
                                     <th>Acciones</th>
@@ -691,17 +692,89 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             </div>
             <form id="client-form" onsubmit="submitClient(event)">
                 <input type="hidden" id="client-id" name="id">
+
                 <div class="form-group">
-                    <label>Nombre del Cliente o Empresa</label>
-                    <input type="text" id="client-name" name="name" required>
+                    <label>Tipo de Cliente</label>
+                    <select id="client-type" name="type" onchange="toggleClientFields()" required>
+                        <option value="particular">Persona Particular</option>
+                        <option value="empresa">Empresa / Institución</option>
+                    </select>
                 </div>
-                <div class="form-group">
-                    <label>Email de Contacto</label>
-                    <input type="email" id="client-email" name="contact_email">
+
+                <!-- Fields for Particular -->
+                <div id="fields-particular">
+                    <div class="form-group">
+                        <label>Nombre Completo</label>
+                        <input type="text" id="client-name-particular" placeholder="Ej: Juan Pérez">
+                    </div>
                 </div>
+
+                <!-- Fields for Empresa -->
+                <div id="fields-empresa" style="display:none;">
+                    <div style="display:flex; gap:15px;">
+                        <div class="form-group" style="flex:2;">
+                            <label>Razón Social</label>
+                            <input type="text" id="client-name-empresa" placeholder="Ej: Skale IA SpA">
+                        </div>
+                        <div class="form-group" style="flex:1;">
+                            <label>RUT</label>
+                            <input type="text" id="client-rut" name="rut" placeholder="12.345.678-k">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Dirección</label>
+                        <input type="text" id="client-address" name="address" placeholder="Av. Siempre Viva 123">
+                    </div>
+                    <div class="form-group">
+                        <label>Giro</label>
+                        <input type="text" id="client-giro" name="business_line" placeholder="Servicios Tecnológicos">
+                    </div>
+
+                    <h3
+                        style="font-size:14px; margin:20px 0 10px; color:var(--primary); border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:5px;">
+                        Datos del Representante</h3>
+                    <div class="form-group">
+                        <label>Nombre Representante</label>
+                        <input type="text" id="client-rep-name" name="representative_name">
+                    </div>
+                    <div style="display:flex; gap:15px;">
+                        <div class="form-group" style="flex:1;">
+                            <label>Email Representante</label>
+                            <input type="email" id="client-rep-email" name="representative_email">
+                        </div>
+                        <div class="form-group" style="flex:1;">
+                            <label>Teléfono Representante</label>
+                            <input type="text" id="client-rep-phone" name="representative_phone">
+                        </div>
+                    </div>
+                </div>
+
+                <h3
+                    style="font-size:14px; margin:20px 0 10px; color:var(--primary); border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:5px;">
+                    Datos de Contacto Central</h3>
+                <div style="display:flex; gap:15px;">
+                    <div class="form-group" style="flex:1;">
+                        <label>Email Principal (Login)</label>
+                        <input type="email" id="client-email" name="contact_email" required>
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>Teléfono Principal</label>
+                        <input type="text" id="client-phone" name="phone">
+                    </div>
+                </div>
+
+                <!-- Hidden name field that will be synced before submit -->
+                <input type="hidden" id="client-name" name="name">
+
+                <div id="password-hint"
+                    style="font-size:12px; color:var(--text-muted); margin-top:10px; background:rgba(0,0,0,0.2); padding:10px; border-radius:5px;">
+                    <i class="fa-solid fa-info-circle"></i> Al crear el cliente, se generará automáticamente un acceso
+                    con la contraseña: <b>admin123!</b>
+                </div>
+
                 <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
                     <button type="button" class="btn btn-outline" onclick="closeModal('client-modal')">Cancelar</button>
-                    <button type="submit" class="btn">Guardar</button>
+                    <button type="submit" class="btn">Guardar Cliente</button>
                 </div>
             </form>
         </div>
@@ -1083,7 +1156,8 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                     let optHtml = '';
                     res.data.forEach(c => {
                         let clientJson = JSON.stringify(c).replace(/'/g, "&#39;");
-                        html += `<tr><td>${c.id}</td><td>${c.name}</td><td>${c.contact_email || '-'}</td><td>${c.created_at}</td>
+                        let typeBadge = c.type === 'empresa' ? '<span class="badge success">Empresa</span>' : '<span class="badge">Particular</span>';
+                        html += `<tr><td>${c.id}</td><td>${c.name}</td><td>${typeBadge}</td><td>${c.contact_email || '-'}</td><td>${c.created_at}</td>
                             <td><button class="btn btn-outline" onclick='editClient(${clientJson})'><i class="fa-solid fa-pen"></i></button>
                             <button class="btn btn-danger" onclick="deleteClient(${c.id})"><i class="fa-solid fa-trash"></i></button></td></tr>`;
                         optHtml += `<option value="${c.id}">${c.name}</option>`;
@@ -1093,13 +1167,65 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 }
             }, 'json');
         }
-        function openClientModal() { $('#client-form')[0].reset(); $('#client-id').val(''); $('#client-modal-title').text('Nuevo Cliente'); $('#client-modal').addClass('active'); }
-        function editClient(c) { $('#client-id').val(c.id); $('#client-name').val(c.name); $('#client-email').val(c.contact_email); $('#client-modal-title').text('Editar Cliente'); $('#client-modal').addClass('active'); }
+        function toggleClientFields() {
+            const type = $('#client-type').val();
+            if (type === 'particular') {
+                $('#fields-particular').show();
+                $('#fields-empresa').hide();
+                $('#client-name-particular').prop('required', true);
+                $('#client-name-empresa').prop('required', false);
+            } else {
+                $('#fields-particular').hide();
+                $('#fields-empresa').show();
+                $('#client-name-particular').prop('required', false);
+                $('#client-name-empresa').prop('required', true);
+            }
+        }
+        function openClientModal() {
+            $('#client-form')[0].reset();
+            $('#client-id').val('');
+            $('#client-modal-title').text('Nuevo Cliente');
+            $('#password-hint').show();
+            toggleClientFields();
+            $('#client-modal').addClass('active');
+        }
+        function editClient(c) {
+            $('#client-id').val(c.id);
+            $('#client-type').val(c.type || 'particular');
+            $('#client-email').val(c.contact_email);
+            $('#client-phone').val(c.phone);
+            $('#client-rut').val(c.rut);
+            $('#client-address').val(c.address);
+            $('#client-giro').val(c.business_line);
+            $('#client-rep-name').val(c.representative_name);
+            $('#client-rep-email').val(c.representative_email);
+            $('#client-rep-phone').val(c.representative_phone);
+
+            if (c.type === 'empresa') {
+                $('#client-name-empresa').val(c.name);
+            } else {
+                $('#client-name-particular').val(c.name);
+            }
+
+            $('#client-modal-title').text('Editar Cliente');
+            $('#password-hint').hide();
+            toggleClientFields();
+            $('#client-modal').addClass('active');
+        }
         function submitClient(e) {
             e.preventDefault();
+            // Sync the Master Name field
+            const type = $('#client-type').val();
+            const finalName = type === 'particular' ? $('#client-name-particular').val() : $('#client-name-empresa').val();
+            $('#client-name').val(finalName);
+
             const action = $('#client-id').val() ? 'clients_update' : 'clients_create';
             $.post('api.php?action=' + action, $('#client-form').serialize(), function (res) {
-                if (res.status === 'success') { closeModal('client-modal'); loadClients(); } else alert(res.message || 'Error');
+                if (res.status === 'success') {
+                    closeModal('client-modal');
+                    loadClients();
+                    if (action === 'clients_create') alert("Cliente creado exitosamente. Se ha generado un usuario con el email proporcionado y la clave admin123!");
+                } else alert(res.message || 'Error');
             }, 'json');
         }
         function deleteClient(id) { if (confirm('¿Eliminar cliente? Se borrarán sus asistentes asociados.')) { $.post('api.php?action=clients_delete', { id }, res => { if (res.status === 'success') { loadClients(); loadAssistants(true); } else alert('Error'); }, 'json'); } }

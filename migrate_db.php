@@ -1,31 +1,39 @@
 <?php
 require_once 'db.php';
 
-echo "<h2>Migrando base de datos para Portal Multi-Tenant e Integración Drive...</h2>";
-
-// 1. Alter users table
-// Use IF NOT EXISTS equivalent logic or simply suppress errors if columns already exist.
-$sql_check_role = "SHOW COLUMNS FROM users LIKE 'role'";
-$res_role = mysqli_query($conn, $sql_check_role);
-if (mysqli_num_rows($res_role) == 0) {
-    $sql_users = "
-    ALTER TABLE users 
-        ADD COLUMN role ENUM('superadmin', 'client') DEFAULT 'client' AFTER password_hash,
-        ADD COLUMN client_id INT NULL AFTER role,
-        ADD CONSTRAINT fk_user_client FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE;
-    ";
-    if (mysqli_query($conn, $sql_users)) {
-        echo "<p>Tabla <b>users</b> actualizada con 'role' y 'client_id' (Foreign Key).</p>";
-    } else {
-        echo "<p>Error actualizando <b>users</b>: " . mysqli_error($conn) . "</p>";
-    }
-} else {
-    echo "<p>Tabla <b>users</b> ya contiene las columnas de rol.</p>";
+function column_exists($conn, $table, $column)
+{
+    $res = mysqli_query($conn, "SHOW COLUMNS FROM $table LIKE '$column'");
+    return mysqli_num_rows($res) > 0;
 }
 
-// 1.1 Set existing admin as superadmin
-$sql_admin = "UPDATE users SET role = 'superadmin' WHERE username = 'admin';";
+echo "<h2>Migrando base de datos para Portal Multi-Tenant e Integración Drive...</h2>";
+
+// 1. Create users table if not exists
+$sql_users_table = "
+CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role ENUM('superadmin', 'client') DEFAULT 'client',
+    client_id INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
+);";
+
+if (mysqli_query($conn, $sql_users_table)) {
+    echo "<p>Tabla <b>users</b> verificada/creada correctamente.</p>";
+} else {
+    echo "<p>Error creando tabla <b>users</b>: " . mysqli_error($conn) . "</p>";
+}
+
+// 1.1 Set existing admin as superadmin or create one
+$hashed_password = password_hash('Ing3N3tZ##', PASSWORD_DEFAULT);
+$sql_admin = "INSERT IGNORE INTO users (username, password_hash, role) VALUES ('admin', '$hashed_password', 'superadmin');";
 mysqli_query($conn, $sql_admin);
+// Also update if it exists but is not superadmin
+mysqli_query($conn, "UPDATE users SET role = 'superadmin' WHERE username = 'admin'");
+
 
 // 2. Modify information_sources type ENUM
 $sql_enum = "
@@ -78,5 +86,24 @@ if (mysqli_query($conn, $sql_calendar)) {
     echo "<p>Error creando tabla <b>calendar_settings</b>: " . mysqli_error($conn) . "</p>";
 }
 
-echo "<h3>Migración finalizada.</h3>";
+// Phase 4: Extended Client Profiles
+$columns = [
+    'type' => "ENUM('particular', 'empresa') DEFAULT 'particular'",
+    'rut' => "VARCHAR(20) NULL",
+    'address' => "TEXT NULL",
+    'phone' => "VARCHAR(50) NULL",
+    'business_line' => "VARCHAR(255) NULL", // Giro
+    'representative_name' => "VARCHAR(255) NULL",
+    'representative_phone' => "VARCHAR(50) NULL",
+    'representative_email' => "VARCHAR(100) NULL"
+];
+
+foreach ($columns as $name => $def) {
+    if (!column_exists($conn, 'clients', $name)) {
+        mysqli_query($conn, "ALTER TABLE clients ADD COLUMN $name $def");
+        echo "Columna '$name' agregada a la tabla 'clients'.<br>";
+    }
+}
+
+echo "Migraciones completadas correctamente.";
 ?>

@@ -85,22 +85,60 @@ switch ($action) {
         echo json_encode(['status' => 'success', 'data' => $data]);
         break;
     case 'clients_create':
+        $type = $_POST['type'] ?? 'particular';
         $name = $_POST['name'] ?? '';
+        $rut = $_POST['rut'] ?? null;
+        $address = $_POST['address'] ?? null;
         $email = $_POST['contact_email'] ?? '';
-        if (empty($name)) {
-            echo json_encode(['status' => 'error', 'message' => 'Nombre requerido.']);
+        $phone = $_POST['phone'] ?? null;
+        $giro = $_POST['business_line'] ?? null;
+        $rep_name = $_POST['representative_name'] ?? null;
+        $rep_phone = $_POST['representative_phone'] ?? null;
+        $rep_email = $_POST['representative_email'] ?? null;
+
+        if (empty($name) || empty($email)) {
+            echo json_encode(['status' => 'error', 'message' => 'Nombre y Email son requeridos.']);
             exit;
         }
-        $stmt = mysqli_prepare($conn, "INSERT INTO clients (name, contact_email) VALUES (?, ?)");
-        mysqli_stmt_bind_param($stmt, "ss", $name, $email);
-        echo json_encode(['status' => mysqli_stmt_execute($stmt) ? 'success' : 'error']);
+
+        $stmt = mysqli_prepare($conn, "INSERT INTO clients (name, contact_email, type, rut, address, phone, business_line, representative_name, representative_phone, representative_email) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        mysqli_stmt_bind_param($stmt, "ssssssssss", $name, $email, $type, $rut, $address, $phone, $giro, $rep_name, $rep_phone, $rep_email);
+
+        if (mysqli_stmt_execute($stmt)) {
+            $new_client_id = mysqli_insert_id($conn);
+
+            // Create user automatically
+            $password = "admin123!";
+            $hash = password_hash($password, PASSWORD_DEFAULT);
+            $user_stmt = mysqli_prepare($conn, "INSERT INTO users (username, password_hash, role, client_id) VALUES (?, ?, 'client', ?)");
+            mysqli_stmt_bind_param($user_stmt, "ssi", $email, $hash, $new_client_id);
+            mysqli_stmt_execute($user_stmt);
+
+            echo json_encode(['status' => 'success', 'client_id' => $new_client_id]);
+        } else {
+            echo json_encode(['status' => 'error', 'message' => mysqli_error($conn)]);
+        }
         break;
     case 'clients_update':
         $id = $_POST['id'] ?? 0;
+        $type = $_POST['type'] ?? 'particular';
         $name = $_POST['name'] ?? '';
+        $rut = $_POST['rut'] ?? null;
+        $address = $_POST['address'] ?? null;
         $email = $_POST['contact_email'] ?? '';
-        $stmt = mysqli_prepare($conn, "UPDATE clients SET name=?, contact_email=? WHERE id=?");
-        mysqli_stmt_bind_param($stmt, "ssi", $name, $email, $id);
+        $phone = $_POST['phone'] ?? null;
+        $giro = $_POST['business_line'] ?? null;
+        $rep_name = $_POST['representative_name'] ?? null;
+        $rep_phone = $_POST['representative_phone'] ?? null;
+        $rep_email = $_POST['representative_email'] ?? null;
+
+        if (empty($name) || empty($email)) {
+            echo json_encode(['status' => 'error', 'message' => 'Nombre y Email son requeridos.']);
+            exit;
+        }
+
+        $stmt = mysqli_prepare($conn, "UPDATE clients SET name=?, contact_email=?, type=?, rut=?, address=?, phone=?, business_line=?, representative_name=?, representative_phone=?, representative_email=? WHERE id=?");
+        mysqli_stmt_bind_param($stmt, "ssssssssssi", $name, $email, $type, $rut, $address, $phone, $giro, $rep_name, $rep_phone, $rep_email, $id);
         echo json_encode(['status' => mysqli_stmt_execute($stmt) ? 'success' : 'error']);
         break;
     case 'clients_delete':
