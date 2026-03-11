@@ -249,9 +249,13 @@ switch ($action) {
         $client_id = !$is_superadmin ? $session_client_id : ($_POST['client_id'] ?? '');
         $name = $_POST['name'] ?? '';
         $sp = $_POST['system_prompt'] ?? '';
-        $stmt = mysqli_prepare($conn, "INSERT INTO assistants (client_id, name, system_prompt) VALUES (?, ?, ?)");
-        mysqli_stmt_bind_param($stmt, "iss", $client_id, $name, $sp);
-        echo json_encode(['status' => mysqli_stmt_execute($stmt) ? 'success' : 'error']);
+        $gemini_model = $_POST['gemini_model'] ?? 'gemini-2.0-flash-lite';
+        $temperature = floatval($_POST['temperature'] ?? 0.70);
+        $max_tokens = intval($_POST['max_output_tokens'] ?? 1500);
+        $response_style = $_POST['response_style'] ?? 'balanced';
+        $stmt = mysqli_prepare($conn, "INSERT INTO assistants (client_id, name, system_prompt, gemini_model, temperature, max_output_tokens, response_style) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        mysqli_stmt_bind_param($stmt, "isssdis", $client_id, $name, $sp, $gemini_model, $temperature, $max_tokens, $response_style);
+        echo json_encode(['status' => mysqli_stmt_execute($stmt) ? 'success' : 'error', 'error' => mysqli_error($conn)]);
         break;
     case 'assistants_update':
         $id = $_POST['id'] ?? 0;
@@ -261,9 +265,13 @@ switch ($action) {
         }
         $name = $_POST['name'] ?? '';
         $sp = $_POST['system_prompt'] ?? '';
-        $stmt = mysqli_prepare($conn, "UPDATE assistants SET name=?, system_prompt=? WHERE id=?");
-        mysqli_stmt_bind_param($stmt, "ssi", $name, $sp, $id);
-        echo json_encode(['status' => mysqli_stmt_execute($stmt) ? 'success' : 'error']);
+        $gemini_model = $_POST['gemini_model'] ?? 'gemini-2.0-flash-lite';
+        $temperature = floatval($_POST['temperature'] ?? 0.70);
+        $max_tokens = intval($_POST['max_output_tokens'] ?? 1500);
+        $response_style = $_POST['response_style'] ?? 'balanced';
+        $stmt = mysqli_prepare($conn, "UPDATE assistants SET name=?, system_prompt=?, gemini_model=?, temperature=?, max_output_tokens=?, response_style=? WHERE id=?");
+        mysqli_stmt_bind_param($stmt, "ssssdii", $name, $sp, $gemini_model, $temperature, $max_tokens, $response_style, $id);
+        echo json_encode(['status' => mysqli_stmt_execute($stmt) ? 'success' : 'error', 'error' => mysqli_error($conn)]);
         break;
     case 'assistants_delete':
         $id = $_POST['id'] ?? 0;

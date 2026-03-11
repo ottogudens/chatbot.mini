@@ -27,12 +27,19 @@ $info_sources_text = "";
 $info_sources_files = [];
 
 // 1. Fetch Assistant Config (if any)
+$ai_config = [];
 if ($assistant_id) {
-    // Get assistant
-    $ast_query = "SELECT system_prompt FROM assistants WHERE id = $assistant_id";
+    // Get assistant + AI config
+    $ast_query = "SELECT system_prompt, gemini_model, temperature, max_output_tokens, response_style FROM assistants WHERE id = $assistant_id";
     $ast_res = mysqli_query($conn, $ast_query);
     if ($ast_row = mysqli_fetch_assoc($ast_res)) {
         $custom_system_prompt = $ast_row['system_prompt'] ?? '';
+        $ai_config = [
+            'model' => $ast_row['gemini_model'] ?? 'gemini-2.0-flash-lite',
+            'temperature' => $ast_row['temperature'] ?? 0.7,
+            'max_output_tokens' => $ast_row['max_output_tokens'] ?? 1500,
+            'response_style' => $ast_row['response_style'] ?? 'balanced',
+        ];
     }
 
     // Get info sources
@@ -115,7 +122,7 @@ if ($matched === 0 && !empty($clean_msg)) {
 
     require_once 'gemini_client.php';
     $gemini = new GeminiClient();
-    $ai_reply = $gemini->get_response($user_msg, $history, $custom_system_prompt, $info_sources_text, $info_sources_files);
+    $ai_reply = $gemini->get_response($user_msg, $history, $custom_system_prompt, $info_sources_text, $info_sources_files, null, $ai_config);
 
     // Handle function calling
     if (is_array($ai_reply) && $ai_reply['type'] === 'function_call') {
@@ -138,7 +145,7 @@ if ($matched === 0 && !empty($clean_msg)) {
             'result' => is_array($func_result) ? $func_result : ["message" => $func_result]
         ];
 
-        $ai_reply = $gemini->get_response($user_msg, $history, $custom_system_prompt, $info_sources_text, $info_sources_files, $function_state);
+        $ai_reply = $gemini->get_response($user_msg, $history, $custom_system_prompt, $info_sources_text, $info_sources_files, $function_state, $ai_config);
     }
 
     if (is_string($ai_reply) && !empty($ai_reply)) {

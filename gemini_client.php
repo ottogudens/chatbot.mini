@@ -7,7 +7,7 @@
 class GeminiClient
 {
     private $api_key;
-    private $model = "gemini-2.0-flash";
+    private $model = "gemini-2.0-flash-lite";
     private $api_url = "https://generativelanguage.googleapis.com/v1beta/models/";
 
     public function __construct()
@@ -97,11 +97,25 @@ class GeminiClient
     /**
      * Get a response from Gemini
      */
-    public function get_response($user_message, $history = [], $custom_system_prompt = "", $info_sources_text = "", $info_sources_files = [], $function_state = null)
+    public function get_response($user_message, $history = [], $custom_system_prompt = "", $info_sources_text = "", $info_sources_files = [], $function_state = null, $config = [])
     {
         if (!$this->api_key) {
             return "Error: GEMINI_API_KEY no configurada.";
         }
+
+        // Per-assistant AI config with safe defaults
+        $model           = $config['model']           ?? $this->model;
+        $temperature     = $config['temperature']     ?? 0.7;
+        $max_tokens      = $config['max_output_tokens'] ?? 1500;
+        $response_style  = $config['response_style']  ?? 'balanced';
+
+        // Style instruction injected into the system prompt
+        $style_instructions = [
+            'concise'  => "REGLA DE ESTILO: Responde de forma muy concisa y directa. Máximo 2-3 oraciones por punto. Si el usuario pide más detalle, entonces amplia tu respuesta.",
+            'balanced' => "REGLA DE ESTILO: Responde de forma clara y completa. Incluye toda la información relevante pero sin extenderte innecesariamente. Si el usuario pide más detalle, amplia tu respuesta.",
+            'detailed' => "REGLA DE ESTILO: Proporciona respuestas detalladas y exhaustivas. Explica cada punto a fondo y ofrece contexto adicional cuando sea útil."
+        ];
+        $style_hint = $style_instructions[$response_style] ?? $style_instructions['balanced'];
 
         $base_prompt = "Eres un asistente virtual avanzado y profesional de Skale IA. " .
             "Responde de forma concisa, útil y siempre en español latinoamericano. ";
@@ -112,13 +126,15 @@ class GeminiClient
             $system_prompt = $base_prompt . "\nSi no sabes algo de un tema técnico, ofrece contactar al equipo de soporte.";
         }
 
+        $system_prompt .= "\n\n" . $style_hint;
+
         if (!empty($info_sources_text)) {
             $system_prompt .= "\n\nBASA TUS RESPUESTAS ESTRICTAMENTE EN LA SIGUIENTE INFORMACIÓN DE CONTEXTO:\n" . $info_sources_text;
         }
 
         $system_prompt .= "\n\nREGLA IMPORTANTE: Si un usuario quiere agendar una cita o reunión, pide su nombre, email y teléfono. Luego, DEBES utilizar las herramientas nativas disponibles para checkear disponibilidad y concretar la cita. Solo puedes confirmar una vez que la herramienta de reservas lo haya confirmado exitosamente. NUNCA inventes confirmaciones o fechas.";
 
-        $url = $this->api_url . $this->model . ":generateContent?key=" . $this->api_key;
+        $url = $this->api_url . $model . ":generateContent?key=" . $this->api_key;
 
         $contents = [];
 
@@ -185,8 +201,8 @@ class GeminiClient
             ],
             "contents" => $contents,
             "generationConfig" => [
-                "temperature" => 0.7,
-                "maxOutputTokens" => 800,
+                "temperature"     => (float) $temperature,
+                "maxOutputTokens" => (int) $max_tokens,
             ],
             "tools" => [
                 [

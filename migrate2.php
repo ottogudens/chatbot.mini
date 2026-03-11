@@ -7,7 +7,7 @@ if (!$conn) {
     die("Error de conexión: " . mysqli_connect_error());
 }
 
-// Ensure the ENUM type and logic exists for information_sources
+// Parte 2: Ensure the ENUM type and logic exists for information_sources
 $alter_query = "
 ALTER TABLE information_sources 
     ADD COLUMN type ENUM('text', 'file', 'link') DEFAULT 'text' AFTER assistant_id,
@@ -21,7 +21,25 @@ ALTER TABLE information_sources
 if (mysqli_query($conn, $alter_query)) {
     echo "Tabla information_sources alterada exitosamente con las nuevas columnas.\n";
 } else {
-    echo "Error alterando information_sources: " . mysqli_error($conn) . "\n";
+    echo "Info (information_sources): " . mysqli_error($conn) . "\n";
+}
+
+// === Parte 3: AI Configuration per assistant ===
+echo "Agregando columnas de configuración IA a la tabla assistants...\n";
+
+$ai_columns = [
+    "ALTER TABLE assistants ADD COLUMN gemini_model VARCHAR(50) NOT NULL DEFAULT 'gemini-2.0-flash-lite'",
+    "ALTER TABLE assistants ADD COLUMN temperature DECIMAL(3,2) NOT NULL DEFAULT 0.70",
+    "ALTER TABLE assistants ADD COLUMN max_output_tokens INT NOT NULL DEFAULT 1500",
+    "ALTER TABLE assistants ADD COLUMN response_style VARCHAR(20) NOT NULL DEFAULT 'balanced'"
+];
+
+foreach ($ai_columns as $q) {
+    if (mysqli_query($conn, $q)) {
+        echo "OK: Columna agregada exitosamente.\n";
+    } else {
+        echo "Info: " . mysqli_error($conn) . "\n"; // 'Duplicate column' is safe to ignore
+    }
 }
 
 echo "Migración finalizada.\n";

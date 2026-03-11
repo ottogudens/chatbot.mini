@@ -860,6 +860,47 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                         placeholder="Eres un asistente experto en..."></textarea>
                     <div class="form-help">Define su personalidad, formato de respuesta y reglas generales.</div>
                 </div>
+
+                <!-- AI Configuration Section -->
+                <div style="border:1px solid var(--border);border-radius:8px;padding:16px;margin-top:8px;">
+                    <h4
+                        style="margin:0 0 14px 0;color:var(--accent);font-size:13px;text-transform:uppercase;letter-spacing:1px;">
+                        <i class="fa-solid fa-microchip"></i> Configuración IA</h4>
+                    <div class="form-group">
+                        <label>Modelo Gemini</label>
+                        <select id="assistant-model" name="gemini_model">
+                            <option value="gemini-2.0-flash-lite">gemini-2.0-flash-lite (rápido y económico)</option>
+                            <option value="gemini-2.0-flash">gemini-2.0-flash (equilibrado)</option>
+                            <option value="gemini-1.5-flash">gemini-1.5-flash (alternativa estable)</option>
+                            <option value="gemini-1.5-pro">gemini-1.5-pro (más capaz, más lento)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Estilo de Respuesta</label>
+                        <select id="assistant-style" name="response_style">
+                            <option value="concise">Conciso (2-3 oraciones, directo al punto)</option>
+                            <option value="balanced" selected>Balanceado (completo sin excesos)</option>
+                            <option value="detailed">Detallado (respuestas exhaustivas)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Tokens Máximos: <strong id="max-tokens-display">1500</strong></label>
+                        <input type="range" id="assistant-max-tokens" name="max_output_tokens" min="256" max="4096"
+                            step="128" value="1500"
+                            oninput="document.getElementById('max-tokens-display').textContent = this.value"
+                            style="width:100%;accent-color:var(--accent);">
+                        <div class="form-help">Mayor = respuestas más largas. ~750 tokens ≈ 500 palabras.</div>
+                    </div>
+                    <div class="form-group">
+                        <label>Temperatura: <strong id="temp-display">0.7</strong></label>
+                        <input type="range" id="assistant-temp" name="temperature" min="0" max="2" step="0.1"
+                            value="0.7"
+                            oninput="document.getElementById('temp-display').textContent = parseFloat(this.value).toFixed(1)"
+                            style="width:100%;accent-color:var(--accent);">
+                        <div class="form-help">0 = preciso y consistente &nbsp;|&nbsp; 2 = creativo e impredecible</div>
+                    </div>
+                </div>
+
                 <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
                     <button type="button" class="btn btn-outline"
                         onclick="closeModal('assistant-modal')">Cancelar</button>
@@ -1374,7 +1415,23 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             }, 'json');
         }
         function openAssistantModal() { $('#assistant-form')[0].reset(); $('#assistant-id').val(''); $('#assistant-modal-title').text('Nuevo Asistente'); $('#assistant-modal').addClass('active'); }
-        function editAssistant(a) { $('#assistant-id').val(a.id); $('#assistant-client').val(a.client_id); $('#assistant-name').val(a.name); $('#assistant-prompt').val(a.system_prompt); $('#assistant-modal-title').text('Editar Asistente'); $('#assistant-modal').addClass('active'); }
+        function editAssistant(a) {
+            $('#assistant-id').val(a.id);
+            $('#assistant-client').val(a.client_id);
+            $('#assistant-name').val(a.name);
+            $('#assistant-prompt').val(a.system_prompt);
+            // AI Config fields
+            $('#assistant-model').val(a.gemini_model || 'gemini-2.0-flash-lite');
+            $('#assistant-style').val(a.response_style || 'balanced');
+            const maxTok = a.max_output_tokens || 1500;
+            $('#assistant-max-tokens').val(maxTok);
+            $('#max-tokens-display').text(maxTok);
+            const temp = parseFloat(a.temperature || 0.7).toFixed(1);
+            $('#assistant-temp').val(temp);
+            $('#temp-display').text(temp);
+            $('#assistant-modal-title').text('Editar Asistente');
+            $('#assistant-modal').addClass('active');
+        }
         function submitAssistant(e) {
             e.preventDefault();
             const action = $('#assistant-id').val() ? 'assistants_update' : 'assistants_create';
