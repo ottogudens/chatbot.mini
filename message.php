@@ -152,6 +152,15 @@ if ($matched === 0 && !empty($clean_msg)) {
         $reply = $ai_reply;
         $matched = 1; // Mark as matched via AI
     }
+
+    // Clean up any expired Gemini file URIs from the DB so future requests don't fail
+    if (!empty($gemini->expired_file_uris)) {
+        foreach ($gemini->expired_file_uris as $expired_uri) {
+            $safe_uri = mysqli_real_escape_string($conn, $expired_uri);
+            mysqli_query($conn, "UPDATE information_sources SET gemini_file_uri = NULL WHERE gemini_file_uri = '$safe_uri'");
+            error_log("Cleared expired Gemini file URI from DB: $expired_uri");
+        }
+    }
 }
 
 // 6. Final Fallback and Suggestions

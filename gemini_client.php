@@ -10,10 +10,33 @@ class GeminiClient
     private $model = "gemini-2.5-flash-lite";
     private $api_url = "https://generativelanguage.googleapis.com/v1beta/models/";
 
+    /** URIs that were found to be expired/inaccessible during the last get_response() call */
+    public $expired_file_uris = [];
+
     public function __construct()
     {
         // Get API key from environment variable
         $this->api_key = getenv('GEMINI_API_KEY');
+    }
+
+    /**
+     * Check if a Gemini File URI is still valid (not expired or permission denied).
+     * Returns true if accessible, false if expired/forbidden.
+     */
+    public function validate_file_uri($uri)
+    {
+        if (!$this->api_key || empty($uri))
+            return false;
+        // Extract file ID from URI like "https://generativelanguage.googleapis.com/v1beta/files/FILEID"
+        $file_id = basename(parse_url($uri, PHP_URL_PATH));
+        $check_url = "https://generativelanguage.googleapis.com/v1beta/files/{$file_id}?key=" . $this->api_key;
+        $ch = curl_init($check_url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_exec($ch);
+        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        return $http_code === 200;
     }
 
     /**
@@ -247,6 +270,38 @@ class GeminiClient
         $response = curl_exec($ch);
         $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
+
+        // Handle expired/inaccessible file URIs: retry in text-only mode
+        if (($http_code === 403 || $http_code === 404) && !empty($info_sources_files)) {
+            $error_body = json_decode($response, true);
+            $error_status = $error_body['error']['status'] ?? '';
+            if (in_array($error_status, ['PERMISSION_DENIED', 'NOT_FOUND'])) {
+                // Record all attached URIs as expired so caller can clean them up
+                $this->expired_file_uris = array_column($info_sources_files, 'uri');
+                error_log("Gemini file URI expired/inaccessible, retrying text-only. URIs: " . implode(', ', $this->expired_file_uris));
+
+                // Rebuild user parts WITHOUT file attachments
+                $user_parts_text_only = [["text" => $user_message]];
+                foreach (array_reverse(array_keys($contents)) as $idx) {
+                    if (($contents[$idx]['role'] ?? '') === 'user') {
+                        $contents[$idx]['parts'] = $user_parts_text_only;
+                        break;
+                    }
+                }
+                $data['contents'] = $contents;
+
+                $ch2 = curl_init($url);
+                curl_setopt($ch2, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch2, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+                curl_setopt($ch2, CURLOPT_POST, true);
+                curl_setopt($ch2, CURLOPT_POSTFIELDS, json_encode($data));
+                curl_setopt($ch2, CURLOPT_SSL_VERIFYPEER, false);
+
+                $response = curl_exec($ch2);
+                $http_code = curl_getinfo($ch2, CURLINFO_HTTP_CODE);
+                curl_close($ch2);
+            }
+        }
 
         if ($http_code !== 200) {
             error_log("Gemini API Error: " . $response);
