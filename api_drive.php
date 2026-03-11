@@ -225,6 +225,16 @@ switch ($action) {
         echo $response;
         break;
 
+    case 'disconnect':
+        $stmt = mysqli_prepare($conn, "DELETE FROM client_integrations WHERE client_id=? AND provider='google_drive'");
+        mysqli_stmt_bind_param($stmt, "i", $client_id);
+        if (mysqli_stmt_execute($stmt)) {
+            echo json_encode(['status' => 'success', 'message' => 'Cuenta de Google desconectada correctamente.']);
+        } else {
+            echo json_encode(['status' => 'error', 'message' => 'Error al desconectar: ' . mysqli_error($conn)]);
+        }
+        break;
+
     case 'sync_file':
         $token = get_valid_token($conn, $client_id, $google_client_id, $google_client_secret);
         if (!$token) {

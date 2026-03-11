@@ -1191,6 +1191,20 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             loadCalendarSettings();
         }
 
+        function disconnectGoogle() {
+            if (!confirm('¿Desconectar tu cuenta de Google? Perderás el acceso a Drive y Calendar hasta volver a conectarla.')) return;
+            let cid = getClientIdForAPI();
+            $.post('api_drive.php?action=disconnect' + (cid ? '&client_id=' + cid : ''), {}, function (res) {
+                if (res.status === 'success') {
+                    alert('Cuenta desconectada correctamente. Ahora puedes volver a conectar con los nuevos permisos.');
+                    loadDriveStatus();
+                    loadCalendarSettings();
+                } else {
+                    alert(res.message || 'Error al desconectar.');
+                }
+            }, 'json');
+        }
+
         // --- Drive Integrations ---
         function loadDriveStatus() {
             let cid = getClientIdForAPI();
@@ -1208,12 +1222,15 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 if (res.status === 'success') {
                     if (res.connected) {
                         $('#drive-status-container').html(`
-                            <div style="display:flex; align-items:center; gap:15px;">
+                            <div style="display:flex; align-items:center; gap:15px; flex-wrap:wrap;">
                                 <i class="fa-brands fa-google-drive" style="font-size:32px; color:#10b981;"></i>
                                 <div>
                                     <h3 style="color:#10b981; margin-bottom:5px;">Conectado a Google</h3>
                                     <p style="color:var(--text-muted); font-size:13px;">Tu cuenta está vinculada (Drive y Calendar). Puedes explorar y sincronizar archivos.</p>
                                 </div>
+                                <button class="btn btn-danger" style="margin-left:auto;" onclick="disconnectGoogle()">
+                                    <i class="fa-solid fa-link-slash"></i> Desconectar
+                                </button>
                             </div>
                         `);
                         $('#drive-files-container').show();
