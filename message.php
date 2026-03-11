@@ -35,7 +35,7 @@ if ($assistant_id) {
     if ($ast_row = mysqli_fetch_assoc($ast_res)) {
         $custom_system_prompt = $ast_row['system_prompt'] ?? '';
         $ai_config = [
-            'model' => $ast_row['gemini_model'] ?? 'gemini-2.0-flash-lite',
+            'model' => $ast_row['gemini_model'] ?? 'gemini-2.5-flash-lite',
             'temperature' => $ast_row['temperature'] ?? 0.7,
             'max_output_tokens' => $ast_row['max_output_tokens'] ?? 1500,
             'response_style' => $ast_row['response_style'] ?? 'balanced',

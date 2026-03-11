@@ -31,7 +31,7 @@ foreach ($part2_columns as $q) {
 // === Parte 3: AI configuration columns for assistants ===
 echo "\n--- Parte 3: assistants (AI config) ---\n";
 $part3_columns = [
-    "ALTER TABLE assistants ADD COLUMN gemini_model VARCHAR(50) NOT NULL DEFAULT 'gemini-2.0-flash-lite'",
+    "ALTER TABLE assistants ADD COLUMN gemini_model VARCHAR(50) NOT NULL DEFAULT 'gemini-2.5-flash-lite'",
     "ALTER TABLE assistants ADD COLUMN temperature DECIMAL(3,2) NOT NULL DEFAULT 0.70",
     "ALTER TABLE assistants ADD COLUMN max_output_tokens INT NOT NULL DEFAULT 1500",
     "ALTER TABLE assistants ADD COLUMN response_style VARCHAR(20) NOT NULL DEFAULT 'balanced'"

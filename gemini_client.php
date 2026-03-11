@@ -7,7 +7,7 @@
 class GeminiClient
 {
     private $api_key;
-    private $model = "gemini-2.0-flash-lite";
+    private $model = "gemini-2.5-flash-lite";
     private $api_url = "https://generativelanguage.googleapis.com/v1beta/models/";
 
     public function __construct()
@@ -104,14 +104,14 @@ class GeminiClient
         }
 
         // Per-assistant AI config with safe defaults
-        $model           = $config['model']           ?? $this->model;
-        $temperature     = $config['temperature']     ?? 0.7;
-        $max_tokens      = $config['max_output_tokens'] ?? 1500;
-        $response_style  = $config['response_style']  ?? 'balanced';
+        $model = $config['model'] ?? $this->model;
+        $temperature = $config['temperature'] ?? 0.7;
+        $max_tokens = $config['max_output_tokens'] ?? 1500;
+        $response_style = $config['response_style'] ?? 'balanced';
 
         // Style instruction injected into the system prompt
         $style_instructions = [
-            'concise'  => "REGLA DE ESTILO: Responde de forma muy concisa y directa. Máximo 2-3 oraciones por punto. Si el usuario pide más detalle, entonces amplia tu respuesta.",
+            'concise' => "REGLA DE ESTILO: Responde de forma muy concisa y directa. Máximo 2-3 oraciones por punto. Si el usuario pide más detalle, entonces amplia tu respuesta.",
             'balanced' => "REGLA DE ESTILO: Responde de forma clara y completa. Incluye toda la información relevante pero sin extenderte innecesariamente. Si el usuario pide más detalle, amplia tu respuesta.",
             'detailed' => "REGLA DE ESTILO: Proporciona respuestas detalladas y exhaustivas. Explica cada punto a fondo y ofrece contexto adicional cuando sea útil."
         ];
@@ -201,7 +201,7 @@ class GeminiClient
             ],
             "contents" => $contents,
             "generationConfig" => [
-                "temperature"     => (float) $temperature,
+                "temperature" => (float) $temperature,
                 "maxOutputTokens" => (int) $max_tokens,
             ],
             "tools" => [
