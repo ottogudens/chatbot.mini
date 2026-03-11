@@ -60,16 +60,7 @@ if ($assistant_id) {
         </div>
 
         <div class="form" id="chat-box">
-            <!-- Initial Greeting -->
-            <div class="bot-inbox inbox init-anim">
-                <div class="icon">
-                    <i class="fa-solid fa-robot"></i>
-                </div>
-                <div class="msg-header">
-                    <p>¡Hola! Soy <?php echo $bot_name; ?>. ¿En qué te puedo ayudar hoy?</p>
-                    <span class="timestamp" id="init-time"></span>
-                </div>
-            </div>
+            <!-- Messages are rendered dynamically by JavaScript -->
         </div>
 
         <!-- Typing Indicator (Hidden by default) -->
