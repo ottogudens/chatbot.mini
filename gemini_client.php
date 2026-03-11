@@ -7,7 +7,7 @@
 class GeminiClient
 {
     private $api_key;
-    private $model = "gemini-2.5-flash-lite";
+    private $model = "gemini-2.0-flash"; // Default: stable model with full function-calling support
     private $api_url = "https://generativelanguage.googleapis.com/v1beta/models/";
 
     /** URIs that were found to be expired/inaccessible during the last get_response() call */
