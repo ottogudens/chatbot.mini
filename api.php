@@ -656,7 +656,97 @@ switch ($action) {
         }
         break;
 
+    case 'appointments_list':
+        $req_client_id = $_GET['client_id'] ?? $session_client_id;
+        if (!$is_superadmin && $req_client_id != $session_client_id) {
+            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
+            exit;
+        }
+        $ast_filter = $_GET['assistant_id'] ?? null;
+        $where = "a.client_id = " . intval($req_client_id);
+        if ($ast_filter) $where .= " AND a.assistant_id = " . intval($ast_filter);
+        $query = "SELECT a.id, a.user_name, a.user_email, a.user_phone,
+                         a.appointment_date, a.appointment_time,
+                         a.google_event_id, a.google_calendar_id, a.status, a.created_at,
+                         ast.name AS assistant_name
+                  FROM appointments a
+                  JOIN assistants ast ON a.assistant_id = ast.id
+                  WHERE $where
+                  ORDER BY a.appointment_date DESC, a.appointment_time DESC
+                  LIMIT 200";
+        $result = mysqli_query($conn, $query);
+        $data = [];
+        if ($result) {
+            while ($row = mysqli_fetch_assoc($result)) $data[] = $row;
+        }
+        echo json_encode(['status' => 'success', 'data' => $data]);
+        break;
+
+    case 'appointments_cancel':
+        $appt_id = $_POST['id'] ?? 0;
+        // Fetch appointment data
+        $appt_query = mysqli_query($conn, "SELECT a.*, ci.access_token, ci.refresh_token, ci.expires_at
+            FROM appointments a
+            JOIN clients c ON a.client_id = c.id
+            LEFT JOIN client_integrations ci ON ci.client_id = a.client_id AND ci.provider = 'google_drive'
+            WHERE a.id = " . intval($appt_id));
+        $appt = mysqli_fetch_assoc($appt_query);
+        if (!$appt) {
+            echo json_encode(['status' => 'error', 'message' => 'Reserva no encontrada.']);
+            exit;
+        }
+        if (!$is_superadmin && $appt['client_id'] != $session_client_id) {
+            echo json_encode(['status' => 'error', 'message' => 'No autorizado.']);
+            exit;
+        }
+
+        // Try to cancel in Google Calendar
+        $google_cancelled = false;
+        if ($appt['google_event_id'] && $appt['access_token']) {
+            // Refresh token if needed
+            $access_token = $appt['access_token'];
+            if (strtotime($appt['expires_at']) <= time() + 300 && $appt['refresh_token']) {
+                $ch = curl_init('https://oauth2.googleapis.com/token');
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([
+                    'client_id'     => getenv('GOOGLE_CLIENT_ID'),
+                    'client_secret' => getenv('GOOGLE_CLIENT_SECRET'),
+                    'refresh_token' => $appt['refresh_token'],
+                    'grant_type'    => 'refresh_token'
+                ]));
+                $ref_res = json_decode(curl_exec($ch), true);
+                curl_close($ch);
+                if (!empty($ref_res['access_token'])) $access_token = $ref_res['access_token'];
+            }
+            $cal_id = urlencode($appt['google_calendar_id'] ?: 'primary');
+            $event_id = urlencode($appt['google_event_id']);
+            $del_url = "https://www.googleapis.com/calendar/v3/calendars/$cal_id/events/$event_id";
+            $ch = curl_init($del_url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'DELETE');
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ["Authorization: Bearer $access_token"]);
+            curl_exec($ch);
+            $del_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            $google_cancelled = ($del_code === 204 || $del_code === 200);
+        }
+
+        // Update local status
+        $stmt = mysqli_prepare($conn, "UPDATE appointments SET status='cancelled' WHERE id=?");
+        mysqli_stmt_bind_param($stmt, "i", $appt_id);
+        mysqli_stmt_execute($stmt);
+
+        echo json_encode([
+            'status'  => 'success',
+            'message' => $google_cancelled
+                ? 'Reserva cancelada en el sistema y en Google Calendar.'
+                : 'Reserva cancelada en el sistema (no se pudo eliminar de Google Calendar).'
+        ]);
+        break;
+
     default:
+
         echo json_encode(['status' => 'error', 'message' => 'Acción no válida']);
         break;
 }

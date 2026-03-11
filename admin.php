@@ -544,6 +544,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                     Integraciones</button>
                 <button class="nav-tab" data-target="rules-tab"><i class="fa-solid fa-book"></i> Reglas Q&A</button>
                 <button class="nav-tab" data-target="logs-tab"><i class="fa-solid fa-list"></i> Logs</button>
+                <button class="nav-tab" data-target="appointments-tab"><i class="fa-regular fa-calendar-check"></i> Reservas</button>
             </div>
 
             <!-- DASHBOARD TAB -->
@@ -822,6 +823,34 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                             <tr>
                                 <td colspan="4" style="text-align:center;">Cargando...</td>
                             </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- APPOINTMENTS TAB -->
+            <div id="appointments-tab" class="tab-content">
+                <div class="panel-header">
+                    <h2><i class="fa-regular fa-calendar-check" style="color:#f59e0b;"></i> Reservas del Asistente</h2>
+                    <button class="btn btn-outline" onclick="loadAppointments()"><i class="fa-solid fa-rotate"></i> Actualizar</button>
+                </div>
+                <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px;">Reservas creadas por el asistente en Google Calendar. Puedes cancelarlas desde aquí.</p>
+                <div style="overflow-x: auto;">
+                    <table id="appointments-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Hora</th>
+                                <th>Cliente</th>
+                                <th>Email</th>
+                                <th>Teléfono</th>
+                                <th>Asistente</th>
+                                <th>Estado</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="8" style="text-align:center;">Seleccione un asistente o cargando...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -1189,6 +1218,59 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             loadLogs();
             loadDriveStatus();
             loadCalendarSettings();
+            loadAppointments();
+        }
+
+        // --- Appointments ---
+        function loadAppointments() {
+            let cid = getClientIdForAPI();
+            if (IS_SUPERADMIN && !cid) {
+                $('#appointments-table tbody').html('<tr><td colspan="8" style="text-align:center; color:var(--text-muted);">Seleccione un asistente para ver sus reservas.</td></tr>');
+                return;
+            }
+            $('#appointments-table tbody').html('<tr><td colspan="8" style="text-align:center;"><i class="fa-solid fa-spinner fa-spin"></i> Cargando...</td></tr>');
+            let url = 'api.php?action=appointments_list' + (cid ? '&client_id=' + cid : '');
+            if (currentAssistantId) url += '&assistant_id=' + currentAssistantId;
+            $.get(url, function(res) {
+                if (res.status === 'success') {
+                    if (!res.data.length) {
+                        $('#appointments-table tbody').html('<tr><td colspan="8" style="text-align:center; color:var(--text-muted);">No hay reservas registradas.</td></tr>');
+                        return;
+                    }
+                    let html = '';
+                    res.data.forEach(a => {
+                        let statusBadge = a.status === 'confirmed'
+                            ? '<span class="badge success">Confirmada</span>'
+                            : '<span class="badge failed">Cancelada</span>';
+                        let cancelBtn = a.status === 'confirmed'
+                            ? `<button class="btn btn-danger" style="padding:5px 10px; font-size:12px;" onclick="cancelAppointment(${a.id})"><i class="fa-solid fa-ban"></i> Cancelar</button>`
+                            : '<span style="color:var(--text-muted); font-size:12px;">—</span>';
+                        html += `<tr>
+                            <td>${a.appointment_date}</td>
+                            <td>${a.appointment_time.substring(0,5)}</td>
+                            <td><b>${a.user_name}</b></td>
+                            <td>${a.user_email}</td>
+                            <td>${a.user_phone}</td>
+                            <td><span style="font-size:12px; color:var(--primary);">${a.assistant_name}</span></td>
+                            <td>${statusBadge}</td>
+                            <td>${cancelBtn}</td>
+                        </tr>`;
+                    });
+                    $('#appointments-table tbody').html(html);
+                } else {
+                    $('#appointments-table tbody').html('<tr><td colspan="8" style="text-align:center; color:#ef4444;">' + (res.message || 'Error cargando reservas.') + '</td></tr>');
+                }
+            }, 'json');
+        }
+
+        function cancelAppointment(id) {
+            if (!confirm('¿Cancelar esta reserva? Se eliminará también del Google Calendar del cliente.')) return;
+            $.post('api.php?action=appointments_cancel', { id: id }, function(res) {
+                alert(res.message || (res.status === 'success' ? 'Reserva cancelada.' : 'Error al cancelar.'));
+                if (res.status === 'success') loadAppointments();
+            }, 'json').fail(function() {
+                alert('Error de red al cancelar la reserva.');
+            });
         }
 
         function disconnectGoogle() {

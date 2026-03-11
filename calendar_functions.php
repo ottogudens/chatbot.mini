@@ -199,10 +199,28 @@ function book_calendar_appointment($conn, $assistant_id, $args)
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
 
-    if ($http_code === 200) {
+    if ($http_code === 200 || $http_code === 201) {
+        $event_data = json_decode($response, true);
+        $google_event_id = $event_data['id'] ?? null;
+        $google_calendar_id = $settings['calendar_id'] ?: 'primary';
+
+        // Save appointment to local DB
+        $stmt = mysqli_prepare($conn, "INSERT INTO appointments
+            (assistant_id, client_id, user_name, user_email, user_phone, appointment_date, appointment_time, google_event_id, google_calendar_id, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed')");
+        mysqli_stmt_bind_param($stmt, "iisssssss",
+            $assistant_id, $client_id,
+            $name, $email, $phone,
+            $date, $time,
+            $google_event_id, $google_calendar_id
+        );
+        mysqli_stmt_execute($stmt);
+
         return ["status" => "success", "message" => "La reserva se ha creado con éxito."];
     } else {
-        return ["status" => "error", "message" => "Hubo un error al crear la reserva en Google Calendar.", "debug" => $response];
+        $error_data = json_decode($response, true);
+        $error_msg = $error_data['error']['message'] ?? $response;
+        return ["status" => "error", "message" => "Hubo un error al crear la reserva en Google Calendar: $error_msg"];
     }
 }
 ?>
