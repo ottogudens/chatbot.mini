@@ -45,7 +45,12 @@ if ($assistant_id) {
     while ($info_row = mysqli_fetch_assoc($info_res)) {
         if ($info_row['type'] === 'text' || $info_row['type'] === 'link') {
             $info_sources_text .= $info_row['content_text'] . "\n\n";
-        } elseif ($info_row['type'] === 'file' && !empty($info_row['gemini_file_uri'])) {
+        } elseif (
+            ($info_row['type'] === 'file') &&
+            !empty($info_row['gemini_file_uri']) &&
+            !empty($info_row['file_type'])
+        ) {
+            // Only include files with a valid URI and mimeType to avoid Gemini INVALID_ARGUMENT errors
             $info_sources_files[] = [
                 'uri' => $info_row['gemini_file_uri'],
                 'mime_type' => $info_row['file_type']
