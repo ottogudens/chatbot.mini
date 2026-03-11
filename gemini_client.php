@@ -7,7 +7,10 @@
 class GeminiClient
 {
     private $api_key;
-    private $model = "gemini-2.0-flash"; // Default: stable model with full function-calling support
+    private $model = "gemini-2.5-flash"; // Default: stable GA model available to all API keys
+
+    // Models that use extended thinking — require thinkingBudget:0 to enable function calling
+    private $thinking_models = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.5-flash-lite', 'gemini-3-pro-preview', 'gemini-3-flash-preview'];
     private $api_url = "https://generativelanguage.googleapis.com/v1beta/models/";
 
     /** URIs that were found to be expired/inaccessible during the last get_response() call */
@@ -17,6 +20,21 @@ class GeminiClient
     {
         // Get API key from environment variable
         $this->api_key = getenv('GEMINI_API_KEY');
+    }
+
+    /**
+     * Returns true if the given model is a thinking model that requires
+     * thinkingConfig:{thinkingBudget:0} to use tools/function calling.
+     */
+    private function is_thinking_model($model)
+    {
+        foreach ($this->thinking_models as $tm) {
+            if (stripos($model, $tm) !== false || stripos($model, $tm) === 0) {
+                return true;
+            }
+        }
+        // Also detect by suffix pattern: any 2.5+ model is likely a thinking model
+        return (bool) preg_match('/gemini-(2\.5|3\.)/', $model);
     }
 
     /**
@@ -223,10 +241,12 @@ class GeminiClient
                 "parts" => [["text" => $system_prompt]]
             ],
             "contents" => $contents,
-            "generationConfig" => [
+            "generationConfig" => array_filter([
                 "temperature" => (float) $temperature,
                 "maxOutputTokens" => (int) $max_tokens,
-            ],
+                // Disable extended thinking for thinking models so tools/function calling work correctly
+                "thinkingConfig" => $this->is_thinking_model($model) ? ["thinkingBudget" => 0] : null,
+            ], fn($v) => $v !== null),
             "tools" => [
                 [
                     "functionDeclarations" => [

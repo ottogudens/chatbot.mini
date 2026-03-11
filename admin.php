@@ -1002,7 +1002,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                     <div class="form-group">
                         <label>Modelo Gemini</label>
                         <select id="assistant-model" name="gemini_model">
-                            <option value="gemini-2.0-flash">gemini-2.0-flash (rápido y estable, recomendado)</option>
+                            <option value="gemini-2.5-flash">gemini-2.5-flash (estable, recomendado)</option>
                             <option value="gemini-2.0-flash-001">gemini-2.0-flash-001 (versión estable anclada)</option>
                             <option value="gemini-1.5-flash">gemini-1.5-flash (alternativa estable)</option>
                             <option value="gemini-1.5-pro">gemini-1.5-pro (más capaz, más lento)</option>
@@ -1554,7 +1554,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             $('#assistant-name').val(a.name);
             $('#assistant-prompt').val(a.system_prompt);
             // AI Config fields
-            $('#assistant-model').val(a.gemini_model || 'gemini-2.0-flash');
+            $('#assistant-model').val(a.gemini_model || 'gemini-2.5-flash');
             $('#assistant-style').val(a.response_style || 'balanced');
             const maxTok = a.max_output_tokens || 1500;
             $('#assistant-max-tokens').val(maxTok);
