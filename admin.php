@@ -1357,9 +1357,19 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                     alert("Calendario creado exitosamente.");
                     loadGoogleCalendars(res.id);
                 } else {
-                    alert("Error creando calendario.");
+                    // Show detailed error from Google API if available
+                    let errorMsg = "Error creando calendario.";
+                    if (res.error && res.error.message) {
+                        errorMsg += "\n\nDetalle: " + res.error.message;
+                        if (res.error.status === 'PERMISSION_DENIED' || res.error.code === 403) {
+                            errorMsg += "\n\n⚠️ Sin permisos suficientes. Para crear calendarios nuevos, debes desconectar tu cuenta de Google y volver a conectarla para otorgar el permiso necesario.";
+                        }
+                    }
+                    alert(errorMsg);
                 }
-            }, 'json');
+            }, 'json').fail(function(xhr) {
+                alert("Error de red o respuesta inválida al crear el calendario.");
+            });
         }
 
         function submitCalendarSettings(e) {

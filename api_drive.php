@@ -91,7 +91,7 @@ switch ($action) {
             'client_id' => $google_client_id,
             'redirect_uri' => $redirect_uri,
             'response_type' => 'code',
-            'scope' => 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/calendar.events',
+            'scope' => 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/calendar',
             'access_type' => 'offline',
             'prompt' => 'consent',
             'state' => $client_id // passing client id in state to know who is connecting
