@@ -368,6 +368,138 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             color: var(--text-muted);
             margin-top: 6px;
         }
+
+        /* ===== RESPONSIVE: Mobile Admin Panel ===== */
+        @media (max-width: 768px) {
+            body {
+                font-size: 14px;
+            }
+
+            /* Stack layout vertically on mobile */
+            .container {
+                flex-direction: column;
+                height: auto;
+                min-height: 100vh;
+            }
+
+            /* Sidebar becomes a top bar */
+            .sidebar {
+                width: 100%;
+                height: auto;
+                flex-direction: row;
+                flex-wrap: wrap;
+                padding: 10px;
+                gap: 6px;
+                justify-content: center;
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+            }
+
+            .sidebar .logo {
+                width: 100%;
+                text-align: center;
+                margin-bottom: 4px;
+                font-size: 16px;
+            }
+
+            .sidebar .logo small {
+                display: none;
+            }
+
+            .nav-btn {
+                flex-direction: column;
+                padding: 8px 10px;
+                font-size: 11px;
+                gap: 4px;
+                flex: 1;
+                min-width: 60px;
+                max-width: 90px;
+                border-radius: 10px;
+                text-align: center;
+            }
+
+            .sidebar .sep,
+            .sidebar p {
+                display: none;
+            }
+
+            /* Main content fills the screen */
+            .main-content {
+                width: 100%;
+                overflow-y: auto;
+            }
+
+            /* Global bar wraps nicely */
+            .global-bar {
+                flex-wrap: wrap;
+                gap: 8px;
+                padding: 10px 15px;
+            }
+
+            .global-bar select,
+            .global-bar .btn {
+                flex: 1;
+                min-width: 120px;
+            }
+
+            /* Panel headers stack */
+            .panel-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            /* Tables become scrollable */
+            table {
+                font-size: 12px;
+                min-width: 480px;
+            }
+
+            th,
+            td {
+                padding: 8px 10px;
+            }
+
+            /* Modals go full screen */
+            .modal {
+                width: 100% !important;
+                max-width: 100% !important;
+                height: 100%;
+                max-height: 100%;
+                border-radius: 0;
+                margin: 0;
+                overflow-y: auto;
+            }
+
+            .modal-overlay {
+                align-items: flex-end;
+            }
+
+            /* Stats cards wrap */
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+            }
+
+            .stat-card {
+                padding: 14px;
+            }
+
+            .stat-number {
+                font-size: 22px;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .nav-btn {
+                max-width: 70px;
+                font-size: 10px;
+            }
+        }
     </style>
 </head>
 
@@ -865,7 +997,8 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 <div style="border:1px solid var(--border);border-radius:8px;padding:16px;margin-top:8px;">
                     <h4
                         style="margin:0 0 14px 0;color:var(--accent);font-size:13px;text-transform:uppercase;letter-spacing:1px;">
-                        <i class="fa-solid fa-microchip"></i> Configuración IA</h4>
+                        <i class="fa-solid fa-microchip"></i> Configuración IA
+                    </h4>
                     <div class="form-group">
                         <label>Modelo Gemini</label>
                         <select id="assistant-model" name="gemini_model">
