@@ -138,7 +138,7 @@ class GeminiClient
     /**
      * Get a response from Gemini
      */
-    public function get_response($user_message, $history = [], $custom_system_prompt = "", $info_sources_text = "", $info_sources_files = [], $function_state = null, $config = [])
+    public function get_response($user_message, $history = [], $custom_system_prompt = "", $info_sources_text = "", $info_sources_files = [], $function_state = null, $config = [], $use_tools = true)
     {
         if (!$this->api_key) {
             return "Error: GEMINI_API_KEY no configurada.";
@@ -251,8 +251,11 @@ class GeminiClient
                 "maxOutputTokens" => (int) $max_tokens,
                 // Disable extended thinking for thinking models so tools/function calling work correctly
                 "thinkingConfig" => $this->is_thinking_model($model) ? ["thinkingBudget" => 0] : null,
-            ], fn($v) => $v !== null),
-            "tools" => [
+            ], fn($v) => $v !== null)
+        ];
+
+        if ($use_tools) {
+            $data["tools"] = [
                 [
                     "functionDeclarations" => [
                         [
@@ -285,7 +288,7 @@ class GeminiClient
                             "description" => "Obtiene la lista de plantillas de PDF disponibles y los campos requeridos para cada una.",
                             "parameters" => [
                                 "type" => "OBJECT",
-                                "properties" => []
+                                "properties" => (object) []
                             ]
                         ],
                         [
@@ -297,8 +300,7 @@ class GeminiClient
                                     "template_id" => ["type" => "STRING", "description" => "ID de la plantilla a usar (ej: basic_info.txt)"],
                                     "data" => [
                                         "type" => "OBJECT",
-                                        "description" => "Objeto con los pares clave-valor para los placeholders de la plantilla (ej: {'nombre': 'Juan', 'fecha': '2023-10-01'})",
-                                        "additionalProperties" => ["type" => "STRING"]
+                                        "description" => "Objeto con los pares clave-valor para los placeholders de la plantilla (ej: {'nombre': 'Juan', 'fecha': '2023-10-01'})"
                                     ]
                                 ],
                                 "required" => ["template_id", "data"]
@@ -306,8 +308,8 @@ class GeminiClient
                         ]
                     ]
                 ]
-            ]
-        ];
+            ];
+        }
 
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -382,7 +384,7 @@ class GeminiClient
 
         $response = $this->get_response($prompt, [], "Eres un extractor de metadatos de documentos.", "", [
             ['uri' => $file_uri, 'mime_type' => $mime_type]
-        ]);
+        ], null, [], false);
 
         if (is_array($response) && $response['type'] === 'function_call') {
             // Should not happen with this prompt, but handle just in case
