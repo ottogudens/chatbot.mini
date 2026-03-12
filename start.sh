@@ -1,73 +1,92 @@
 #!/bin/bash
-# Log all output to /tmp/start.log
-exec > >(tee -a /tmp/start.log) 2>&1
-
-echo "--- STARTUP SCRIPT ---"
+# Log all output to stdout/stderr for Railway to capture
+echo "--- STARTUP SCRIPT STARTING ---"
 echo "Date: $(date)"
+echo "User: $(whoami)"
 echo "Environment: PORT=${PORT}"
 
-# Check for binaries
-which php-fpm || which php-fpm83 || echo "php-fpm NOT FOUND"
-which nginx || echo "nginx NOT FOUND"
-which node || echo "node NOT FOUND"
+# Enable debug mode
+set -x
 
-# --- Persistence Logic (Volume at /app/storage) ---
-# This allows overcoming Railway's 1-volume limit
-STORAGE_ROOT="/app/persistent" # Recommend mounting volume here
+# 1. Binary Discovery
+PHP_FPM_BIN=""
+for bin in php-fpm php-fpm83 php-fpm8.3 php-fpm8.2 php-fpm8.1; do
+    if command -v "$bin" >/dev/null 2>&1; then
+        PHP_FPM_BIN=$(command -v "$bin")
+        echo "Found PHP-FPM at: $PHP_FPM_BIN"
+        break
+    fi
+done
+
+if [ -z "$PHP_FPM_BIN" ]; then
+    echo "ERROR: PHP-FPM binary NOT FOUND. Trying common paths..."
+    for path in /usr/sbin/php-fpm /usr/local/sbin/php-fpm /usr/bin/php-fpm; do
+        if [ -f "$path" ]; then
+            PHP_FPM_BIN=$path
+            echo "Found PHP-FPM at: $PHP_FPM_BIN"
+            break
+        fi
+    done
+fi
+
+# 2. Persistence Logic (Volume at /app/persistent)
+STORAGE_ROOT="/app/persistent"
 
 if [ -d "$STORAGE_ROOT" ]; then
     echo "Persistent storage detected at $STORAGE_ROOT"
     
-    # Setup Uploads
+    # Setup directories
     mkdir -p "$STORAGE_ROOT/uploads"
+    mkdir -p "$STORAGE_ROOT/whatsapp_sessions"
+
+    # Symlink Uploads
     if [ ! -L "/app/uploads" ]; then
-        echo "Linking /app/uploads to persistent storage..."
-        mv /app/uploads/* "$STORAGE_ROOT/uploads/" 2>/dev/null || true
-        rm -rf /app/uploads
+        echo "Linking /app/uploads..."
+        if [ -d "/app/uploads" ]; then
+            mv /app/uploads/* "$STORAGE_ROOT/uploads/" 2>/dev/null || true
+            rm -rf /app/uploads
+        fi
         ln -s "$STORAGE_ROOT/uploads" /app/uploads
     fi
 
-    # Setup WhatsApp Sessions
-    mkdir -p "$STORAGE_ROOT/whatsapp_sessions"
-    mkdir -p /app/whatsapp/sessions # Ensure parent exists
+    # Symlink WhatsApp Sessions
     if [ ! -L "/app/whatsapp/sessions" ]; then
-        echo "Linking /app/whatsapp/sessions to persistent storage..."
-        mv /app/whatsapp/sessions/* "$STORAGE_ROOT/whatsapp_sessions/" 2>/dev/null || true
-        rm -rf /app/whatsapp/sessions
+        echo "Linking /app/whatsapp/sessions..."
+        mkdir -p /app/whatsapp/sessions 2>/dev/null || true
+        if [ -d "/app/whatsapp/sessions" ]; then
+            mv /app/whatsapp/sessions/* "$STORAGE_ROOT/whatsapp_sessions/" 2>/dev/null || true
+            rm -rf /app/whatsapp/sessions
+        fi
         ln -s "$STORAGE_ROOT/whatsapp_sessions" /app/whatsapp/sessions
     fi
 else
-    echo "WARNING: No persistent storage detected at $STORAGE_ROOT. Data will be lost on redeploy."
+    echo "WARNING: No persistent storage detected at $STORAGE_ROOT."
     mkdir -p /app/uploads
     mkdir -p /app/whatsapp/sessions
 fi
-# -----------------------------------------------
 
-# Substitute Environment Variables in Nginx Config
-echo "Substituting PORT in nginx.conf..."
+# 3. Nginx Config
+echo "Configuring Nginx..."
 sed "s/\${PORT}/${PORT}/g" /app/nginx.conf.template > /app/nginx.conf
-
-# Verify config
 nginx -t -c /app/nginx.conf
 
-# Start Whatsapp Node Service with PM2
-echo "Starting Whatsapp service with PM2..."
-cd /app/whatsapp && pm2 start whatsapp.js --name "whatsapp-bridge" --time
+# 4. Start Services
+echo "Starting WhatsApp bridge with PM2..."
+cd /app/whatsapp && pm2 start whatsapp.js --name "whatsapp-bridge" --time || echo "PM2 failed to start, trying node directly..."
 cd /app
 
-# Start PHP-FPM in background
 echo "Starting PHP-FPM..."
-# Try both binary names
-if command -v php-fpm83 >/dev/null 2>&1; then
-    php-fpm83 -y /app/php-fpm.conf -F &
+if [ -n "$PHP_FPM_BIN" ]; then
+    $PHP_FPM_BIN -y /app/php-fpm.conf -F &
 else
-    php-fpm -y /app/php-fpm.conf -F &
+    echo "CRITICAL: Cannot start PHP-FPM (binary not found)"
+    exit 1
 fi
 
-# Wait a bit for PHP-FPM to start
-sleep 2
+echo "Waiting for PHP-FPM..."
+sleep 3
 
-# Start Nginx in foreground
-echo "Starting Nginx on port ${PORT}..."
+echo "Starting Nginx..."
 nginx -c /app/nginx.conf -g 'daemon off;'
+
 
