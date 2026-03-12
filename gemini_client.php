@@ -369,5 +369,33 @@ class GeminiClient
 
         return $part['text'] ?? null;
     }
+
+    /**
+     * Specialized method to analyze a PDF and extract possible placeholders/fields.
+     * Returns an array of strings (field names).
+     */
+    public function analyze_pdf_placeholders($file_uri, $mime_type)
+    {
+        $prompt = "Analiza este documento PDF e identifica todos los campos, etiquetas o espacios donde un usuario debería ingresar información (ej: Nombre, Fecha, Dirección, Monto, etc.). 
+        Devuelve ÚNICAMENTE un arreglo JSON con los nombres técnicos sugeridos para estos campos (en minúsculas, sin espacios, usando guiones bajos si es necesario).
+        Ejemplo de salida: [\"nombre_cliente\", \"fecha_emision\", \"monto_total\"]";
+
+        $response = $this->get_response($prompt, [], "Eres un extractor de metadatos de documentos.", "", [
+            ['uri' => $file_uri, 'mime_type' => $mime_type]
+        ]);
+
+        if (is_array($response) && $response['type'] === 'function_call') {
+            // Should not happen with this prompt, but handle just in case
+            return [];
+        }
+
+        // Extract JSON from response (Gemini might wrap it in markdown)
+        if (preg_match('/\[.*\]/s', $response, $matches)) {
+            $json = json_decode($matches[0], true);
+            return is_array($json) ? $json : [];
+        }
+
+        return [];
+    }
 }
 ?>

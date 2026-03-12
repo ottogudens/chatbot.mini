@@ -687,13 +687,27 @@ switch ($action) {
         }
 
         $file = $_FILES['template_file'];
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
         $safe_filename = time() . '_' . preg_replace("/[^a-zA-Z0-9.-]/", "_", $file['name']);
         $target_path = $upload_dir . $safe_filename;
 
         if (move_uploaded_file($file['tmp_name'], $target_path)) {
-            $content = file_get_contents($target_path);
-            preg_match_all('/\{\{(.*?)\}\}/', $content, $matches);
-            $placeholders = isset($matches[1]) ? array_unique($matches[1]) : [];
+            $placeholders = [];
+
+            if ($ext === 'pdf') {
+                require_once 'gemini_client.php';
+                $gemini = new GeminiClient();
+                $uri = $gemini->upload_file_to_gemini($target_path, 'application/pdf', $name);
+                if ($uri) {
+                    $placeholders = $gemini->analyze_pdf_placeholders($uri, 'application/pdf');
+                }
+            } else {
+                // Existing logic for .txt/standard files
+                $content = file_get_contents($target_path);
+                preg_match_all('/\{\{(.*?)\}\}/', $content, $matches);
+                $placeholders = isset($matches[1]) ? array_unique($matches[1]) : [];
+            }
+
             $placeholders_json = json_encode(array_values($placeholders));
             $relative_path = "uploads/clients/{$req_client_id}/pdf_templates/" . $safe_filename;
 
@@ -701,7 +715,7 @@ switch ($action) {
             mysqli_stmt_bind_param($stmt, "isss", $req_client_id, $name, $relative_path, $placeholders_json);
 
             if (mysqli_stmt_execute($stmt)) {
-                echo json_encode(['status' => 'success']);
+                echo json_encode(['status' => 'success', 'detected_fields' => $placeholders]);
             } else {
                 unlink($target_path);
                 echo json_encode(['status' => 'error', 'message' => 'Error en base de datos: ' . mysqli_error($conn)]);

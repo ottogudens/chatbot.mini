@@ -546,7 +546,8 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 <button class="nav-tab" data-target="pdf-templates-tab"><i class="fa-solid fa-file-pdf"></i> Plantillas
                     PDF</button>
                 <button class="nav-tab" data-target="logs-tab"><i class="fa-solid fa-list"></i> Logs</button>
-                <button class="nav-tab" data-target="appointments-tab"><i class="fa-regular fa-calendar-check"></i> Reservas</button>
+                <button class="nav-tab" data-target="appointments-tab"><i class="fa-regular fa-calendar-check"></i>
+                    Reservas</button>
             </div>
 
             <!-- DASHBOARD TAB -->
@@ -807,7 +808,8 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 </div>
                 <div style="margin-top: 20px; font-size: 13px; color: var(--text-muted);">
                     <p><i class="fa-solid fa-circle-info"></i> Sube archivos <b>.txt</b> con marcadores como
-                        <code>{{nombre}}</code> para que el asistente pueda completarlos.</p>
+                        <code>{{nombre}}</code> para que el asistente pueda completarlos.
+                    </p>
                 </div>
             </div>
 
@@ -865,9 +867,11 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             <div id="appointments-tab" class="tab-content">
                 <div class="panel-header">
                     <h2><i class="fa-regular fa-calendar-check" style="color:#f59e0b;"></i> Reservas del Asistente</h2>
-                    <button class="btn btn-outline" onclick="loadAppointments()"><i class="fa-solid fa-rotate"></i> Actualizar</button>
+                    <button class="btn btn-outline" onclick="loadAppointments()"><i class="fa-solid fa-rotate"></i>
+                        Actualizar</button>
                 </div>
-                <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px;">Reservas creadas por el asistente en Google Calendar. Puedes cancelarlas desde aquí.</p>
+                <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px;">Reservas creadas por el
+                    asistente en Google Calendar. Puedes cancelarlas desde aquí.</p>
                 <div style="overflow-x: auto;">
                     <table id="appointments-table">
                         <thead>
@@ -883,7 +887,9 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                             </tr>
                         </thead>
                         <tbody>
-                            <tr><td colspan="8" style="text-align:center;">Seleccione un asistente o cargando...</td></tr>
+                            <tr>
+                                <td colspan="8" style="text-align:center;">Seleccione un asistente o cargando...</td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -1214,28 +1220,30 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             </div>
             <form id="pdf-template-form" onsubmit="submitPDFTemplate(event)">
                 <?php if ($is_superadmin): ?>
-                <div class="form-group">
-                    <label>Cliente</label>
-                    <select name="client_id" required>
-                        <?php
-                        require_once 'db.php';
-                        $q = mysqli_query($conn, "SELECT id, name FROM clients");
-                        while($c = mysqli_fetch_assoc($q)) echo "<option value='{$c['id']}'>{$c['name']}</option>";
-                        ?>
-                    </select>
-                </div>
+                    <div class="form-group">
+                        <label>Cliente</label>
+                        <select name="client_id" required>
+                            <?php
+                            require_once 'db.php';
+                            $q = mysqli_query($conn, "SELECT id, name FROM clients");
+                            while ($c = mysqli_fetch_assoc($q))
+                                echo "<option value='{$c['id']}'>{$c['name']}</option>";
+                            ?>
+                        </select>
+                    </div>
                 <?php endif; ?>
                 <div class="form-group">
                     <label>Nombre de la Plantilla (Ej: Factura Simple)</label>
                     <input type="text" name="name" placeholder="Factura, Recibo, etc." required>
                 </div>
                 <div class="form-group">
-                    <label>Archivo de Plantilla (.txt)</label>
-                    <input type="file" name="template_file" accept=".txt" required>
-                    <p class="form-help">Sube un archivo de texto con el formato deseado y usa <code>{{campo}}</code> para los datos variables.</p>
+                    <label>Archivo de Plantilla (.txt o .pdf)</label>
+                    <input type="file" name="template_file" accept=".txt,.pdf" required>
+                    <p class="form-help">Sube un archivo de texto con <code>{{marcadores}}</code> o un PDF para que la IA lo analice y extraiga los campos automáticamente.</p>
                 </div>
                 <div style="text-align:right; margin-top:20px;">
-                    <button type="button" class="btn btn-outline" onclick="closeModal('pdf-template-modal')">Cancelar</button>
+                    <button type="button" class="btn btn-outline"
+                        onclick="closeModal('pdf-template-modal')">Cancelar</button>
                     <button type="submit" class="btn" id="btn-submit-pdf-template">Guardar Plantilla</button>
                 </div>
             </form>
@@ -1304,7 +1312,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             $('#appointments-table tbody').html('<tr><td colspan="8" style="text-align:center;"><i class="fa-solid fa-spinner fa-spin"></i> Cargando...</td></tr>');
             let url = 'api.php?action=appointments_list' + (cid ? '&client_id=' + cid : '');
             if (currentAssistantId) url += '&assistant_id=' + currentAssistantId;
-            $.get(url, function(res) {
+            $.get(url, function (res) {
                 if (res.status === 'success') {
                     if (!res.data.length) {
                         $('#appointments-table tbody').html('<tr><td colspan="8" style="text-align:center; color:var(--text-muted);">No hay reservas registradas.</td></tr>');
@@ -1320,7 +1328,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                             : '<span style="color:var(--text-muted); font-size:12px;">—</span>';
                         html += `<tr>
                             <td>${a.appointment_date}</td>
-                            <td>${a.appointment_time.substring(0,5)}</td>
+                            <td>${a.appointment_time.substring(0, 5)}</td>
                             <td><b>${a.user_name}</b></td>
                             <td>${a.user_email}</td>
                             <td>${a.user_phone}</td>
@@ -1338,10 +1346,10 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
 
         function cancelAppointment(id) {
             if (!confirm('¿Cancelar esta reserva? Se eliminará también del Google Calendar del cliente.')) return;
-            $.post('api.php?action=appointments_cancel', { id: id }, function(res) {
+            $.post('api.php?action=appointments_cancel', { id: id }, function (res) {
                 alert(res.message || (res.status === 'success' ? 'Reserva cancelada.' : 'Error al cancelar.'));
                 if (res.status === 'success') loadAppointments();
-            }, 'json').fail(function() {
+            }, 'json').fail(function () {
                 alert('Error de red al cancelar la reserva.');
             });
         }
@@ -1539,7 +1547,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                     }
                     alert(errorMsg);
                 }
-            }, 'json').fail(function(xhr) {
+            }, 'json').fail(function (xhr) {
                 alert("Error de red o respuesta inválida al crear el calendario.");
             });
         }
@@ -2000,7 +2008,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                         let placeholders = (t.placeholders || []).map(p => `<code style="background:rgba(255,255,255,0.1);padding:2px 4px;border-radius:4px;margin-right:4px;">${p}</code>`).join(' ');
                         let sourceBadge = t.source === 'db' ? '<span class="badge success">Personalizada</span>' : '<span class="badge">Sistema</span>';
                         let actions = t.source === 'db' ? `<button class="btn btn-danger" onclick="deletePDFTemplate(${t.db_id})"><i class="fa-solid fa-trash"></i></button>` : '<small>Protegida</small>';
-                        
+
                         html += `<tr><td>${t.id}</td><td><b>${t.name}</b></td><td>${sourceBadge}</td><td>${placeholders}</td><td>${actions}</td></tr>`;
                     });
                     $('#pdf-templates-table tbody').html(html || '<tr><td colspan="5" style="text-align:center;">No hay plantillas disponibles.</td></tr>');
@@ -2017,7 +2025,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             e.preventDefault();
             const formData = new FormData($('#pdf-template-form')[0]);
             $('#btn-submit-pdf-template').prop('disabled', true).text('Subiendo...');
-            
+
             $.ajax({
                 url: 'api.php?action=pdf_templates_upload',
                 type: 'POST',
@@ -2026,15 +2034,18 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 contentType: false,
                 dataType: 'json',
                 success: function (res) {
-                    $('#btn-submit-pdf-template').prop('disabled', false).text('Guardar Plantilla');
+                    $('#btn-submit-pdf-template').prop('disabled', false).text('Subir Plantilla');
                     if (res.status === 'success') {
                         closeModal('pdf-template-modal');
                         loadPDFTemplates();
+                        if (res.detected_fields && res.detected_fields.length > 0) {
+                            alert('Plantilla analizada. Campos detectados: ' + res.detected_fields.join(', '));
+                        }
                     } else {
                         alert(res.message || 'Error');
                     }
                 },
-                error: function() {
+                error: function () {
                     $('#btn-submit-pdf-template').prop('disabled', false).text('Guardar Plantilla');
                     alert('Error de conexión');
                 }

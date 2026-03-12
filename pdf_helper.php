@@ -89,15 +89,33 @@ class PDFHelper
             return ["error" => "Template physical file not found: $template_path"];
         }
 
-        $content = file_get_contents($template_path);
+        if (strtolower(pathinfo($template_path, PATHINFO_EXTENSION)) === 'pdf') {
+            // PDF-based template: Use Gemini to "fill" it
+            require_once 'gemini_client.php';
+            $gemini = new GeminiClient();
 
-        // Replace placeholders
-        foreach ($data as $key => $value) {
-            $content = str_replace('{{' . $key . '}}', (string) $value, $content);
+            // 1. Upload original PDF to Gemini if not already there (helper)
+            $uri = $gemini->upload_file_to_gemini($template_path, 'application/pdf', 'Original Template');
+
+            // 2. Ask Gemini to "re-fill" the content
+            $data_json = json_encode($data);
+            $prompt = "Toma este PDF como plantilla y genera una respuesta que contenga TODA la información del PDF pero reemplazando los campos lógicos con estos datos: $data_json. 
+            Mantén una estructura profesional y similar al documento original. Devuelve el contenido final como texto plano formateado.";
+
+            $filled_content = $gemini->get_response($prompt, [], "Eres un generador de documentos.", "", [
+                ['uri' => $uri, 'mime_type' => 'application/pdf']
+            ]);
+
+            $content = $filled_content;
+        } else {
+            $content = file_get_contents($template_path);
+            // Replace placeholders
+            foreach ($data as $key => $value) {
+                $content = str_replace('{{' . $key . '}}', (string) $value, $content);
+            }
+            // Clean up any remaining placeholders
+            $content = preg_replace('/\{\{.*?\}\}/', '', $content);
         }
-
-        // Clean up any remaining placeholders
-        $content = preg_replace('/\{\{.*?\}\}/', '', $content);
 
         // Generate PDF using FPDF
         $pdf = new FPDF();
