@@ -300,7 +300,8 @@ class GeminiClient
                                     "template_id" => ["type" => "STRING", "description" => "ID de la plantilla a usar (ej: basic_info.txt)"],
                                     "data" => [
                                         "type" => "OBJECT",
-                                        "description" => "Objeto con los pares clave-valor para los placeholders de la plantilla (ej: {'nombre': 'Juan', 'fecha': '2023-10-01'})"
+                                        "description" => "Objeto con los pares clave-valor para los placeholders de la plantilla (ej: {'nombre': 'Juan', 'fecha': '2023-10-01'})",
+                                        "properties" => (object) []
                                     ]
                                 ],
                                 "required" => ["template_id", "data"]

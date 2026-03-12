@@ -1,23 +1,16 @@
 <?php
-// Script de prueba de conexión a la base de datos
 require_once 'db.php';
-
-header('Content-Type: application/json');
-
+echo "DB Connection test:\n";
 if ($conn) {
-    echo json_encode([
-        "status" => "success",
-        "message" => "Conexión exitosa a la base de datos.",
-        "config" => [
-            "host" => getenv('MYSQLHOST') ?: "localhost",
-            "database" => getenv('MYSQLDATABASE') ?: "chatbot",
-            "user" => getenv('MYSQLUSER') ?: "chatbot_user"
-        ]
-    ]);
+    echo "SUCCESS\n";
+    $res = mysqli_query($conn, "SELECT COUNT(*) as cnt FROM clients");
+    if ($res) {
+        $row = mysqli_fetch_assoc($res);
+        echo "Clients count: " . $row['cnt'] . "\n";
+    } else {
+        echo "Query failed: " . mysqli_error($conn) . "\n";
+    }
 } else {
-    echo json_encode([
-        "status" => "error",
-        "message" => "No se pudo establecer la conexión."
-    ]);
+    echo "FAILED\n";
 }
 ?>
