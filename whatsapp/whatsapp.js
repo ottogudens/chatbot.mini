@@ -56,17 +56,17 @@ async function startSession(assistantId) {
 
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
-        
+
         if (qr) {
             qrData[assistantId] = qr;
         }
 
         if (connection === 'close') {
-            const shouldReconnect = (lastDisconnect.error instanceof Boom) ? 
+            const shouldReconnect = (lastDisconnect.error instanceof Boom) ?
                 lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut : true;
-            
+
             console.log(`[Assistant ${assistantId}] Conexión cerrada. Reconectando: ${shouldReconnect}`);
-            
+
             delete qrData[assistantId];
             if (shouldReconnect) {
                 delete sessions[assistantId];
@@ -89,9 +89,9 @@ async function startSession(assistantId) {
             for (const msg of m.messages) {
                 if (!msg.key.fromMe && msg.message) {
                     const from = msg.key.remoteJid;
-                    const text = msg.message.conversation || 
-                                 msg.message.extendedTextMessage?.text || 
-                                 '';
+                    const text = msg.message.conversation ||
+                        msg.message.extendedTextMessage?.text ||
+                        '';
 
                     if (text) {
                         try {
@@ -123,7 +123,7 @@ async function startSession(assistantId) {
 app.get('/status/:id', async (req, res) => {
     const id = req.params.id;
     const sock = sessions[id];
-    
+
     if (!sock) {
         return res.json({ status: 'disconnected' });
     }
@@ -187,7 +187,7 @@ if (fs.existsSync(AUTH_BASE_DIR)) {
     });
 }
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Servidor WhatsApp API ejecutándose en puerto ${PORT}`);
+const WHATSAPP_SERVICE_PORT = 3001;
+app.listen(WHATSAPP_SERVICE_PORT, '127.0.0.1', () => {
+    console.log(`Servidor WhatsApp API ejecutándose internamente en puerto ${WHATSAPP_SERVICE_PORT}`);
 });
