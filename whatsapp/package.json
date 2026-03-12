@@ -10,7 +10,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
+  "type": "module",
   "dependencies": {
     "@whiskeysockets/baileys": "^7.0.0-rc.9",
     "axios": "^1.13.6",

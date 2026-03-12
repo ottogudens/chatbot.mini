@@ -20,6 +20,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
     <style>
         :root {
             --bg-color: #0f172a;
+            --sidebar-bg: #1e293b;
             --glass-bg: rgba(30, 41, 59, 0.7);
             --glass-border: rgba(255, 255, 255, 0.1);
             --primary: #8b5cf6;
@@ -30,6 +31,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             --text-muted: #cbd5e1;
             --td-border: rgba(255, 255, 255, 0.05);
             --input-bg: rgba(15, 23, 42, 0.6);
+            --sidebar-width: 260px;
         }
 
         * {
@@ -42,43 +44,159 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
         body {
             background-color: var(--bg-color);
             color: var(--text-main);
-            padding: 40px 20px;
+            min-height: 100vh;
+            display: flex;
         }
 
-        .glass-bg {
+        .glass-bg-fx {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
             z-index: -1;
-            background: radial-gradient(circle at 15% 50%, rgba(139, 92, 246, 0.15), transparent 25%), radial-gradient(circle at 85% 30%, rgba(56, 189, 248, 0.15), transparent 25%);
+            background: radial-gradient(circle at 15% 50%, rgba(139, 92, 246, 0.1), transparent 25%), 
+                        radial-gradient(circle at 85% 30%, rgba(56, 189, 248, 0.1), transparent 25%);
         }
 
-        .container {
-            max-width: 1200px;
+        /* ----- Sidebar ----- */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--glass-border);
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-logo {
+            padding: 24px;
+            font-size: 22px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .sidebar-logo i { color: var(--primary); }
+
+        .sidebar-nav {
+            flex: 1;
+            padding: 20px 12px;
+            overflow-y: auto;
+        }
+
+        .nav-tab {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            padding: 12px 16px;
+            margin-bottom: 4px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 500;
+            text-align: left;
+            transition: all 0.2s;
+        }
+
+        .nav-tab:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+        }
+
+        .nav-tab.active {
+            background: rgba(139, 92, 246, 0.15);
+            color: var(--primary);
+        }
+
+        .sidebar-footer {
+            padding: 16px;
+            border-top: 1px solid var(--glass-border);
+        }
+
+        /* ----- Main Content ----- */
+        .main-wrapper {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .top-bar {
+            height: 70px;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(8px);
+            border-bottom: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+            position: sticky;
+            top: 0;
+            z-index: 90;
+        }
+
+        .mobile-toggle {
+            display: none;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .content-area {
+            padding: 30px;
+            max-width: 1400px;
+            width: 100%;
             margin: 0 auto;
         }
 
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        /* ----- Common Elements (Panels, Buttons, etc.) ----- */
+        .dashboard-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
             margin-bottom: 30px;
-            flex-wrap: wrap;
-            gap: 15px;
         }
 
-        .header h1 {
-            font-size: 28px;
+        .card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            padding: 24px;
+            border-radius: 12px;
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 20px;
         }
 
-        .header h1 i {
+        .card-icon {
+            width: 54px;
+            height: 54px;
+            border-radius: 12px;
+            background: rgba(139, 92, 246, 0.1);
             color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
         }
+
+        .card-info h3 { font-size: 26px; margin-bottom: 4px; }
+        .card-info p { color: var(--text-muted); font-size: 14px; }
 
         .btn {
             background: var(--primary);
@@ -96,85 +214,11 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             font-size: 14px;
         }
 
-        .btn:hover {
-            background: var(--primary-hover);
-        }
-
-        .btn-danger {
-            background: var(--danger);
-        }
-
-        .btn-danger:hover {
-            background: #dc2626;
-        }
-
-        .btn-outline {
-            background: transparent;
-            border: 1px solid var(--primary);
-        }
-
-        .btn-outline:hover {
-            background: rgba(139, 92, 246, 0.1);
-        }
-
-        .global-selector {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            background: var(--glass-bg);
-            padding: 10px 20px;
-            border-radius: 8px;
-            border: 1px solid var(--glass-border);
-        }
-
-        .global-selector select {
-            background: var(--input-bg);
-            color: white;
-            border: 1px solid var(--glass-border);
-            padding: 8px 12px;
-            border-radius: 6px;
-            outline: none;
-        }
-
-        .dashboard-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-
-        .card {
-            background: var(--glass-bg);
-            backdrop-filter: blur(16px);
-            border: 1px solid var(--glass-border);
-            padding: 20px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-
-        .card-icon {
-            width: 50px;
-            height: 50px;
-            border-radius: 12px;
-            background: rgba(139, 92, 246, 0.1);
-            color: var(--primary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-        }
-
-        .card-info h3 {
-            font-size: 24px;
-            margin-bottom: 4px;
-        }
-
-        .card-info p {
-            color: var(--text-muted);
-            font-size: 14px;
-        }
+        .btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
+        .btn-danger { background: var(--danger); }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-outline { background: transparent; border: 1px solid var(--primary); }
+        .btn-outline:hover { background: rgba(139, 92, 246, 0.1); }
 
         .panel {
             background: var(--glass-bg);
@@ -183,95 +227,38 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             border-radius: 12px;
             padding: 24px;
             margin-bottom: 30px;
-            overflow: hidden;
         }
 
         .panel-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
+            margin-bottom: 24px;
+            gap: 15px;
+            flex-wrap: wrap;
         }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 14px;
-        }
-
-        th,
-        td {
-            text-align: left;
-            padding: 12px 16px;
-            border-bottom: 1px solid var(--td-border);
-        }
-
-        th {
-            color: var(--text-muted);
-            font-weight: 500;
-            font-size: 13px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th, td { text-align: left; padding: 14px 16px; border-bottom: 1px solid var(--td-border); }
+        th { color: var(--text-muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
 
         .badge {
-            padding: 4px 10px;
+            padding: 4px 12px;
             border-radius: 20px;
-            font-size: 12px;
-            font-weight: 500;
+            font-size: 11px;
+            font-weight: 600;
             background: rgba(139, 92, 246, 0.15);
             color: #c4b5fd;
+            text-transform: uppercase;
         }
 
-        .badge.failed {
-            background: rgba(239, 68, 68, 0.15);
-            color: #fca5a5;
-        }
+        .badge.failed { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+        .badge.success { background: rgba(16, 185, 129, 0.15); color: #6ee7b7; }
 
-        .badge.success {
-            background: rgba(16, 185, 129, 0.15);
-            color: #6ee7b7;
-        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
 
-        .nav-tabs {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            border-bottom: 1px solid var(--td-border);
-            padding-bottom: 10px;
-            overflow-x: auto;
-        }
-
-        .nav-tab {
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            cursor: pointer;
-            padding: 8px 16px;
-            font-size: 15px;
-            font-weight: 500;
-            border-radius: 6px;
-            transition: all 0.2s;
-            white-space: nowrap;
-        }
-
-        .nav-tab.active {
-            background: rgba(139, 92, 246, 0.15);
-            color: var(--primary);
-        }
-
-        .nav-tab:hover:not(.active) {
-            color: white;
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
         /* Modals */
         .modal-overlay {
@@ -280,93 +267,46 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(4px);
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(6px);
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 1000;
+            z-index: 2000;
             opacity: 0;
             pointer-events: none;
             transition: all 0.3s;
         }
 
-        .modal-overlay.active {
-            opacity: 1;
-            pointer-events: auto;
-        }
-
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
         .modal {
             background: #1e293b;
             border: 1px solid var(--glass-border);
-            width: 600px;
-            max-width: 90%;
+            width: 650px;
+            max-width: 95%;
             max-height: 90vh;
             overflow-y: auto;
             border-radius: 16px;
-            padding: 24px;
-            transform: translateY(20px);
-            transition: all 0.3s;
+            padding: 30px;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
         }
 
-        .modal-overlay.active .modal {
-            transform: translateY(0);
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; color: var(--text-muted); font-size: 14px; font-weight: 500; }
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%; background: var(--input-bg); border: 1px solid var(--glass-border); color: white;
+            padding: 12px 16px; border-radius: 8px; outline: none; transition: border-color 0.2s;
         }
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus { border-color: var(--primary); }
 
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .close-modal {
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            font-size: 20px;
-            cursor: pointer;
-        }
-
-        .form-group {
-            margin-bottom: 16px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: var(--text-muted);
-            font-size: 14px;
-        }
-
-        .form-group input,
-        .form-group textarea,
-        .form-group select {
-            width: 100%;
-            background: var(--input-bg);
-            border: 1px solid var(--glass-border);
-            color: white;
-            padding: 12px;
-            border-radius: 8px;
-            outline: none;
-            font-family: 'Inter', sans-serif;
-        }
-
-        .form-group input:focus,
-        .form-group textarea:focus,
-        .form-group select:focus {
-            border-color: var(--primary);
-        }
-
-        .form-group textarea {
-            resize: vertical;
-            min-height: 100px;
-        }
-
-        .form-help {
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-top: 6px;
+        /* Responsive Mobile */
+        @media (max-width: 1024px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.active { transform: translateX(0); }
+            .main-wrapper { margin-left: 0; }
+            .mobile-toggle { display: block; }
+            .content-area { padding: 20px; }
+            .top-bar { padding: 0 20px; }
         }
 
         /* ===== RESPONSIVE: Mobile Admin Panel ===== */
@@ -565,67 +505,66 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                     <h3
                         style="margin-bottom: 20px; font-size: 14px; color: var(--text-muted); text-transform: uppercase;">
                         <i class="fa-solid fa-chart-line"></i> Actividad últimos 7 días
-                    </h3>
-                    <div style="height: 250px; position: relative;">
+                    <!-- Stats loaded via JS -->
+                </div>
+                <div class="panel">
+                    <div class="panel-header">
+                        <h3>Actividad de Interacciones (7 días)</h3>
+                    </div>
+                    <div style="height: 300px;">
                         <canvas id="activityChart"></canvas>
                     </div>
                 </div>
             </div>
 
+            <!-- CLIENTS TAB -->
             <?php if ($is_superadmin): ?>
-                <!-- CLIENTS TAB -->
                 <div id="clients-tab" class="tab-content">
                     <div class="panel-header">
                         <h2>Gestión de Clientes</h2>
-                        <button class="btn" onclick="openClientModal()"><i class="fa-solid fa-plus"></i> Nuevo
-                            Cliente</button>
+                        <button class="btn" onclick="openClientModal()"><i class="fa-solid fa-plus"></i> Nuevo Cliente</button>
                     </div>
-                    <div style="overflow-x: auto;">
-                        <table id="clients-table">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Nombre</th>
-                                    <th>Tipo</th>
-                                    <th>Email Contacto</th>
-                                    <th>Creado</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td colspan="5" style="text-align:center;">Cargando...</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                    <div class="panel">
+                        <div style="overflow-x: auto;">
+                            <table id="clients-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Nombre</th>
+                                        <th>Tipo</th>
+                                        <th>Contacto</th>
+                                        <th>Creado el</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
                 <!-- USERS TAB -->
                 <div id="users-tab" class="tab-content">
                     <div class="panel-header">
-                        <h2>Gestión de Usuarios App</h2>
-                        <button class="btn" onclick="openUserModal()"><i class="fa-solid fa-plus"></i> Nuevo
-                            Usuario</button>
+                        <h2>Usuarios de la Aplicación</h2>
+                        <button class="btn" onclick="openUserModal()"><i class="fa-solid fa-user-plus"></i> Nuevo Usuario</button>
                     </div>
-                    <div style="overflow-x: auto;">
-                        <table id="users-table">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Usuario</th>
-                                    <th>Rol</th>
-                                    <th>Cliente Asignado</th>
-                                    <th>Creado</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td colspan="6" style="text-align:center;">Cargando...</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                    <div class="panel">
+                        <div style="overflow-x: auto;">
+                            <table id="users-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Usuario</th>
+                                        <th>Rol</th>
+                                        <th>Cliente</th>
+                                        <th>Creado el</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             <?php endif; ?>
@@ -633,52 +572,71 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             <!-- ASSISTANTS TAB -->
             <div id="assistants-tab" class="tab-content">
                 <div class="panel-header">
-                    <h2>Gestión de Asistentes</h2>
-                    <button class="btn" onclick="openAssistantModal()"><i class="fa-solid fa-plus"></i> Nuevo
-                        Asistente</button>
+                    <h2>Asistentes</h2>
+                    <button class="btn" onclick="openAssistantModal()"><i class="fa-solid fa-plus"></i> Nuevo Asistente</button>
                 </div>
-                <div style="overflow-x: auto;">
-                    <table id="assistants-table">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Nombre</th>
-                                <th>Cliente ID</th>
-                                <th>Prompt</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td colspan="5" style="text-align:center;">Cargando...</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <div class="panel">
+                    <div style="overflow-x: auto;">
+                        <table id="assistants-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Nombre</th>
+                                    <th>Cliente</th>
+                                    <th>Prompt</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
-            <!-- INFO SOURCES TAB -->
+            <!-- INFO TAB -->
             <div id="info-tab" class="tab-content">
                 <div class="panel-header">
-                    <h2>Fuentes de Información (Contexto)</h2>
-                    <button class="btn" onclick="openInfoModal()"><i class="fa-solid fa-plus"></i> Nueva Fuente</button>
+                    <h2>Fuentes de Información de Gemini</h2>
+                    <button class="btn" onclick="openInfoModal()"><i class="fa-solid fa-cloud-arrow-up"></i> Nueva Fuente</button>
                 </div>
-                <div style="overflow-x: auto;">
-                    <table id="info-table">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Título</th>
-                                <th>Contenido Corto</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td colspan="4" style="text-align:center;">Seleccione un asistente o cargando...</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <div class="panel">
+                    <div style="overflow-x: auto;">
+                        <table id="info-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Título / Archivo</th>
+                                    <th>Contenido</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RULES TAB -->
+            <div id="rules-tab" class="tab-content">
+                <div class="panel-header">
+                    <h2>Reglas de Contexto y Respuestas</h2>
+                    <button class="btn" onclick="openRuleModal()"><i class="fa-solid fa-plus"></i> Nueva Regla</button>
+                </div>
+                <div class="panel">
+                    <div style="overflow-x: auto;">
+                        <table id="rules-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Categoría</th>
+                                    <th>Consultas</th>
+                                    <th>Respuesta</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
@@ -804,61 +762,31 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 </div>
             </div>
 
-            <!-- PDF TEMPLATES TAB -->
-            <div id="pdf-templates-tab" class="tab-content">
+            <!-- APPOINTMENTS TAB -->
+            <div id="appointments-tab" class="tab-content">
                 <div class="panel-header">
-                    <h2>Gestión de Plantillas PDF</h2>
-                    <button class="btn" onclick="openPDFTemplateModal()"><i class="fa-solid fa-plus"></i> Nueva
-                        Plantilla</button>
+                    <h2><i class="fa-regular fa-calendar-check" style="color:#f59e0b;"></i> Reservas del Asistente</h2>
+                    <button class="btn btn-outline" onclick="loadAppointments()"><i class="fa-solid fa-rotate"></i> Actualizar</button>
                 </div>
-                <div style="overflow-x: auto;">
-                    <table id="pdf-templates-table">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Nombre</th>
-                                <th>Origen</th>
-                                <th>Marcadores ({{...}})</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td colspan="5" style="text-align:center;">Cargando...</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div style="margin-top: 20px; font-size: 13px; color: var(--text-muted);">
-                    <p><i class="fa-solid fa-circle-info"></i> Sube archivos <b>.txt</b> con marcadores como
-                        <code>{{nombre}}</code> para que el asistente pueda completarlos.
-                    </p>
-                </div>
-            </div>
-
-            <!-- RULES TAB -->
-            <div id="rules-tab" class="tab-content">
-                <div class="panel-header">
-                    <h2>Reglas Exactas de Q&A</h2>
-                    <button class="btn" onclick="openRuleModal()"><i class="fa-solid fa-plus"></i> Nueva Regla</button>
-                </div>
-                <div style="overflow-x: auto;">
-                    <table id="rules-table">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Cat.</th>
-                                <th>Consultas</th>
-                                <th>Respuesta</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td colspan="5" style="text-align:center;">Cargando...</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <div class="panel">
+                    <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px;">Reservas creadas por el asistente en Google Calendar. Puedes cancelarlas desde aquí.</p>
+                    <div style="overflow-x: auto;">
+                        <table id="appointments-table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Hora</th>
+                                    <th>Nombre</th>
+                                    <th>Email</th>
+                                    <th>Teléfono</th>
+                                    <th>Asistente</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
@@ -866,59 +794,53 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             <div id="logs-tab" class="tab-content">
                 <div class="panel-header">
                     <h2>Últimas Interacciones</h2>
+                    <button class="btn btn-outline" onclick="loadLogs()"><i class="fa-solid fa-rotate"></i> Actualizar</button>
                 </div>
-                <div style="overflow-x: auto;">
-                    <table id="logs-table">
-                        <thead>
-                            <tr>
-                                <th>Fecha</th>
-                                <th>Usuario</th>
-                                <th>Bot</th>
-                                <th>Estado</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td colspan="4" style="text-align:center;">Cargando...</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <div class="panel">
+                    <div style="overflow-x: auto;">
+                        <table id="logs-table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Usuario</th>
+                                    <th>Bot</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
-            <!-- APPOINTMENTS TAB -->
-            <div id="appointments-tab" class="tab-content">
+            <!-- PDF TEMPLATES TAB -->
+            <div id="pdf-templates-tab" class="tab-content">
                 <div class="panel-header">
-                    <h2><i class="fa-regular fa-calendar-check" style="color:#f59e0b;"></i> Reservas del Asistente</h2>
-                    <button class="btn btn-outline" onclick="loadAppointments()"><i class="fa-solid fa-rotate"></i>
-                        Actualizar</button>
+                    <h2>Gestión de Plantillas PDF</h2>
+                    <button class="btn" onclick="openPDFTemplateModal()"><i class="fa-solid fa-plus"></i> Nueva Plantilla</button>
                 </div>
-                <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px;">Reservas creadas por el
-                    asistente en Google Calendar. Puedes cancelarlas desde aquí.</p>
-                <div style="overflow-x: auto;">
-                    <table id="appointments-table">
-                        <thead>
-                            <tr>
-                                <th>Fecha</th>
-                                <th>Hora</th>
-                                <th>Cliente</th>
-                                <th>Email</th>
-                                <th>Teléfono</th>
-                                <th>Asistente</th>
-                                <th>Estado</th>
-                                <th>Acción</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td colspan="8" style="text-align:center;">Seleccione un asistente o cargando...</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <div class="panel">
+                    <div style="overflow-x: auto;">
+                        <table id="pdf-templates-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Nombre</th>
+                                    <th>Origen</th>
+                                    <th>Marcadores ({{...}})</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <div style="margin-top: 20px; font-size: 13px; color: var(--text-muted);">
+                        <p><i class="fa-solid fa-circle-info"></i> Sube archivos <b>.txt</b> con marcadores como <code>{{nombre}}</code> para que el asistente pueda completarlos.</p>
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>
+        </div> <!-- end content-area -->
+    </main> <!-- end main-wrapper -->
 
     <!-- MODALS -->
 
@@ -1306,8 +1228,20 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             if (IS_SUPERADMIN) {
                 setTimeout(loadUsers, 500); // ensure clientsCache is loaded
             }
-            loadAssistants(true); // true = also reload select
             loadPDFTemplates();
+            loadAssistants(true); // true = also reload select
+
+            // Sidebar Toggle for Mobile
+            $('#mobile-toggle').on('click', function() {
+                $('#sidebar').toggleClass('active');
+            });
+
+            // Close sidebar when clicking a link on mobile
+            $('.sidebar .nav-tab').on('click', function() {
+                if ($(window).width() <= 1024) {
+                    $('#sidebar').removeClass('active');
+                }
+            });
         });
 
         function getClientIdForAPI() {

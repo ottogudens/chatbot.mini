@@ -1,19 +1,27 @@
+import pkg_baileys from '@whiskeysockets/baileys';
 const {
     default: makeWASocket,
     useMultiFileAuthState,
     DisconnectReason,
     fetchLatestBaileysVersion,
-} = require('@whiskeysockets/baileys');
-const { Boom } = require('@hapi/boom');
-const P = require('pino');
-const express = require('express');
-const cors = require('cors');
-const axios = require('axios');
-const FormData = require('form-data');
-const QRCode = require('qrcode');
-const fs = require('fs');
-const path = require('path');
-require('dotenv').config();
+} = pkg_baileys;
+
+import { Boom } from '@hapi/boom';
+import P from 'pino';
+import express from 'express';
+import cors from 'cors';
+import axios from 'axios';
+import FormData from 'form-data';
+import QRCode from 'qrcode';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(cors());
@@ -120,8 +128,6 @@ app.get('/status/:id', async (req, res) => {
         return res.json({ status: 'disconnected' });
     }
 
-    // Baileys doesn't have a direct "state" property in sock that matches all cases easily
-    // but we can check the connection status indirectly or manage it in connection.update
     const state = sock.user ? 'connected' : (qrData[id] ? 'connecting' : 'disconnected');
     res.json({ status: state });
 });
@@ -169,7 +175,7 @@ app.post('/disconnect/:id', async (req, res) => {
     }
 });
 
-// Auto-start existing sessions on launch (optional, but good for persistence)
+// Auto-start existing sessions on launch
 if (fs.existsSync(AUTH_BASE_DIR)) {
     const dirs = fs.readdirSync(AUTH_BASE_DIR);
     dirs.forEach(dir => {
