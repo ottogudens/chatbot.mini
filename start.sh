@@ -32,6 +32,9 @@ fi
 # 2. Persistence Logic (Volume at /app/persistent)
 STORAGE_ROOT="/app/persistent"
 
+# Create Nginx default log dir to suppress alerts (even if we log elsewhere)
+mkdir -p /var/log/nginx && touch /var/log/nginx/error.log
+
 if [ -d "$STORAGE_ROOT" ]; then
     echo "Persistent storage detected at $STORAGE_ROOT"
     
@@ -54,11 +57,13 @@ if [ -d "$STORAGE_ROOT" ]; then
         echo "Linking /app/whatsapp/sessions..."
         mkdir -p /app/whatsapp/sessions 2>/dev/null || true
         if [ -d "/app/whatsapp/sessions" ]; then
+            # Fix: Remove quotes around asterisk to allow shell expansion
             mv /app/whatsapp/sessions/* "$STORAGE_ROOT/whatsapp_sessions/" 2>/dev/null || true
             rm -rf /app/whatsapp/sessions
         fi
         ln -s "$STORAGE_ROOT/whatsapp_sessions" /app/whatsapp/sessions
     fi
+
 else
     echo "WARNING: No persistent storage detected at $STORAGE_ROOT."
     mkdir -p /app/uploads
