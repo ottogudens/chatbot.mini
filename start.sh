@@ -1,9 +1,8 @@
 #!/bin/bash
+# Ensure log directory exists FIRST
+mkdir -p /app/logs
 # Log all output to start.log
 exec > >(tee -a /app/logs/start.log) 2>&1
-
-# Ensure log directory exists
-mkdir -p /app/logs
 
 echo "--- STARTUP SCRIPT ---"
 echo "Date: $(date)"
