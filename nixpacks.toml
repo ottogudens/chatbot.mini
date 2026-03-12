@@ -1,5 +1,8 @@
 [phases.setup]
-nixPkgs = ["...", "nginx"]
+nixPkgs = ["...", "nginx", "nodejs"]
+
+[phases.install]
+cmds = ["npm install --prefix whatsapp"]
 
 [phases.build]
 cmds = [
@@ -7,3 +10,6 @@ cmds = [
     "echo 'client_max_body_size 500M;' > /etc/nginx/conf.d/upload_size.conf",
     "mkdir -p /app/uploads"
 ]
+
+[start]
+cmd = "node whatsapp/whatsapp.js & (nginx -g 'daemon off;' & php-fpm -F)"

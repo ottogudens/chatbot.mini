@@ -1288,7 +1288,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 $('.tab-content').removeClass('active'); $('#' + target).addClass('active');
                 if (target === 'pdf-templates-tab') loadPDFTemplates();
                 if (target === 'integrations-tab') {
-                    loadClientIntegrations();
+                    loadDriveStatus();
                     reloadWhatsAppIntegration();
                 }
             });
@@ -1321,10 +1321,9 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
         function reloadAssistantDependantViews() {
             loadStats();
             initChart();
+            loadInfoSources();
             loadRules();
             loadLogs();
-            loadStats();
-            initChart();
             loadCalendarSettings();
             reloadWhatsAppIntegration();
             loadAppointments();
