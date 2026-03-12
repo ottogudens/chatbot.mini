@@ -1,17 +1,38 @@
 <?php
 require_once 'db.php';
 
-echo "<h2>Fixing Database Schema for Clients and Users</h2>";
+// Enable error reporting
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+echo "<h2>Robust Database Schema Fix</h2>";
 echo "<pre>";
 
-function column_exists($conn, $table, $column)
+function safe_query($conn, $sql)
 {
-    $res = mysqli_query($conn, "SHOW COLUMNS FROM `$table` LIKE '$column'");
-    return mysqli_num_rows($res) > 0;
+    echo "Executing: $sql\n";
+    try {
+        $res = mysqli_query($conn, $sql);
+        if (!$res) {
+            echo "  [ERROR] " . mysqli_error($conn) . "\n";
+            return false;
+        }
+        echo "  [OK]\n";
+        return $res;
+    } catch (Exception $e) {
+        echo "  [EXCEPTION] " . $e->getMessage() . "\n";
+        return false;
+    }
 }
 
-// 1. Fix Clients Table
-echo "--- Fixing 'clients' table ---\n";
+// 1. Get current columns for clients
+echo "--- Analyzing 'clients' table ---\n";
+$res = mysqli_query($conn, "DESCRIBE clients");
+$client_cols = [];
+while ($row = mysqli_fetch_assoc($res)) {
+    $client_cols[] = $row['Field'];
+}
+echo "Current columns: " . implode(", ", $client_cols) . "\n";
 
 // Add missing columns
 $cols_to_add = [
@@ -21,46 +42,41 @@ $cols_to_add = [
     'business_line' => "VARCHAR(255) NULL",
     'representative_name' => "VARCHAR(255) NULL",
     'representative_phone' => "VARCHAR(50) NULL",
-    'representative_email' => "VARCHAR(100) NULL"
+    'representative_email' => "VARCHAR(100) NULL",
+    'type' => "ENUM('particular', 'empresa', 'marca_personal') DEFAULT 'particular'"
 ];
 
 foreach ($cols_to_add as $name => $def) {
-    if (!column_exists($conn, 'clients', $name)) {
-        if (mysqli_query($conn, "ALTER TABLE clients ADD COLUMN `$name` $def")) {
-            echo "[OK] Columna '$name' agregada.\n";
-        } else {
-            echo "[ERROR] Fallo al agregar '$name': " . mysqli_error($conn) . "\n";
-        }
+    if (!in_array($name, $client_cols)) {
+        safe_query($conn, "ALTER TABLE clients ADD COLUMN `$name` $def");
     } else {
-        echo "[SKIP] Columna '$name' ya existe.\n";
+        echo "Column '$name' already exists. Updating definition...\n";
+        safe_query($conn, "ALTER TABLE clients MODIFY COLUMN `$name` $def");
     }
 }
 
-// Fix 'type' ENUM
-if (!column_exists($conn, 'clients', 'type')) {
-    mysqli_query($conn, "ALTER TABLE clients ADD COLUMN `type` ENUM('particular', 'empresa', 'marca_personal') DEFAULT 'particular' AFTER name");
-    echo "[OK] Columna 'type' creada.\n";
-} else {
-    mysqli_query($conn, "ALTER TABLE clients MODIFY COLUMN `type` ENUM('particular', 'empresa', 'marca_personal') DEFAULT 'particular'");
-    echo "[OK] Tipo de ENUM en 'clients' actualizado.\n";
+// 2. Get current columns for users
+echo "\n--- Analyzing 'users' table ---\n";
+$res = mysqli_query($conn, "DESCRIBE users");
+$user_cols = [];
+$role_type = "";
+while ($row = mysqli_fetch_assoc($res)) {
+    $user_cols[] = $row['Field'];
+    if ($row['Field'] === 'role')
+        $role_type = $row['Type'];
+}
+echo "Current columns: " . implode(", ", $user_cols) . "\n";
+
+// Rename password to password_hash if needed
+if (in_array('password', $user_cols) && !in_array('password_hash', $user_cols)) {
+    safe_query($conn, "ALTER TABLE users CHANGE `password` `password_hash` VARCHAR(255) NOT NULL");
 }
 
-// 2. Fix Users Table
-echo "\n--- Fixing 'users' table ---\n";
-
-// Rename 'password' to 'password_hash' if it exists
-if (column_exists($conn, 'users', 'password') && !column_exists($conn, 'users', 'password_hash')) {
-    if (mysqli_query($conn, "ALTER TABLE users CHANGE `password` `password_hash` VARCHAR(255) NOT NULL")) {
-        echo "[OK] Columna 'password' renombrada a 'password_hash'.\n";
-    } else {
-        echo "[ERROR] Fallo al renombrar 'password': " . mysqli_error($conn) . "\n";
-    }
+// Update roles if needed
+if (strpos($role_type, 'client') === false) {
+    safe_query($conn, "ALTER TABLE users MODIFY COLUMN `role` ENUM('superadmin', 'admin', 'client') DEFAULT 'client'");
 }
 
-// Fix 'role' ENUM to include 'client'
-mysqli_query($conn, "ALTER TABLE users MODIFY COLUMN `role` ENUM('superadmin', 'admin', 'client') DEFAULT 'client'");
-echo "[OK] Roles en 'users' actualizados.\n";
-
-echo "\n--- Fin del proceso ---";
+echo "\n--- Process Finished ---\n";
 echo "</pre>";
 ?>
