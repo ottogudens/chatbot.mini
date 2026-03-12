@@ -32,7 +32,7 @@ if (in_array($action, $secure_actions)) {
 
 $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
 $session_client_id = $_SESSION['client_id'] ?? null;
-define('WHATSAPP_API_URL', 'http://localhost:3000'); // URL of the Node.js bridge
+define('WHATSAPP_API_URL', 'http://localhost:3001'); // URL of the Node.js bridge
 
 function check_ast_owner($conn, $ast_id)
 {
@@ -823,7 +823,7 @@ switch ($action) {
         } else {
             echo $res;
         }
-        curl_close($ch);
+        // curl_close is unnecessary in PHP 8.4+ and deprecated in 8.5
         break;
 
     case 'whatsapp_disconnect':
@@ -841,7 +841,7 @@ switch ($action) {
         } else {
             echo $res;
         }
-        curl_close($ch);
+        // curl_close is unnecessary in PHP 8.4+ and deprecated in 8.5
         break;
 
     case 'appointments_cancel':
@@ -878,7 +878,6 @@ switch ($action) {
                     'grant_type' => 'refresh_token'
                 ]));
                 $ref_res = json_decode(curl_exec($ch), true);
-                curl_close($ch);
                 if (!empty($ref_res['access_token']))
                     $access_token = $ref_res['access_token'];
             }
@@ -891,7 +890,6 @@ switch ($action) {
             curl_setopt($ch, CURLOPT_HTTPHEADER, ["Authorization: Bearer $access_token"]);
             curl_exec($ch);
             $del_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
             $google_cancelled = ($del_code === 204 || $del_code === 200);
         }
 

@@ -7,10 +7,10 @@
 class GeminiClient
 {
     private $api_key;
-    private $model = "gemini-2.5-flash"; // Default: stable GA model available to all API keys
+    private $model = "gemini-2.0-flash"; // Default: stable GA model available to all API keys
 
     // Models that use extended thinking — require thinkingBudget:0 to enable function calling
-    private $thinking_models = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.5-flash-lite', 'gemini-3-pro-preview', 'gemini-3-flash-preview'];
+    private $thinking_models = ['gemini-2.0-flash', 'gemini-2.0-pro', 'gemini-1.5-flash', 'gemini-1.5-pro'];
     private $api_url = "https://generativelanguage.googleapis.com/v1beta/models/";
 
     /** URIs that were found to be expired/inaccessible during the last get_response() call */
@@ -33,8 +33,8 @@ class GeminiClient
                 return true;
             }
         }
-        // Also detect by suffix pattern: any 2.5+ model is likely a thinking model
-        return (bool) preg_match('/gemini-(2\.5|3\.)/', $model);
+        // Also detect by suffix pattern: any 2.0+ model is likely a thinking model
+        return (bool) preg_match('/gemini-(2\.)/', $model);
     }
 
     /**
@@ -53,7 +53,7 @@ class GeminiClient
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_exec($ch);
         $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
+        // curl_close is unnecessary in PHP 8.4+ and deprecated in 8.5
         return $http_code === 200;
     }
 
@@ -94,7 +94,7 @@ class GeminiClient
         $response = curl_exec($ch);
         $header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
         $headers = substr($response, 0, $header_size);
-        curl_close($ch);
+        // curl_close is unnecessary in PHP 8.4+ and deprecated in 8.5
 
         // Extract upload URI from headers
         $upload_url = "";
@@ -128,7 +128,7 @@ class GeminiClient
         curl_setopt($ch2, CURLOPT_INFILESIZE, $file_size);
 
         $final_response = curl_exec($ch2);
-        curl_close($ch2);
+        // curl_close is unnecessary in PHP 8.4+ and deprecated in 8.5
         fclose($file_handle);
 
         $result = json_decode($final_response, true);
@@ -320,7 +320,7 @@ class GeminiClient
 
         $response = curl_exec($ch);
         $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
+        // curl_close is unnecessary in PHP 8.4+ and deprecated in 8.5
 
         // Handle expired/inaccessible file URIs: retry in text-only mode
         if (($http_code === 403 || $http_code === 404) && !empty($info_sources_files)) {
@@ -350,7 +350,7 @@ class GeminiClient
 
                 $response = curl_exec($ch2);
                 $http_code = curl_getinfo($ch2, CURLINFO_HTTP_CODE);
-                curl_close($ch2);
+                // curl_close is unnecessary in PHP 8.4+ and deprecated in 8.5
             }
         }
 
