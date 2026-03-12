@@ -1,6 +1,5 @@
 worker_processes 1;
 error_log /dev/stderr;
-error_log /app/logs/error.log;
 pid /tmp/nginx.pid;
 
 events {
@@ -11,7 +10,7 @@ http {
     include /app/nginx/mime.types;
     default_type application/octet-stream;
     
-    access_log /app/logs/access.log;
+    access_log /dev/stdout;
     
     client_max_body_size 512M;
 
