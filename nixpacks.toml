@@ -5,10 +5,7 @@ nixPkgs = ["php83", "nginx", "nodejs"]
 cmds = ["npm install --prefix whatsapp", "mkdir -p /app/logs /app/uploads"]
 
 [phases.build]
-cmds = [
-    "mkdir -p /etc/nginx/conf.d",
-    "echo 'client_max_body_size 500M;' > /etc/nginx/conf.d/upload_size.conf"
-]
+cmds = ["mkdir -p /etc/nginx/conf.d"]
 
 [start]
 cmd = "/app/start.sh"
