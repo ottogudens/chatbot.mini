@@ -175,6 +175,11 @@ class GeminiClient
 
         $system_prompt .= "\n\nREGLA IMPORTANTE: Si un usuario quiere agendar una cita o reunión, pide su nombre, email y teléfono. Luego, DEBES utilizar las herramientas nativas disponibles para checkear disponibilidad y concretar la cita. Solo puedes confirmar una vez que la herramienta de reservas lo haya confirmado exitosamente. NUNCA inventes confirmaciones o fechas.";
 
+        $system_prompt .= "\n\nHERRAMIENTAS DE DOCUMENTOS: Tienes la capacidad de generar archivos PDF para el usuario. " .
+            "1. Usa `list_pdf_templates` para ver qué plantillas hay disponibles y qué datos (placeholders) requieren. " .
+            "2. Usa `generate_pdf` para crear el documento una vez que tengas toda la información necesaria. " .
+            "Siempre informa al usuario que estás generando el documento y proporciónale el enlace una vez creado.";
+
         $url = $this->api_url . $model . ":generateContent?key=" . $this->api_key;
 
         $contents = [];
@@ -273,6 +278,30 @@ class GeminiClient
                                     "user_phone" => ["type" => "STRING", "description" => "Celular o teléfono del cliente"]
                                 ],
                                 "required" => ["date", "time", "user_name", "user_email", "user_phone"]
+                            ]
+                        ],
+                        [
+                            "name" => "list_pdf_templates",
+                            "description" => "Obtiene la lista de plantillas de PDF disponibles y los campos requeridos para cada una.",
+                            "parameters" => [
+                                "type" => "OBJECT",
+                                "properties" => []
+                            ]
+                        ],
+                        [
+                            "name" => "generate_pdf",
+                            "description" => "Genera un archivo PDF a partir de una plantilla y datos específicos.",
+                            "parameters" => [
+                                "type" => "OBJECT",
+                                "properties" => [
+                                    "template_id" => ["type" => "STRING", "description" => "ID de la plantilla a usar (ej: basic_info.txt)"],
+                                    "data" => [
+                                        "type" => "OBJECT",
+                                        "description" => "Objeto con los pares clave-valor para los placeholders de la plantilla (ej: {'nombre': 'Juan', 'fecha': '2023-10-01'})",
+                                        "additionalProperties" => ["type" => "STRING"]
+                                    ]
+                                ],
+                                "required" => ["template_id", "data"]
                             ]
                         ]
                     ]

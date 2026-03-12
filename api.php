@@ -656,6 +656,83 @@ switch ($action) {
         }
         break;
 
+    // ---- PDF Templates ----
+    case 'pdf_templates_list':
+        $req_client_id = $_GET['client_id'] ?? $session_client_id;
+        if (!$is_superadmin && $req_client_id != $session_client_id) {
+            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
+            exit;
+        }
+        require_once 'pdf_helper.php';
+        $pdf_helper = new PDFHelper($conn);
+        $templates = $pdf_helper->list_templates($req_client_id);
+        echo json_encode(['status' => 'success', 'data' => $templates]);
+        break;
+
+    case 'pdf_templates_upload':
+        $req_client_id = $_POST['client_id'] ?? $session_client_id;
+        if (!$is_superadmin && $req_client_id != $session_client_id) {
+            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
+            exit;
+        }
+        $name = $_POST['name'] ?? '';
+        if (empty($name) || !isset($_FILES['template_file'])) {
+            echo json_encode(['status' => 'error', 'message' => 'Faltan datos requeridos']);
+            exit;
+        }
+
+        $upload_dir = __DIR__ . "/uploads/clients/{$req_client_id}/pdf_templates/";
+        if (!is_dir($upload_dir)) {
+            mkdir($upload_dir, 0777, true);
+        }
+
+        $file = $_FILES['template_file'];
+        $safe_filename = time() . '_' . preg_replace("/[^a-zA-Z0-9.-]/", "_", $file['name']);
+        $target_path = $upload_dir . $safe_filename;
+
+        if (move_uploaded_file($file['tmp_name'], $target_path)) {
+            $content = file_get_contents($target_path);
+            preg_match_all('/\{\{(.*?)\}\}/', $content, $matches);
+            $placeholders = isset($matches[1]) ? array_unique($matches[1]) : [];
+            $placeholders_json = json_encode(array_values($placeholders));
+            $relative_path = "uploads/clients/{$req_client_id}/pdf_templates/" . $safe_filename;
+
+            $stmt = mysqli_prepare($conn, "INSERT INTO pdf_templates (client_id, name, file_path, placeholders) VALUES (?, ?, ?, ?)");
+            mysqli_stmt_bind_param($stmt, "isss", $req_client_id, $name, $relative_path, $placeholders_json);
+
+            if (mysqli_stmt_execute($stmt)) {
+                echo json_encode(['status' => 'success']);
+            } else {
+                unlink($target_path);
+                echo json_encode(['status' => 'error', 'message' => 'Error en base de datos: ' . mysqli_error($conn)]);
+            }
+        } else {
+            echo json_encode(['status' => 'error', 'message' => 'Error moviendo el archivo']);
+        }
+        break;
+
+    case 'pdf_templates_delete':
+        $id = $_POST['id'] ?? 0;
+        // Check ownership
+        $q = mysqli_query($conn, "SELECT client_id, file_path FROM pdf_templates WHERE id = " . intval($id));
+        if ($row = mysqli_fetch_assoc($q)) {
+            if (!$is_superadmin && $row['client_id'] != $session_client_id) {
+                echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
+                exit;
+            }
+            // Delete file
+            $fpath = __DIR__ . '/' . $row['file_path'];
+            if (file_exists($fpath)) {
+                unlink($fpath);
+            }
+            // Delete DB record
+            mysqli_query($conn, "DELETE FROM pdf_templates WHERE id = " . intval($id));
+            echo json_encode(['status' => 'success']);
+        } else {
+            echo json_encode(['status' => 'error', 'message' => 'Plantilla no encontrada']);
+        }
+        break;
+
     case 'appointments_list':
         $req_client_id = $_GET['client_id'] ?? $session_client_id;
         if (!$is_superadmin && $req_client_id != $session_client_id) {
@@ -664,7 +741,8 @@ switch ($action) {
         }
         $ast_filter = $_GET['assistant_id'] ?? null;
         $where = "a.client_id = " . intval($req_client_id);
-        if ($ast_filter) $where .= " AND a.assistant_id = " . intval($ast_filter);
+        if ($ast_filter)
+            $where .= " AND a.assistant_id = " . intval($ast_filter);
         $query = "SELECT a.id, a.user_name, a.user_email, a.user_phone,
                          a.appointment_date, a.appointment_time,
                          a.google_event_id, a.google_calendar_id, a.status, a.created_at,
@@ -677,7 +755,8 @@ switch ($action) {
         $result = mysqli_query($conn, $query);
         $data = [];
         if ($result) {
-            while ($row = mysqli_fetch_assoc($result)) $data[] = $row;
+            while ($row = mysqli_fetch_assoc($result))
+                $data[] = $row;
         }
         echo json_encode(['status' => 'success', 'data' => $data]);
         break;
@@ -710,14 +789,15 @@ switch ($action) {
                 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
                 curl_setopt($ch, CURLOPT_POST, true);
                 curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([
-                    'client_id'     => getenv('GOOGLE_CLIENT_ID'),
+                    'client_id' => getenv('GOOGLE_CLIENT_ID'),
                     'client_secret' => getenv('GOOGLE_CLIENT_SECRET'),
                     'refresh_token' => $appt['refresh_token'],
-                    'grant_type'    => 'refresh_token'
+                    'grant_type' => 'refresh_token'
                 ]));
                 $ref_res = json_decode(curl_exec($ch), true);
                 curl_close($ch);
-                if (!empty($ref_res['access_token'])) $access_token = $ref_res['access_token'];
+                if (!empty($ref_res['access_token']))
+                    $access_token = $ref_res['access_token'];
             }
             $cal_id = urlencode($appt['google_calendar_id'] ?: 'primary');
             $event_id = urlencode($appt['google_event_id']);
@@ -738,7 +818,7 @@ switch ($action) {
         mysqli_stmt_execute($stmt);
 
         echo json_encode([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => $google_cancelled
                 ? 'Reserva cancelada en el sistema y en Google Calendar.'
                 : 'Reserva cancelada en el sistema (no se pudo eliminar de Google Calendar).'

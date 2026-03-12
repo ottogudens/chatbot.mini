@@ -30,9 +30,10 @@ $info_sources_files = [];
 $ai_config = [];
 if ($assistant_id) {
     // Get assistant + AI config
-    $ast_query = "SELECT system_prompt, gemini_model, temperature, max_output_tokens, response_style FROM assistants WHERE id = $assistant_id";
+    $ast_query = "SELECT client_id, system_prompt, gemini_model, temperature, max_output_tokens, response_style FROM assistants WHERE id = $assistant_id";
     $ast_res = mysqli_query($conn, $ast_query);
     if ($ast_row = mysqli_fetch_assoc($ast_res)) {
+        $client_id = $ast_row['client_id'];
         $custom_system_prompt = $ast_row['system_prompt'] ?? '';
         $ai_config = [
             'model' => $ast_row['gemini_model'] ?? 'gemini-2.5-flash',
@@ -135,6 +136,16 @@ if ($matched === 0 && !empty($clean_msg)) {
             $func_result = check_calendar_availability($conn, $assistant_id, $func_args);
         } else if ($func_name === 'book_appointment') {
             $func_result = book_calendar_appointment($conn, $assistant_id, $func_args);
+        } else if ($func_name === 'list_pdf_templates') {
+            require_once 'pdf_helper.php';
+            $pdf_helper = new PDFHelper($conn);
+            $func_result = $pdf_helper->list_templates($client_id ?? null);
+        } else if ($func_name === 'generate_pdf') {
+            require_once 'pdf_helper.php';
+            $pdf_helper = new PDFHelper($conn);
+            $template_id = $func_args['template_id'] ?? '';
+            $data = $func_args['data'] ?? [];
+            $func_result = $pdf_helper->generate_from_template($template_id, $data, $client_id ?? null);
         } else {
             $func_result = "Function not implemented.";
         }

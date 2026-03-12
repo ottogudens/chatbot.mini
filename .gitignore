@@ -1,0 +1,5 @@
+uploads/*.pdf
+uploads/clients/*/pdf_templates/*.txt
+fpdf.zip
+.DS_Store
+*.log

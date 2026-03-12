@@ -543,6 +543,8 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 <button class="nav-tab" data-target="integrations-tab"><i class="fa-brands fa-google-drive"></i>
                     Integraciones</button>
                 <button class="nav-tab" data-target="rules-tab"><i class="fa-solid fa-book"></i> Reglas Q&A</button>
+                <button class="nav-tab" data-target="pdf-templates-tab"><i class="fa-solid fa-file-pdf"></i> Plantillas
+                    PDF</button>
                 <button class="nav-tab" data-target="logs-tab"><i class="fa-solid fa-list"></i> Logs</button>
                 <button class="nav-tab" data-target="appointments-tab"><i class="fa-regular fa-calendar-check"></i> Reservas</button>
             </div>
@@ -775,6 +777,37 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                                 Guardar Horario</button>
                         </div>
                     </form>
+                </div>
+            </div>
+
+            <!-- PDF TEMPLATES TAB -->
+            <div id="pdf-templates-tab" class="tab-content">
+                <div class="panel-header">
+                    <h2>Gestión de Plantillas PDF</h2>
+                    <button class="btn" onclick="openPDFTemplateModal()"><i class="fa-solid fa-plus"></i> Nueva
+                        Plantilla</button>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table id="pdf-templates-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nombre</th>
+                                <th>Origen</th>
+                                <th>Marcadores ({{...}})</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="5" style="text-align:center;">Cargando...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div style="margin-top: 20px; font-size: 13px; color: var(--text-muted);">
+                    <p><i class="fa-solid fa-circle-info"></i> Sube archivos <b>.txt</b> con marcadores como
+                        <code>{{nombre}}</code> para que el asistente pueda completarlos.</p>
                 </div>
             </div>
 
@@ -1172,6 +1205,43 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
         </div>
     </div>
 
+    <!-- PDF Template Modal -->
+    <div class="modal-overlay" id="pdf-template-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Cargar Nueva Plantilla PDF</h2>
+                <button class="close-modal" onclick="closeModal('pdf-template-modal')">&times;</button>
+            </div>
+            <form id="pdf-template-form" onsubmit="submitPDFTemplate(event)">
+                <?php if ($is_superadmin): ?>
+                <div class="form-group">
+                    <label>Cliente</label>
+                    <select name="client_id" required>
+                        <?php
+                        require_once 'db.php';
+                        $q = mysqli_query($conn, "SELECT id, name FROM clients");
+                        while($c = mysqli_fetch_assoc($q)) echo "<option value='{$c['id']}'>{$c['name']}</option>";
+                        ?>
+                    </select>
+                </div>
+                <?php endif; ?>
+                <div class="form-group">
+                    <label>Nombre de la Plantilla (Ej: Factura Simple)</label>
+                    <input type="text" name="name" placeholder="Factura, Recibo, etc." required>
+                </div>
+                <div class="form-group">
+                    <label>Archivo de Plantilla (.txt)</label>
+                    <input type="file" name="template_file" accept=".txt" required>
+                    <p class="form-help">Sube un archivo de texto con el formato deseado y usa <code>{{campo}}</code> para los datos variables.</p>
+                </div>
+                <div style="text-align:right; margin-top:20px;">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('pdf-template-modal')">Cancelar</button>
+                    <button type="submit" class="btn" id="btn-submit-pdf-template">Guardar Plantilla</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         // Global State
         const IS_SUPERADMIN = <?php echo $is_superadmin ? 'true' : 'false'; ?>;
@@ -1183,7 +1253,9 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             // Setup Tabs
             $('.nav-tab').on('click', function () {
                 $('.nav-tab').removeClass('active'); $(this).addClass('active');
-                $('.tab-content').removeClass('active'); $('#' + $(this).data('target')).addClass('active');
+                const target = $(this).data('target');
+                $('.tab-content').removeClass('active'); $('#' + target).addClass('active');
+                if (target === 'pdf-templates-tab') loadPDFTemplates();
             });
 
             // Handle Global Assistant Change
@@ -1200,6 +1272,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 setTimeout(loadUsers, 500); // ensure clientsCache is loaded
             }
             loadAssistants(true); // true = also reload select
+            loadPDFTemplates();
         });
 
         function getClientIdForAPI() {
@@ -1914,6 +1987,67 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                     });
                 }
             }, 'json');
+        }
+
+        // --- PDF Templates ---
+        function loadPDFTemplates() {
+            let u = 'api.php?action=pdf_templates_list';
+            const selClient = IS_SUPERADMIN ? '' : '&client_id=' + (clientsCache[0]?.id || '');
+            $.get(u + selClient, function (res) {
+                if (res.status === 'success') {
+                    let html = '';
+                    res.data.forEach(t => {
+                        let placeholders = (t.placeholders || []).map(p => `<code style="background:rgba(255,255,255,0.1);padding:2px 4px;border-radius:4px;margin-right:4px;">${p}</code>`).join(' ');
+                        let sourceBadge = t.source === 'db' ? '<span class="badge success">Personalizada</span>' : '<span class="badge">Sistema</span>';
+                        let actions = t.source === 'db' ? `<button class="btn btn-danger" onclick="deletePDFTemplate(${t.db_id})"><i class="fa-solid fa-trash"></i></button>` : '<small>Protegida</small>';
+                        
+                        html += `<tr><td>${t.id}</td><td><b>${t.name}</b></td><td>${sourceBadge}</td><td>${placeholders}</td><td>${actions}</td></tr>`;
+                    });
+                    $('#pdf-templates-table tbody').html(html || '<tr><td colspan="5" style="text-align:center;">No hay plantillas disponibles.</td></tr>');
+                }
+            }, 'json');
+        }
+
+        function openPDFTemplateModal() {
+            $('#pdf-template-form')[0].reset();
+            $('#pdf-template-modal').addClass('active');
+        }
+
+        function submitPDFTemplate(e) {
+            e.preventDefault();
+            const formData = new FormData($('#pdf-template-form')[0]);
+            $('#btn-submit-pdf-template').prop('disabled', true).text('Subiendo...');
+            
+            $.ajax({
+                url: 'api.php?action=pdf_templates_upload',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                dataType: 'json',
+                success: function (res) {
+                    $('#btn-submit-pdf-template').prop('disabled', false).text('Guardar Plantilla');
+                    if (res.status === 'success') {
+                        closeModal('pdf-template-modal');
+                        loadPDFTemplates();
+                    } else {
+                        alert(res.message || 'Error');
+                    }
+                },
+                error: function() {
+                    $('#btn-submit-pdf-template').prop('disabled', false).text('Guardar Plantilla');
+                    alert('Error de conexión');
+                }
+            });
+        }
+
+        function deletePDFTemplate(id) {
+            if (confirm('¿Eliminar esta plantilla de PDF?')) {
+                $.post('api.php?action=pdf_templates_delete', { id }, res => {
+                    if (res.status === 'success') loadPDFTemplates();
+                    else alert(res.message || 'Error');
+                }, 'json');
+            }
         }
 
         // --- Utilities ---

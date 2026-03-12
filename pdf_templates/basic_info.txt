@@ -1,0 +1,11 @@
+Estimado {{nombre}},
+
+Gracias por contactar a Skale IA. A continuación, adjuntamos la información solicitada:
+
+Detalles:
+{{detalles}}
+
+Fecha: {{fecha}}
+
+Atentamente,
+El equipo de Skale IA.
