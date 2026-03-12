@@ -37,8 +37,13 @@ foreach ($cols_to_add as $name => $def) {
 }
 
 // Fix 'type' ENUM
-mysqli_query($conn, "ALTER TABLE clients MODIFY COLUMN `type` ENUM('particular', 'empresa', 'marca_personal') DEFAULT 'particular'");
-echo "[OK] Tipo de ENUM en 'clients' actualizado.\n";
+if (!column_exists($conn, 'clients', 'type')) {
+    mysqli_query($conn, "ALTER TABLE clients ADD COLUMN `type` ENUM('particular', 'empresa', 'marca_personal') DEFAULT 'particular' AFTER name");
+    echo "[OK] Columna 'type' creada.\n";
+} else {
+    mysqli_query($conn, "ALTER TABLE clients MODIFY COLUMN `type` ENUM('particular', 'empresa', 'marca_personal') DEFAULT 'particular'");
+    echo "[OK] Tipo de ENUM en 'clients' actualizado.\n";
+}
 
 // 2. Fix Users Table
 echo "\n--- Fixing 'users' table ---\n";
