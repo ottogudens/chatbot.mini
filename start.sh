@@ -45,10 +45,13 @@ if [ -d "$STORAGE_ROOT" ]; then
     # Symlink Uploads
     if [ ! -L "/app/uploads" ]; then
         echo "Linking /app/uploads..."
-        if [ -d "/app/uploads" ]; then
+        mkdir -p /app/uploads # Ensure it exists before checking
+        # Only try to move if there are files (ls -A checks for hidden files too)
+        if [ "$(ls -A /app/uploads 2>/dev/null)" ]; then
+            echo "Moving existing uploads to persistent storage..."
             mv /app/uploads/* "$STORAGE_ROOT/uploads/" 2>/dev/null || true
-            rm -rf /app/uploads
         fi
+        rm -rf /app/uploads
         ln -s "$STORAGE_ROOT/uploads" /app/uploads
     fi
 
@@ -56,13 +59,14 @@ if [ -d "$STORAGE_ROOT" ]; then
     if [ ! -L "/app/whatsapp/sessions" ]; then
         echo "Linking /app/whatsapp/sessions..."
         mkdir -p /app/whatsapp/sessions 2>/dev/null || true
-        if [ -d "/app/whatsapp/sessions" ]; then
-            # Fix: Remove quotes around asterisk to allow shell expansion
+        if [ "$(ls -A /app/whatsapp/sessions 2>/dev/null)" ]; then
+            echo "Moving existing sessions to persistent storage..."
             mv /app/whatsapp/sessions/* "$STORAGE_ROOT/whatsapp_sessions/" 2>/dev/null || true
-            rm -rf /app/whatsapp/sessions
         fi
+        rm -rf /app/whatsapp/sessions
         ln -s "$STORAGE_ROOT/whatsapp_sessions" /app/whatsapp/sessions
     fi
+
 
 else
     echo "WARNING: No persistent storage detected at $STORAGE_ROOT."
