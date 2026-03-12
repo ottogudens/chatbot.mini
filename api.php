@@ -18,7 +18,9 @@ $secure_actions = [
     'assistants_delete',
     'info_create',
     'info_update',
-    'info_delete'
+    'info_delete',
+    'whatsapp_connect',
+    'whatsapp_disconnect'
 ];
 if (in_array($action, $secure_actions)) {
     if (!check_auth(false)) {
@@ -30,6 +32,7 @@ if (in_array($action, $secure_actions)) {
 
 $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
 $session_client_id = $_SESSION['client_id'] ?? null;
+define('WHATSAPP_API_URL', 'http://localhost:3000'); // URL of the Node.js bridge
 
 function check_ast_owner($conn, $ast_id)
 {
@@ -773,6 +776,72 @@ switch ($action) {
                 $data[] = $row;
         }
         echo json_encode(['status' => 'success', 'data' => $data]);
+        break;
+
+    // ---- WhatsApp Integration (Proxy to Node.js) ----
+    case 'whatsapp_status':
+        $ast_id = $_GET['assistant_id'] ?? null;
+        if (!$ast_id || !check_ast_owner($conn, $ast_id)) {
+            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
+            exit;
+        }
+        $res = @file_get_contents(WHATSAPP_API_URL . "/status/" . $ast_id);
+        if ($res === false) {
+            echo json_encode(['status' => 'offline', 'message' => 'Servicio de WhatsApp no disponible']);
+        } else {
+            echo $res;
+        }
+        break;
+
+    case 'whatsapp_qr':
+        $ast_id = $_GET['assistant_id'] ?? null;
+        if (!$ast_id || !check_ast_owner($conn, $ast_id)) {
+            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
+            exit;
+        }
+        $res = @file_get_contents(WHATSAPP_API_URL . "/qr/" . $ast_id);
+        if ($res === false) {
+            echo json_encode(['status' => 'offline', 'message' => 'Servicio de WhatsApp no disponible']);
+        } else {
+            echo $res;
+        }
+        break;
+
+    case 'whatsapp_connect':
+        $ast_id = $_POST['assistant_id'] ?? null;
+        if (!$ast_id || !check_ast_owner($conn, $ast_id)) {
+            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
+            exit;
+        }
+        // Use cURL for POST proxy
+        $ch = curl_init(WHATSAPP_API_URL . "/connect/" . $ast_id);
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        $res = curl_exec($ch);
+        if (curl_errno($ch)) {
+            echo json_encode(['status' => 'offline', 'message' => 'Servicio de WhatsApp no disponible']);
+        } else {
+            echo $res;
+        }
+        curl_close($ch);
+        break;
+
+    case 'whatsapp_disconnect':
+        $ast_id = $_POST['assistant_id'] ?? null;
+        if (!$ast_id || !check_ast_owner($conn, $ast_id)) {
+            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
+            exit;
+        }
+        $ch = curl_init(WHATSAPP_API_URL . "/disconnect/" . $ast_id);
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        $res = curl_exec($ch);
+        if (curl_errno($ch)) {
+            echo json_encode(['status' => 'offline', 'message' => 'Servicio de WhatsApp no disponible']);
+        } else {
+            echo $res;
+        }
+        curl_close($ch);
         break;
 
     case 'appointments_cancel':

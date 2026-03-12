@@ -685,8 +685,31 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             <!-- INTEGRATIONS TAB -->
             <div id="integrations-tab" class="tab-content">
                 <div class="panel-header">
-                    <h2>Integraciones (Google Drive & Calendar)</h2>
+                    <h2>Integraciones (WhatsApp, Drive & Calendar)</h2>
                 </div>
+
+                <!-- WHATSAPP -->
+                <div class="panel" style="border:none; background:rgba(0,0,0,0.2); margin-bottom: 20px;">
+                    <h3 style="margin-bottom: 10px;"><i class="fa-brands fa-whatsapp" style="color:#25D366;"></i> Vinculación con WhatsApp</h3>
+                    <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px; margin-top:5px;">Vincula este asistente a un número de WhatsApp escaneando el código QR.</p>
+                    
+                    <div id="whatsapp-container">
+                        <div id="whatsapp-status-display" style="margin-bottom: 15px;">
+                            <i class="fa-solid fa-spinner fa-spin"></i> Cargando estado...
+                        </div>
+                        
+                        <div id="whatsapp-qr-container" style="display:none; text-align:center; background:white; padding:20px; border-radius:12px; width:fit-content; margin:0 auto 15px;">
+                            <img id="whatsapp-qr-img" src="" alt="QR Code" style="display:block; max-width:250px;">
+                            <p style="color:#333; font-size:12px; margin-top:10px;">Escanea este código con WhatsApp</p>
+                        </div>
+                        
+                        <div id="whatsapp-actions">
+                            <button id="btn-whatsapp-connect" class="btn" style="background:#25D366;"><i class="fa-solid fa-link"></i> Vincular WhatsApp</button>
+                            <button id="btn-whatsapp-disconnect" class="btn btn-danger" style="display:none;"><i class="fa-solid fa-link-slash"></i> Desvincular</button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- DRIVE -->
                 <div class="panel" style="border:none; background:rgba(0,0,0,0.2); margin-bottom: 20px;">
                     <div id="drive-status-container" style="margin-bottom: 2rem;">
@@ -1264,6 +1287,10 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 const target = $(this).data('target');
                 $('.tab-content').removeClass('active'); $('#' + target).addClass('active');
                 if (target === 'pdf-templates-tab') loadPDFTemplates();
+                if (target === 'integrations-tab') {
+                    loadClientIntegrations();
+                    reloadWhatsAppIntegration();
+                }
             });
 
             // Handle Global Assistant Change
@@ -1294,11 +1321,12 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
         function reloadAssistantDependantViews() {
             loadStats();
             initChart();
-            loadInfoSources();
             loadRules();
             loadLogs();
-            loadDriveStatus();
+            loadStats();
+            initChart();
             loadCalendarSettings();
+            reloadWhatsAppIntegration();
             loadAppointments();
         }
 
@@ -1419,6 +1447,95 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                     $('#drive-status-container').html(`<p style="color:#ef4444">${res.message}</p>`);
                 }
             }, 'json');
+        }
+
+        // --- WhatsApp Management ---
+        let whatsappPollInterval = null;
+
+        function updateWhatsAppUI() {
+            if (!currentAssistantId) {
+                $('#whatsapp-container').hide();
+                return;
+            }
+            $('#whatsapp-container').show();
+            
+            $.get('api.php?action=whatsapp_status&assistant_id=' + currentAssistantId, function(res) {
+                const status = res.status;
+                let statusHtml = '';
+                
+                if (status === 'connected') {
+                    statusHtml = '<span class="badge success"><i class="fa-solid fa-check"></i> Conectado</span>';
+                    $('#btn-whatsapp-connect').hide();
+                    $('#btn-whatsapp-disconnect').show();
+                    $('#whatsapp-qr-container').hide();
+                    if (whatsappPollInterval) clearInterval(whatsappPollInterval);
+                } else if (status === 'connecting') {
+                    statusHtml = '<span class="badge" style="background:rgba(245,158,11,0.15); color:#f59e0b;"><i class="fa-solid fa-spinner fa-spin"></i> Esperando escaneo de QR...</span>';
+                    $('#btn-whatsapp-connect').hide();
+                    $('#btn-whatsapp-disconnect').show();
+                    $('#whatsapp-qr-container').show();
+                    loadWhatsAppQR();
+                } else if (status === 'offline') {
+                    statusHtml = '<span class="badge failed"><i class="fa-solid fa-circle-exclamation"></i> Servicio Offline</span>';
+                    $('#btn-whatsapp-connect').hide();
+                    $('#btn-whatsapp-disconnect').hide();
+                    $('#whatsapp-qr-container').hide();
+                } else {
+                    statusHtml = '<span class="badge failed">Desconectado</span>';
+                    $('#btn-whatsapp-connect').show();
+                    $('#btn-whatsapp-disconnect').hide();
+                    $('#whatsapp-qr-container').hide();
+                    if (whatsappPollInterval) clearInterval(whatsappPollInterval);
+                }
+                
+                $('#whatsapp-status-display').html('Estado: ' + statusHtml);
+            }, 'json');
+        }
+
+        function loadWhatsAppQR() {
+            $.get('api.php?action=whatsapp_qr&assistant_id=' + currentAssistantId, function(res) {
+                if (res.status === 'qr' && res.qr) {
+                    $('#whatsapp-qr-img').attr('src', res.qr);
+                    $('#whatsapp-qr-container').show();
+                } else if (res.status === 'connected') {
+                    updateWhatsAppUI();
+                }
+            }, 'json');
+        }
+
+        $('#btn-whatsapp-connect').on('click', function() {
+            const btn = $(this);
+            btn.prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Iniciando...');
+            
+            $.post('api.php?action=whatsapp_connect', { assistant_id: currentAssistantId }, function(res) {
+                btn.prop('disabled', false).html('<i class="fa-solid fa-link"></i> Vincular WhatsApp');
+                if (res.status === 'initializing' || res.status === 'connecting') {
+                    updateWhatsAppUI();
+                    // Start polling
+                    if (whatsappPollInterval) clearInterval(whatsappPollInterval);
+                    whatsappPollInterval = setInterval(updateWhatsAppUI, 3000);
+                } else {
+                    alert(res.message || 'Error al iniciar conexión');
+                }
+            }, 'json');
+        });
+
+        $('#btn-whatsapp-disconnect').on('click', function() {
+            if (!confirm('¿Seguro que quieres desvincular este asistente de WhatsApp?')) return;
+            
+            const btn = $(this);
+            btn.prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Desvinculando...');
+            
+            $.post('api.php?action=whatsapp_disconnect', { assistant_id: currentAssistantId }, function(res) {
+                btn.prop('disabled', false).html('<i class="fa-solid fa-link-slash"></i> Desvincular');
+                updateWhatsAppUI();
+            }, 'json');
+        });
+
+        // Add this to reloadAssistantDependantViews
+        function reloadWhatsAppIntegration() {
+            if (whatsappPollInterval) clearInterval(whatsappPollInterval);
+            updateWhatsAppUI();
         }
 
         function loadDriveFiles(folderId = 'root', folderName = 'Mi Unidad') {
