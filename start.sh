@@ -71,20 +71,30 @@ sed "s/\${PORT}/${PORT}/g" /app/nginx.conf.template > /app/nginx.conf
 nginx -t -c /app/nginx.conf
 
 # 4. Start Services
-echo "Starting WhatsApp bridge with PM2..."
-cd /app/whatsapp && pm2 start whatsapp.js --name "whatsapp-bridge" --time || echo "PM2 failed to start, trying node directly..."
+echo "---------------------------------------"
+echo "Starting WhatsApp bridge..."
+cd /app/whatsapp
+if command -v pm2 >/dev/null 2>&1; then
+    pm2 start whatsapp.js --name "whatsapp-bridge" --time
+else
+    echo "PM2 not found, starting node directly in background..."
+    node whatsapp.js &
+fi
 cd /app
 
+echo "---------------------------------------"
 echo "Starting PHP-FPM..."
 if [ -n "$PHP_FPM_BIN" ]; then
+    echo "Using configuration: /app/php-fpm.conf"
     $PHP_FPM_BIN -y /app/php-fpm.conf -F &
 else
-    echo "CRITICAL: Cannot start PHP-FPM (binary not found)"
+    echo "CRITICAL ERROR: Cannot start PHP-FPM (binary not found)"
     exit 1
 fi
 
-echo "Waiting for PHP-FPM..."
-sleep 3
+echo "Waiting for PHP-FPM to stabilize..."
+sleep 5
+
 
 echo "Starting Nginx..."
 nginx -c /app/nginx.conf -g 'daemon off;'
