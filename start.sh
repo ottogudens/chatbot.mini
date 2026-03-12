@@ -18,9 +18,10 @@ sed "s/\${PORT}/${PORT}/g" /app/nginx.conf.template > /app/nginx.conf
 # Verify config
 nginx -t -c /app/nginx.conf
 
-# Start Whatsapp Node Service in background
-echo "Starting Whatsapp service..."
-node whatsapp/whatsapp.js &
+# Start Whatsapp Node Service with PM2
+echo "Starting Whatsapp service with PM2..."
+cd /app/whatsapp && pm2 start whatsapp.js --name "whatsapp-bridge" --time
+cd /app
 
 # Start PHP-FPM in background
 echo "Starting PHP-FPM..."
@@ -37,3 +38,4 @@ sleep 2
 # Start Nginx in foreground
 echo "Starting Nginx on port ${PORT}..."
 nginx -c /app/nginx.conf -g 'daemon off;'
+

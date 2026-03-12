@@ -6,8 +6,17 @@ header('Content-Type: application/json');
 require 'db.php';
 
 // Get and sanitize user message & assistant ID
-$user_msg = isset($_POST['text']) ? $_POST['text'] : '';
+$user_msg = $_POST['text'] ?? '';
 $assistant_id = isset($_POST['assistant_id']) && is_numeric($_POST['assistant_id']) ? intval($_POST['assistant_id']) : null;
+$internal_token = $_POST['internal_token'] ?? '';
+
+// Security: Verify request is from local bridge
+$expected_token = getenv('INTERNAL_TOKEN') ?: 'local_secret_123';
+if ($internal_token !== $expected_token) {
+    http_response_code(403);
+    echo json_encode(['status' => 'error', 'message' => 'Forbidden: Invalid internal token.']);
+    exit;
+}
 
 $clean_msg = strtolower(trim($user_msg));
 // Remove accents and special punctuation to improve matching

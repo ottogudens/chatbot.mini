@@ -2,10 +2,15 @@
 nixPkgs = ["php83", "nginx", "nodejs"]
 
 [phases.install]
-cmds = ["npm install --prefix whatsapp", "mkdir -p /app/logs /app/uploads"]
+cmds = [
+    "npm install --prefix whatsapp",
+    "npm install -g pm2",
+    "mkdir -p /app/logs /app/uploads"
+]
 
 [phases.build]
 cmds = ["mkdir -p /etc/nginx/conf.d"]
 
 [start]
 cmd = "/app/start.sh"
+

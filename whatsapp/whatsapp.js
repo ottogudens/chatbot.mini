@@ -95,20 +95,34 @@ async function startSession(assistantId) {
 
                     if (text) {
                         try {
+                            // Dynamically resolve backend URL with current port
+                            const rawBackendUrl = process.env.BACKEND_URL || 'http://localhost/message.php';
+                            const envPort = process.env.PORT || '80';
+                            const backendUrl = rawBackendUrl.replace('${PORT}', envPort);
+
                             const formData = new FormData();
                             formData.append('text', text);
                             formData.append('assistant_id', assistantId);
+                            // Security token for internal communication
+                            formData.append('internal_token', process.env.INTERNAL_TOKEN || 'local_secret_123');
 
-                            const response = await axios.post(process.env.BACKEND_URL, formData, {
-                                headers: formData.getHeaders()
+                            const response = await axios.post(backendUrl, formData, {
+                                headers: formData.getHeaders(),
+                                timeout: 30000 // 30s timeout
                             });
 
                             if (response.data && response.data.reply) {
-                                const cleanReply = response.data.reply.replace(/<br\s*\/?>/gi, '\n');
+                                const cleanReply = response.data.reply
+                                    .replace(/<br\s*\/?>/gi, '\n')
+                                    .replace(/&nbsp;/g, ' ')
+                                    .trim();
                                 await sock.sendMessage(from, { text: cleanReply });
                             }
                         } catch (error) {
-                            console.error(`[Assistant ${assistantId}] Error backend:`, error.message);
+                            console.error(`[Assistant ${assistantId}] Error backend (${error.code || 'unknown'}):`, error.message);
+                            if (error.response) {
+                                console.error(`[Assistant ${assistantId}] Respuesta backend:`, error.response.data);
+                            }
                         }
                     }
                 }
