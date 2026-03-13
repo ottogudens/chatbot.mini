@@ -55,8 +55,8 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             width: 100%;
             height: 100%;
             z-index: -1;
-            background: radial-gradient(circle at 15% 50%, rgba(139, 92, 246, 0.1), transparent 25%), 
-                        radial-gradient(circle at 85% 30%, rgba(56, 189, 248, 0.1), transparent 25%);
+            background: radial-gradient(circle at 15% 50%, rgba(139, 92, 246, 0.1), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(56, 189, 248, 0.1), transparent 25%);
         }
 
         /* ----- Sidebar ----- */
@@ -84,7 +84,9 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             border-bottom: 1px solid var(--glass-border);
         }
 
-        .sidebar-logo i { color: var(--primary); }
+        .sidebar-logo i {
+            color: var(--primary);
+        }
 
         .sidebar-nav {
             flex: 1;
@@ -195,8 +197,15 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             font-size: 26px;
         }
 
-        .card-info h3 { font-size: 26px; margin-bottom: 4px; }
-        .card-info p { color: var(--text-muted); font-size: 14px; }
+        .card-info h3 {
+            font-size: 26px;
+            margin-bottom: 4px;
+        }
+
+        .card-info p {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
 
         .btn {
             background: var(--primary);
@@ -214,11 +223,27 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             font-size: 14px;
         }
 
-        .btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
-        .btn-danger { background: var(--danger); }
-        .btn-danger:hover { background: #dc2626; }
-        .btn-outline { background: transparent; border: 1px solid var(--primary); }
-        .btn-outline:hover { background: rgba(139, 92, 246, 0.1); }
+        .btn:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--primary);
+        }
+
+        .btn-outline:hover {
+            background: rgba(139, 92, 246, 0.1);
+        }
 
         .panel {
             background: var(--glass-bg);
@@ -238,9 +263,26 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             flex-wrap: wrap;
         }
 
-        table { width: 100%; border-collapse: collapse; font-size: 14px; }
-        th, td { text-align: left; padding: 14px 16px; border-bottom: 1px solid var(--td-border); }
-        th { color: var(--text-muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--td-border);
+        }
+
+        th {
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
 
         .badge {
             padding: 4px 12px;
@@ -252,13 +294,36 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             text-transform: uppercase;
         }
 
-        .badge.failed { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
-        .badge.success { background: rgba(16, 185, 129, 0.15); color: #6ee7b7; }
+        .badge.failed {
+            background: rgba(239, 68, 68, 0.15);
+            color: #fca5a5;
+        }
 
-        .tab-content { display: none; }
-        .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
+        .badge.success {
+            background: rgba(16, 185, 129, 0.15);
+            color: #6ee7b7;
+        }
 
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(5px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
 
         /* Modals */
         .modal-overlay {
@@ -278,7 +343,11 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             transition: all 0.3s;
         }
 
-        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
         .modal {
             background: #1e293b;
             border: 1px solid var(--glass-border);
@@ -288,25 +357,65 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             overflow-y: auto;
             border-radius: 16px;
             padding: 30px;
-            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
 
-        .form-group { margin-bottom: 20px; }
-        .form-group label { display: block; margin-bottom: 8px; color: var(--text-muted); font-size: 14px; font-weight: 500; }
-        .form-group input, .form-group textarea, .form-group select {
-            width: 100%; background: var(--input-bg); border: 1px solid var(--glass-border); color: white;
-            padding: 12px 16px; border-radius: 8px; outline: none; transition: border-color 0.2s;
+        .form-group {
+            margin-bottom: 20px;
         }
-        .form-group input:focus, .form-group textarea:focus, .form-group select:focus { border-color: var(--primary); }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-muted);
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            background: var(--input-bg);
+            border: 1px solid var(--glass-border);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            border-color: var(--primary);
+        }
 
         /* Responsive Mobile */
         @media (max-width: 1024px) {
-            .sidebar { transform: translateX(-100%); }
-            .sidebar.active { transform: translateX(0); }
-            .main-wrapper { margin-left: 0; }
-            .mobile-toggle { display: block; }
-            .content-area { padding: 20px; }
-            .top-bar { padding: 0 20px; }
+            .sidebar {
+                transform: translateX(-100%);
+            }
+
+            .sidebar.active {
+                transform: translateX(0);
+            }
+
+            .main-wrapper {
+                margin-left: 0;
+            }
+
+            .mobile-toggle {
+                display: block;
+            }
+
+            .content-area {
+                padding: 20px;
+            }
+
+            .top-bar {
+                padding: 0 20px;
+            }
         }
 
         /* ===== RESPONSIVE: Mobile Admin Panel ===== */
@@ -444,51 +553,72 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
 </head>
 
 <body>
-    <div class="glass-bg"></div>
+    <div class="glass-bg-fx"></div>
 
-    <div class="container">
-        <div class="header">
-            <h1><i class="fa-solid fa-robot"></i> SkaleBot Admin</h1>
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-logo">
+            <i class="fa-solid fa-robot"></i>
+            <span>SkaleBot Admin</span>
+        </div>
 
-            <div class="global-selector">
-                <label for="global-assistant-select"><i class="fa-solid fa-headset"></i> Asistente Activo:</label>
-                <select id="global-assistant-select">
+        <nav class="sidebar-nav">
+            <button class="nav-tab active" data-target="dashboard-tab"><i class="fa-solid fa-chart-line"></i>
+                Resumen</button>
+            <?php if ($is_superadmin): ?>
+                <button class="nav-tab" data-target="clients-tab"><i class="fa-solid fa-building"></i> Clientes</button>
+                <button class="nav-tab" data-target="users-tab"><i class="fa-solid fa-users"></i> Usuarios</button>
+            <?php endif; ?>
+            <button class="nav-tab" data-target="assistants-tab"><i class="fa-solid fa-robot"></i> Asistentes</button>
+            <button class="nav-tab" data-target="info-tab"><i class="fa-solid fa-database"></i> Fuentes de Info</button>
+            <button class="nav-tab" data-target="integrations-tab"><i class="fa-brands fa-google-drive"></i>
+                Integraciones</button>
+            <button class="nav-tab" data-target="rules-tab"><i class="fa-solid fa-book"></i> Reglas Q&A</button>
+            <button class="nav-tab" data-target="pdf-templates-tab"><i class="fa-solid fa-file-pdf"></i> Plantillas
+                PDF</button>
+            <button class="nav-tab" data-target="logs-tab"><i class="fa-solid fa-list"></i> Logs</button>
+            <button class="nav-tab" data-target="appointments-tab"><i class="fa-regular fa-calendar-check"></i>
+                Reservas</button>
+        </nav>
+
+        <div class="sidebar-footer">
+            <a href="auth.php?action=logout" class="btn btn-danger" style="width:100%; justify-content:center;">
+                <i class="fa-solid fa-right-from-bracket"></i> Salir
+            </a>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-wrapper">
+        <header class="top-bar">
+            <button class="mobile-toggle" id="mobile-toggle">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+
+            <div class="global-selector" style="display:flex; align-items:center; gap:12px;">
+                <label for="global-assistant-select" style="font-size:13px; color:var(--text-muted); font-weight:500;">
+                    <i class="fa-solid fa-headset"></i> Asistente Activo:
+                </label>
+                <select id="global-assistant-select"
+                    style="background:var(--input-bg); border:1px solid var(--glass-border); color:white; padding:6px 12px; border-radius:6px; font-size:13px; outline:none;">
                     <option value="">Global (Todos)</option>
                     <!-- Populated by JS -->
                 </select>
-                <button class="btn btn-outline" style="padding: 6px 10px;" onclick="copyChatLink()"
-                    title="Copiar Link del Chat"><i class="fa-solid fa-link"></i></button>
+                <button class="btn btn-outline" style="padding: 6px 10px; height:32px;" onclick="copyChatLink()"
+                    title="Copiar Link del Chat">
+                    <i class="fa-solid fa-link"></i>
+                </button>
             </div>
 
-            <div class="header-actions" style="display:flex; gap:10px;">
-                <a href="index.php" class="btn btn-outline" id="btn-chat-link"><i class="fa-solid fa-comment-dots"></i>
-                    Ir al Chat</a>
-                <a href="auth.php?action=logout" class="btn btn-danger"><i class="fa-solid fa-right-from-bracket"></i>
-                    Salir</a>
+            <div class="header-actions">
+                <a href="index.php" class="btn" id="btn-chat-link"
+                    style="background:rgba(139, 92, 246, 0.1); color:var(--primary); border:1px solid var(--primary);">
+                    <i class="fa-solid fa-comment-dots"></i> Ir al Chat
+                </a>
             </div>
-        </div>
+        </header>
 
-        <div class="panel">
-            <div class="nav-tabs">
-                <button class="nav-tab active" data-target="dashboard-tab"><i class="fa-solid fa-chart-line"></i>
-                    Resumen</button>
-                <?php if ($is_superadmin): ?>
-                    <button class="nav-tab" data-target="clients-tab"><i class="fa-solid fa-building"></i> Clientes</button>
-                    <button class="nav-tab" data-target="users-tab"><i class="fa-solid fa-users"></i> Usuarios</button>
-                <?php endif; ?>
-                <button class="nav-tab" data-target="assistants-tab"><i class="fa-solid fa-robot"></i>
-                    Asistentes</button>
-                <button class="nav-tab" data-target="info-tab"><i class="fa-solid fa-database"></i> Fuentes de
-                    Info</button>
-                <button class="nav-tab" data-target="integrations-tab"><i class="fa-brands fa-google-drive"></i>
-                    Integraciones</button>
-                <button class="nav-tab" data-target="rules-tab"><i class="fa-solid fa-book"></i> Reglas Q&A</button>
-                <button class="nav-tab" data-target="pdf-templates-tab"><i class="fa-solid fa-file-pdf"></i> Plantillas
-                    PDF</button>
-                <button class="nav-tab" data-target="logs-tab"><i class="fa-solid fa-list"></i> Logs</button>
-                <button class="nav-tab" data-target="appointments-tab"><i class="fa-regular fa-calendar-check"></i>
-                    Reservas</button>
-            </div>
+        <div class="content-area">
 
             <!-- DASHBOARD TAB -->
             <div id="dashboard-tab" class="tab-content active">
@@ -501,16 +631,11 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                         </div>
                     </div>
                 </div>
-                <div class="panel" style="padding: 20px; border:none; background:rgba(0,0,0,0.2);">
+                <div class="panel" style="padding: 20px; border:none; background:rgba(0,0,0,0.2); margin-top: 20px;">
                     <h3
                         style="margin-bottom: 20px; font-size: 14px; color: var(--text-muted); text-transform: uppercase;">
                         <i class="fa-solid fa-chart-line"></i> Actividad últimos 7 días
-                    <!-- Stats loaded via JS -->
-                </div>
-                <div class="panel">
-                    <div class="panel-header">
-                        <h3>Actividad de Interacciones (7 días)</h3>
-                    </div>
+                    </h3>
                     <div style="height: 300px;">
                         <canvas id="activityChart"></canvas>
                     </div>
@@ -522,7 +647,8 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 <div id="clients-tab" class="tab-content">
                     <div class="panel-header">
                         <h2>Gestión de Clientes</h2>
-                        <button class="btn" onclick="openClientModal()"><i class="fa-solid fa-plus"></i> Nuevo Cliente</button>
+                        <button class="btn" onclick="openClientModal()"><i class="fa-solid fa-plus"></i> Nuevo
+                            Cliente</button>
                     </div>
                     <div class="panel">
                         <div style="overflow-x: auto;">
@@ -547,7 +673,8 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 <div id="users-tab" class="tab-content">
                     <div class="panel-header">
                         <h2>Usuarios de la Aplicación</h2>
-                        <button class="btn" onclick="openUserModal()"><i class="fa-solid fa-user-plus"></i> Nuevo Usuario</button>
+                        <button class="btn" onclick="openUserModal()"><i class="fa-solid fa-user-plus"></i> Nuevo
+                            Usuario</button>
                     </div>
                     <div class="panel">
                         <div style="overflow-x: auto;">
@@ -573,7 +700,8 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             <div id="assistants-tab" class="tab-content">
                 <div class="panel-header">
                     <h2>Asistentes</h2>
-                    <button class="btn" onclick="openAssistantModal()"><i class="fa-solid fa-plus"></i> Nuevo Asistente</button>
+                    <button class="btn" onclick="openAssistantModal()"><i class="fa-solid fa-plus"></i> Nuevo
+                        Asistente</button>
                 </div>
                 <div class="panel">
                     <div style="overflow-x: auto;">
@@ -597,7 +725,8 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             <div id="info-tab" class="tab-content">
                 <div class="panel-header">
                     <h2>Fuentes de Información de Gemini</h2>
-                    <button class="btn" onclick="openInfoModal()"><i class="fa-solid fa-cloud-arrow-up"></i> Nueva Fuente</button>
+                    <button class="btn" onclick="openInfoModal()"><i class="fa-solid fa-cloud-arrow-up"></i> Nueva
+                        Fuente</button>
                 </div>
                 <div class="panel">
                     <div style="overflow-x: auto;">
@@ -648,22 +777,27 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
 
                 <!-- WHATSAPP -->
                 <div class="panel" style="border:none; background:rgba(0,0,0,0.2); margin-bottom: 20px;">
-                    <h3 style="margin-bottom: 10px;"><i class="fa-brands fa-whatsapp" style="color:#25D366;"></i> Vinculación con WhatsApp</h3>
-                    <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px; margin-top:5px;">Vincula este asistente a un número de WhatsApp escaneando el código QR.</p>
-                    
+                    <h3 style="margin-bottom: 10px;"><i class="fa-brands fa-whatsapp" style="color:#25D366;"></i>
+                        Vinculación con WhatsApp</h3>
+                    <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px; margin-top:5px;">Vincula este
+                        asistente a un número de WhatsApp escaneando el código QR.</p>
+
                     <div id="whatsapp-container">
                         <div id="whatsapp-status-display" style="margin-bottom: 15px;">
                             <i class="fa-solid fa-spinner fa-spin"></i> Cargando estado...
                         </div>
-                        
-                        <div id="whatsapp-qr-container" style="display:none; text-align:center; background:white; padding:20px; border-radius:12px; width:fit-content; margin:0 auto 15px;">
+
+                        <div id="whatsapp-qr-container"
+                            style="display:none; text-align:center; background:white; padding:20px; border-radius:12px; width:fit-content; margin:0 auto 15px;">
                             <img id="whatsapp-qr-img" src="" alt="QR Code" style="display:block; max-width:250px;">
                             <p style="color:#333; font-size:12px; margin-top:10px;">Escanea este código con WhatsApp</p>
                         </div>
-                        
+
                         <div id="whatsapp-actions">
-                            <button id="btn-whatsapp-connect" class="btn" style="background:#25D366;"><i class="fa-solid fa-link"></i> Vincular WhatsApp</button>
-                            <button id="btn-whatsapp-disconnect" class="btn btn-danger" style="display:none;"><i class="fa-solid fa-link-slash"></i> Desvincular</button>
+                            <button id="btn-whatsapp-connect" class="btn" style="background:#25D366;"><i
+                                    class="fa-solid fa-link"></i> Vincular WhatsApp</button>
+                            <button id="btn-whatsapp-disconnect" class="btn btn-danger" style="display:none;"><i
+                                    class="fa-solid fa-link-slash"></i> Desvincular</button>
                         </div>
                     </div>
                 </div>
@@ -766,10 +900,12 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             <div id="appointments-tab" class="tab-content">
                 <div class="panel-header">
                     <h2><i class="fa-regular fa-calendar-check" style="color:#f59e0b;"></i> Reservas del Asistente</h2>
-                    <button class="btn btn-outline" onclick="loadAppointments()"><i class="fa-solid fa-rotate"></i> Actualizar</button>
+                    <button class="btn btn-outline" onclick="loadAppointments()"><i class="fa-solid fa-rotate"></i>
+                        Actualizar</button>
                 </div>
                 <div class="panel">
-                    <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px;">Reservas creadas por el asistente en Google Calendar. Puedes cancelarlas desde aquí.</p>
+                    <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px;">Reservas creadas por el
+                        asistente en Google Calendar. Puedes cancelarlas desde aquí.</p>
                     <div style="overflow-x: auto;">
                         <table id="appointments-table">
                             <thead>
@@ -794,7 +930,8 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             <div id="logs-tab" class="tab-content">
                 <div class="panel-header">
                     <h2>Últimas Interacciones</h2>
-                    <button class="btn btn-outline" onclick="loadLogs()"><i class="fa-solid fa-rotate"></i> Actualizar</button>
+                    <button class="btn btn-outline" onclick="loadLogs()"><i class="fa-solid fa-rotate"></i>
+                        Actualizar</button>
                 </div>
                 <div class="panel">
                     <div style="overflow-x: auto;">
@@ -817,7 +954,8 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             <div id="pdf-templates-tab" class="tab-content">
                 <div class="panel-header">
                     <h2>Gestión de Plantillas PDF</h2>
-                    <button class="btn" onclick="openPDFTemplateModal()"><i class="fa-solid fa-plus"></i> Nueva Plantilla</button>
+                    <button class="btn" onclick="openPDFTemplateModal()"><i class="fa-solid fa-plus"></i> Nueva
+                        Plantilla</button>
                 </div>
                 <div class="panel">
                     <div style="overflow-x: auto;">
@@ -835,7 +973,9 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                         </table>
                     </div>
                     <div style="margin-top: 20px; font-size: 13px; color: var(--text-muted);">
-                        <p><i class="fa-solid fa-circle-info"></i> Sube archivos <b>.txt</b> con marcadores como <code>{{nombre}}</code> para que el asistente pueda completarlos.</p>
+                        <p><i class="fa-solid fa-circle-info"></i> Sube archivos <b>.txt</b> con marcadores como
+                            <code>{{nombre}}</code> para que el asistente pueda completarlos.
+                        </p>
                     </div>
                 </div>
             </div>
@@ -1184,7 +1324,8 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 <div class="form-group">
                     <label>Archivo de Plantilla (.txt o .pdf)</label>
                     <input type="file" name="template_file" accept=".txt,.pdf" required>
-                    <p class="form-help">Sube un archivo de texto con <code>{{marcadores}}</code> o un PDF para que la IA lo analice y extraiga los campos automáticamente.</p>
+                    <p class="form-help">Sube un archivo de texto con <code>{{marcadores}}</code> o un PDF para que la
+                        IA lo analice y extraiga los campos automáticamente.</p>
                 </div>
                 <div style="text-align:right; margin-top:20px;">
                     <button type="button" class="btn btn-outline"
@@ -1232,12 +1373,12 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             loadAssistants(true); // true = also reload select
 
             // Sidebar Toggle for Mobile
-            $('#mobile-toggle').on('click', function() {
+            $('#mobile-toggle').on('click', function () {
                 $('#sidebar').toggleClass('active');
             });
 
             // Close sidebar when clicking a link on mobile
-            $('.sidebar .nav-tab').on('click', function() {
+            $('.sidebar .nav-tab').on('click', function () {
                 if ($(window).width() <= 1024) {
                     $('#sidebar').removeClass('active');
                 }
@@ -1391,11 +1532,11 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 return;
             }
             $('#whatsapp-container').show();
-            
-            $.get('api.php?action=whatsapp_status&assistant_id=' + currentAssistantId, function(res) {
+
+            $.get('api.php?action=whatsapp_status&assistant_id=' + currentAssistantId, function (res) {
                 const status = res.status;
                 let statusHtml = '';
-                
+
                 if (status === 'connected') {
                     statusHtml = '<span class="badge success"><i class="fa-solid fa-check"></i> Conectado</span>';
                     $('#btn-whatsapp-connect').hide();
@@ -1420,13 +1561,13 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                     $('#whatsapp-qr-container').hide();
                     if (whatsappPollInterval) clearInterval(whatsappPollInterval);
                 }
-                
+
                 $('#whatsapp-status-display').html('Estado: ' + statusHtml);
             }, 'json');
         }
 
         function loadWhatsAppQR() {
-            $.get('api.php?action=whatsapp_qr&assistant_id=' + currentAssistantId, function(res) {
+            $.get('api.php?action=whatsapp_qr&assistant_id=' + currentAssistantId, function (res) {
                 if (res.status === 'qr' && res.qr) {
                     $('#whatsapp-qr-img').attr('src', res.qr);
                     $('#whatsapp-qr-container').show();
@@ -1436,11 +1577,11 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             }, 'json');
         }
 
-        $('#btn-whatsapp-connect').on('click', function() {
+        $('#btn-whatsapp-connect').on('click', function () {
             const btn = $(this);
             btn.prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Iniciando...');
-            
-            $.post('api.php?action=whatsapp_connect', { assistant_id: currentAssistantId }, function(res) {
+
+            $.post('api.php?action=whatsapp_connect', { assistant_id: currentAssistantId }, function (res) {
                 btn.prop('disabled', false).html('<i class="fa-solid fa-link"></i> Vincular WhatsApp');
                 if (res.status === 'initializing' || res.status === 'connecting') {
                     updateWhatsAppUI();
@@ -1453,13 +1594,13 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             }, 'json');
         });
 
-        $('#btn-whatsapp-disconnect').on('click', function() {
+        $('#btn-whatsapp-disconnect').on('click', function () {
             if (!confirm('¿Seguro que quieres desvincular este asistente de WhatsApp?')) return;
-            
+
             const btn = $(this);
             btn.prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Desvinculando...');
-            
-            $.post('api.php?action=whatsapp_disconnect', { assistant_id: currentAssistantId }, function(res) {
+
+            $.post('api.php?action=whatsapp_disconnect', { assistant_id: currentAssistantId }, function (res) {
                 btn.prop('disabled', false).html('<i class="fa-solid fa-link-slash"></i> Desvincular');
                 updateWhatsAppUI();
             }, 'json');
