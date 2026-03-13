@@ -720,7 +720,7 @@ switch ($action) {
             mysqli_stmt_bind_param($stmt, "isss", $req_client_id, $name, $relative_path, $placeholders_json);
 
             if (mysqli_stmt_execute($stmt)) {
-                echo json_encode(['status' => 'success', 'detected_fields' => $placeholders]);
+                echo json_encode(['status' => 'success', 'detected_fields' => array_values($placeholders)]);
             } else {
                 unlink($target_path);
                 echo json_encode(['status' => 'error', 'message' => 'Error en base de datos: ' . mysqli_error($conn)]);

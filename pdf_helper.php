@@ -69,6 +69,14 @@ class PDFHelper
     {
         $content = "";
 
+        // Ensure data is an array
+        if (is_string($data)) {
+            $decoded = json_decode($data, true);
+            if (is_array($decoded)) {
+                $data = $decoded;
+            }
+        }
+
         // Check if it's a DB template (numeric ID)
         if (is_numeric($template_id) && $this->conn) {
             $stmt = mysqli_prepare($this->conn, "SELECT file_path FROM pdf_templates WHERE id = ?");
