@@ -76,6 +76,14 @@ fi
 
 # 3. Nginx Config
 echo "Configuring Nginx..."
+sed "s/\${PORT}/${PORT}/g" /app/nginx.conf.template > /app/nginx.conf
+nginx -t -c /app/nginx.conf
+
+# 4. Run Migrations
+echo "Running database migrations..."
+php migrate6.php || echo "Migration failed, check logs."
+
+# 5. Start Services
 echo "---------------------------------------"
 echo "Starting WhatsApp bridge..."
 cd /app/whatsapp

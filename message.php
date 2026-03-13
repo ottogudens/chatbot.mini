@@ -45,7 +45,6 @@ if ($assistant_id) {
         $client_id = $ast_row['client_id'];
         $custom_system_prompt = $ast_row['system_prompt'] ?? '';
         $voice_enabled = $ast_row['voice_enabled'] ?? 1;
-        $voice_enabled = $ast_row['voice_enabled'] ?? 1;
         $ai_config = [
             'model' => $ast_row['gemini_model'] ?? 'gemini-2.5-flash',
             'temperature' => $ast_row['temperature'] ?? 0.7,
