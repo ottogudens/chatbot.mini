@@ -83,16 +83,24 @@ async function startSession(assistantId) {
     });
 
     sock.ev.on('messages.upsert', async (m) => {
+        console.log(`[Assistant ${assistantId}] Evento upsert recibido: type=${m.type}, count=${m.messages?.length}`);
         if (m.type === 'notify') {
             for (const msg of m.messages) {
+                console.log(`[Assistant ${assistantId}] Procesando mensaje de ${msg.key.remoteJid}, fromMe=${msg.key.fromMe}`);
                 if (!msg.key.fromMe && msg.message) {
                     const from = msg.key.remoteJid;
+                    // Log the full message object for debugging
+                    console.log(`[Assistant ${assistantId}] Estructura mensaje:`, JSON.stringify(msg.message).substring(0, 500));
+
                     const text = msg.message.conversation ||
                         msg.message.extendedTextMessage?.text ||
+                        msg.message.buttonsResponseMessage?.selectedButtonId ||
+                        msg.message.listResponseMessage?.singleSelectReply?.selectedRowId ||
                         '';
 
                     if (text) {
-                        console.log(`[Assistant ${assistantId}] Mensaje entrante de ${from}: ${text}`);
+                        console.log(`[Assistant ${assistantId}] Mensaje extraído: ${text}`);
+
                         try {
                             // Dynamically resolve backend URL with current port
                             const rawBackendUrl = process.env.BACKEND_URL || 'http://localhost/message.php';
