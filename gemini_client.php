@@ -161,10 +161,28 @@ class GeminiClient
         $base_prompt = "Eres un asistente virtual avanzado y profesional de Skale IA. " .
             "Responde de forma concisa, útil y siempre en español latinoamericano. ";
 
+        // Inject current date and time context (Chile Time)
+        $current_date = date('d/m/Y');
+        $current_day = date('l'); // English day name
+        // Translate day to Spanish
+        $days_es = [
+            'Monday' => 'Lunes',
+            'Tuesday' => 'Martes',
+            'Wednesday' => 'Miércoles',
+            'Thursday' => 'Jueves',
+            'Friday' => 'Viernes',
+            'Saturday' => 'Sábado',
+            'Sunday' => 'Domingo'
+        ];
+        $current_day_es = $days_es[$current_day] ?? $current_day;
+        $current_time = date('H:i');
+
+        $system_prompt = $base_prompt . "\n\nCONTEXTO TEMPORAL ACTUAL: Hoy es $current_day_es, $current_date y la hora actual es $current_time.";
+
         if (!empty($custom_system_prompt)) {
-            $system_prompt = $base_prompt . "\n\nINSTRUCCIONES ESPECÍFICAS DEL ASISTENTE:\n" . $custom_system_prompt;
+            $system_prompt .= "\n\nINSTRUCCIONES ESPECÍFICAS DEL ASISTENTE:\n" . $custom_system_prompt;
         } else {
-            $system_prompt = $base_prompt . "\nSi no sabes algo de un tema técnico, ofrece contactar al equipo de soporte.";
+            $system_prompt .= "\nSi no sabes algo de un tema técnico, ofrece contactar al equipo de soporte.";
         }
 
         $system_prompt .= "\n\n" . $style_hint;

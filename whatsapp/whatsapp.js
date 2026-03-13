@@ -86,18 +86,15 @@ async function startSession(assistantId) {
         console.log(`[Assistant ${assistantId}] Evento upsert recibido: type=${m.type}, count=${m.messages?.length}`);
         if (m.type === 'notify') {
             for (const msg of m.messages) {
-                console.log(`[Assistant ${assistantId}] Procesando mensaje de ${msg.key.remoteJid}, fromMe=${msg.key.fromMe}`);
                 if (!msg.key.fromMe && msg.message) {
                     const from = msg.key.remoteJid;
                     // Avoid processing group messages if not intended
                     if (from.endsWith('@g.us')) {
-                        console.log(`[Assistant ${assistantId}] Ignorando mensaje de grupo: ${from}`);
                         continue;
                     }
 
                     // Log the structure to see what's coming
                     const msgType = Object.keys(msg.message)[0];
-                    console.log(`[Assistant ${assistantId}] Tipo de mensaje detectado: ${msgType}`);
 
                     // Broad text extraction
                     let text = msg.message.conversation ||
@@ -114,15 +111,13 @@ async function startSession(assistantId) {
                     }
 
                     if (text) {
-                        console.log(`[Assistant ${assistantId}] Mensaje extraído correctamente de ${from}: "${text}"`);
+                        console.log(`[Assistant ${assistantId}] Mensaje de ${from}: "${text}"`);
 
                         try {
                             // Dynamically resolve backend URL with current port
                             const rawBackendUrl = process.env.BACKEND_URL || 'http://localhost/message.php';
                             const envPort = process.env.PORT || '80';
                             const backendUrl = rawBackendUrl.replace('${PORT}', envPort);
-
-                            console.log(`[Assistant ${assistantId}] Enviando a backend: ${backendUrl}`);
 
                             const formData = new FormData();
                             formData.append('text', text);
@@ -136,23 +131,15 @@ async function startSession(assistantId) {
                                 timeout: 35000 // 35s timeout
                             });
 
-                            console.log(`[Assistant ${assistantId}] Respuesta del backend recibida. Status: ${response.status}`);
-
                             if (response.data && response.data.reply) {
-                                console.log(`[Assistant ${assistantId}] Enviando respuesta a WhatsApp...`);
                                 const cleanReply = response.data.reply
                                     .replace(/<br\s*\/?>/gi, '\n')
                                     .replace(/&nbsp;/g, ' ')
                                     .trim();
                                 await sock.sendMessage(from, { text: cleanReply });
-                            } else {
-                                console.log(`[Assistant ${assistantId}] El backend no devolvió una respuesta válida:`, response.data);
                             }
                         } catch (error) {
-                            console.error(`[Assistant ${assistantId}] Error crítico comunicando con backend:`, error.message);
-                            if (error.response) {
-                                console.error(`[Assistant ${assistantId}] Detalle del error del backend:`, error.response.data);
-                            }
+                            console.error(`[Assistant ${assistantId}] Error backend:`, error.message);
                         }
                     }
                 }

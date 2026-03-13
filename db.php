@@ -1,4 +1,7 @@
 <?php
+// Set local timezone (Chile)
+date_default_timezone_set('America/Santiago');
+
 // Configuración de la base de datos adaptable (Local y Railway)
 $db_host = getenv('MYSQLHOST') ?: getenv('MYSQL_HOST') ?: "localhost";
 $db_user = getenv('MYSQLUSER') ?: getenv('MYSQL_USER') ?: "root";

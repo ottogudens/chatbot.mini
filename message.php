@@ -10,14 +10,9 @@ $user_msg = $_POST['text'] ?? '';
 $assistant_id = isset($_POST['assistant_id']) && is_numeric($_POST['assistant_id']) ? intval($_POST['assistant_id']) : null;
 $internal_token = $_POST['internal_token'] ?? '';
 
-// Debug log
-$log_entry = date("[Y-m-d H:i:s]") . " Request: " . json_encode($_POST) . "\n";
-file_put_contents('whatsapp_debug.log', $log_entry, FILE_APPEND);
-
 // Security: Verify request is from local bridge
 $expected_token = getenv('INTERNAL_TOKEN') ?: 'local_secret_123';
 if ($internal_token !== $expected_token) {
-    file_put_contents('whatsapp_debug.log', date("[Y-m-d H:i:s]") . " Error: Invalid Token Expected: $expected_token Got: $internal_token\n", FILE_APPEND);
     http_response_code(403);
     echo json_encode(['status' => 'error', 'message' => 'Forbidden: Invalid internal token.']);
     exit;
