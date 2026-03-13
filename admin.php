@@ -777,12 +777,36 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
 
                 <!-- WHATSAPP -->
                 <div class="panel" style="border:none; background:rgba(0,0,0,0.2); margin-bottom: 20px;">
-                    <h3 style="margin-bottom: 10px;"><i class="fa-brands fa-whatsapp" style="color:#25D366;"></i>
-                        Vinculación con WhatsApp</h3>
-                    <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px; margin-top:5px;">Vincula este
-                        asistente a un número de WhatsApp escaneando el código QR.</p>
+                    <div
+                        style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:15px;">
+                        <div style="flex:1; min-width:280px;">
+                            <h3 style="margin-bottom: 10px;"><i class="fa-brands fa-whatsapp"
+                                    style="color:#25D366;"></i>
+                                Vinculación con WhatsApp</h3>
+                            <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px; margin-top:5px;">
+                                Vincula este
+                                asistente a un número de WhatsApp escaneando el código QR.</p>
+                        </div>
 
-                    <div id="whatsapp-container">
+                        <!-- Voice Message Toggle in Integrations Panel -->
+                        <div id="voice-settings-panel"
+                            style="background:rgba(255,255,255,0.05); padding:15px; border-radius:10px; border:1px solid var(--glass-border); min-width:250px;">
+                            <h4 style="font-size:13px; margin-bottom:10px; color:var(--primary);"><i
+                                    class="fa-solid fa-microphone"></i> Mensajes de Voz</h4>
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <label class="switch">
+                                    <input type="checkbox" id="integration-voice-toggle"
+                                        onchange="toggleVoiceFromIntegration(this.checked)">
+                                    <span class="slider round"></span>
+                                </label>
+                                <span id="voice-status-text" style="font-size:12px;">Habilitados</span>
+                            </div>
+                            <p style="font-size:11px; color:var(--text-muted); margin-top:8px;">Si se deshabilita, el
+                                bot solo responderá a mensajes de texto.</p>
+                        </div>
+                    </div>
+
+                    <div id="whatsapp-container" style="margin-top:20px;">
                         <div id="whatsapp-status-display" style="margin-bottom: 15px;">
                             <i class="fa-solid fa-spinner fa-spin"></i> Cargando estado...
                         </div>
@@ -1185,6 +1209,13 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                             style="width:100%;accent-color:var(--accent);">
                         <div class="form-help">0 = preciso y consistente &nbsp;|&nbsp; 2 = creativo e impredecible</div>
                     </div>
+                    <div class="form-group" style="margin-bottom:0; display:flex; align-items:center; gap:12px;">
+                        <label class="switch">
+                            <input type="checkbox" id="assistant-voice-enabled" name="voice_enabled" checked>
+                            <span class="slider round"></span>
+                        </label>
+                        <span style="font-size:14px;">Habilitar procesamiento de mensajes de voz</span>
+                    </div>
                 </div>
 
                 <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
@@ -1398,10 +1429,55 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             initChart();
             loadInfoSources();
             loadRules();
+            syncVoiceToggleState();
             loadLogs();
             loadCalendarSettings();
             reloadWhatsAppIntegration();
             loadAppointments();
+        }
+
+        function syncVoiceToggleState() {
+            if (!currentAssistantId) {
+                $('#voice-settings-panel').css('opacity', '0.5').css('pointer-events', 'none');
+                return;
+            }
+            $('#voice-settings-panel').css('opacity', '1').css('pointer-events', 'auto');
+            const ast = assistantsCache.find(a => a.id == currentAssistantId);
+            if (ast) {
+                const isEnabled = ast.voice_enabled == 1;
+                $('#integration-voice-toggle').prop('checked', isEnabled);
+                $('#voice-status-text').text(isEnabled ? 'Habilitados' : 'Deshabilitados');
+            }
+        }
+
+        function toggleVoiceFromIntegration(enabled) {
+            if (!currentAssistantId) return;
+            const ast = assistantsCache.find(a => a.id == currentAssistantId);
+            if (!ast) return;
+
+            // Prepare save data (reuse assistant update logic)
+            const data = {
+                id: ast.id,
+                name: ast.name,
+                system_prompt: ast.system_prompt,
+                gemini_model: ast.gemini_model,
+                temperature: ast.temperature,
+                max_output_tokens: ast.max_output_tokens,
+                response_style: ast.response_style,
+                voice_enabled: enabled ? 1 : 0
+            };
+
+            $('#voice-status-text').text('Guardando...');
+            $.post('api.php?action=assistants_update', data, function (res) {
+                if (res.status === 'success') {
+                    ast.voice_enabled = enabled ? 1 : 0;
+                    $('#voice-status-text').text(enabled ? 'Habilitados' : 'Deshabilitados');
+                    // Show a small toast or notification if available, otherwise just silent success
+                } else {
+                    alert('Error al guardar configuración de voz');
+                    syncVoiceToggleState();
+                }
+            }, 'json');
         }
 
         // --- Appointments ---
@@ -1943,13 +2019,21 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             const temp = parseFloat(a.temperature || 0.7).toFixed(1);
             $('#assistant-temp').val(temp);
             $('#temp-display').text(temp);
+            $('#assistant-voice-enabled').prop('checked', a.voice_enabled == 1);
             $('#assistant-modal-title').text('Editar Asistente');
             $('#assistant-modal').addClass('active');
         }
         function submitAssistant(e) {
             e.preventDefault();
             const action = $('#assistant-id').val() ? 'assistants_update' : 'assistants_create';
-            $.post('api.php?action=' + action, $('#assistant-form').serialize(), function (res) {
+            let data = $('#assistant-form').serialize();
+            // Handle checkbox for serialize
+            if (!$('#assistant-voice-enabled').is(':checked')) {
+                data += '&voice_enabled=0';
+            } else {
+                data += '&voice_enabled=1';
+            }
+            $.post('api.php?action=' + action, data, function (res) {
                 if (res.status === 'success') { closeModal('assistant-modal'); loadAssistants(true); } else alert(res.message || 'Error');
             }, 'json');
         }

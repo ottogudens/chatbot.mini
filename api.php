@@ -256,8 +256,9 @@ switch ($action) {
         $temperature = floatval($_POST['temperature'] ?? 0.70);
         $max_tokens = intval($_POST['max_output_tokens'] ?? 1500);
         $response_style = $_POST['response_style'] ?? 'balanced';
-        $stmt = mysqli_prepare($conn, "INSERT INTO assistants (client_id, name, system_prompt, gemini_model, temperature, max_output_tokens, response_style) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        mysqli_stmt_bind_param($stmt, "isssdis", $client_id, $name, $sp, $gemini_model, $temperature, $max_tokens, $response_style);
+        $voice_enabled = isset($_POST['voice_enabled']) ? intval($_POST['voice_enabled']) : 1;
+        $stmt = mysqli_prepare($conn, "INSERT INTO assistants (client_id, name, system_prompt, gemini_model, temperature, max_output_tokens, response_style, voice_enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        mysqli_stmt_bind_param($stmt, "isssdiis", $client_id, $name, $sp, $gemini_model, $temperature, $max_tokens, $response_style, $voice_enabled);
         echo json_encode(['status' => mysqli_stmt_execute($stmt) ? 'success' : 'error', 'error' => mysqli_error($conn)]);
         break;
     case 'assistants_update':
@@ -272,8 +273,9 @@ switch ($action) {
         $temperature = floatval($_POST['temperature'] ?? 0.70);
         $max_tokens = intval($_POST['max_output_tokens'] ?? 1500);
         $response_style = $_POST['response_style'] ?? 'balanced';
-        $stmt = mysqli_prepare($conn, "UPDATE assistants SET name=?, system_prompt=?, gemini_model=?, temperature=?, max_output_tokens=?, response_style=? WHERE id=?");
-        mysqli_stmt_bind_param($stmt, "ssssdii", $name, $sp, $gemini_model, $temperature, $max_tokens, $response_style, $id);
+        $voice_enabled = isset($_POST['voice_enabled']) ? intval($_POST['voice_enabled']) : 1;
+        $stmt = mysqli_prepare($conn, "UPDATE assistants SET name=?, system_prompt=?, gemini_model=?, temperature=?, max_output_tokens=?, response_style=?, voice_enabled=? WHERE id=?");
+        mysqli_stmt_bind_param($stmt, "ssssdiis", $name, $sp, $gemini_model, $temperature, $max_tokens, $response_style, $voice_enabled, $id);
         echo json_encode(['status' => mysqli_stmt_execute($stmt) ? 'success' : 'error', 'error' => mysqli_error($conn)]);
         break;
     case 'assistants_delete':

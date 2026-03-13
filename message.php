@@ -39,11 +39,12 @@ $info_sources_files = [];
 $ai_config = [];
 if ($assistant_id) {
     // Get assistant + AI config
-    $ast_query = "SELECT client_id, system_prompt, gemini_model, temperature, max_output_tokens, response_style FROM assistants WHERE id = $assistant_id";
+    $ast_query = "SELECT client_id, system_prompt, gemini_model, temperature, max_output_tokens, response_style, voice_enabled FROM assistants WHERE id = $assistant_id";
     $ast_res = mysqli_query($conn, $ast_query);
     if ($ast_row = mysqli_fetch_assoc($ast_res)) {
         $client_id = $ast_row['client_id'];
         $custom_system_prompt = $ast_row['system_prompt'] ?? '';
+        $voice_enabled = $ast_row['voice_enabled'] ?? 1;
         $ai_config = [
             'model' => $ast_row['gemini_model'] ?? 'gemini-2.5-flash',
             'temperature' => $ast_row['temperature'] ?? 0.7,
@@ -121,21 +122,27 @@ $gemini = new GeminiClient();
 // 5. Handle Audio Input (if any) - Moved outside of text check
 $audio_file = $_FILES['audio'] ?? null;
 $has_audio = false;
-if ($audio_file && $audio_file['error'] === UPLOAD_ERR_OK) {
-    $upload_path = $audio_file['tmp_name'];
-    $mime_type = $audio_file['type'] ?: 'audio/ogg';
-    $gemini_uri = $gemini->upload_file_to_gemini($upload_path, $mime_type, 'whatsapp_voice_' . time());
 
-    if ($gemini_uri) {
-        $info_sources_files[] = [
-            'uri' => $gemini_uri,
-            'mime_type' => $mime_type
-        ];
-        $has_audio = true;
-        // If text is empty, set a default prompt for the audio
-        if (empty($user_msg)) {
-            $user_msg = "El usuario envió un mensaje de voz. Por favor, escúchalo, transcríbelo y responde de forma natural.";
-            $clean_msg = "voice_message_auto_prompt"; // Set a dummy clean msg to pass checks if needed
+if ($audio_file && $audio_file['error'] === UPLOAD_ERR_OK) {
+    if (isset($voice_enabled) && $voice_enabled == 0) {
+        $reply = "Lo siento, este asistente solo recibe mensajes escritos.";
+        $matched = 1;
+    } else {
+        $upload_path = $audio_file['tmp_name'];
+        $mime_type = $audio_file['type'] ?: 'audio/ogg';
+        $gemini_uri = $gemini->upload_file_to_gemini($upload_path, $mime_type, 'whatsapp_voice_' . time());
+
+        if ($gemini_uri) {
+            $info_sources_files[] = [
+                'uri' => $gemini_uri,
+                'mime_type' => $mime_type
+            ];
+            $has_audio = true;
+            // If text is empty, set a default prompt for the audio
+            if (empty($user_msg)) {
+                $user_msg = "El usuario envió un mensaje de voz. Por favor, escúchalo, transcríbelo y responde de forma natural.";
+                $clean_msg = "voice_message_auto_prompt"; // Set a dummy clean msg to pass checks if needed
+            }
         }
     }
 }
