@@ -7,7 +7,7 @@
 class GeminiClient
 {
     private $api_key;
-    private $model = "gemini-2.0-flash"; // Default: stable GA model available to all API keys
+    private $model = "gemini-1.5-flash"; // More stable default for production
 
     // Models that use extended thinking — require thinkingBudget:0 to enable function calling
     private $thinking_models = ['gemini-2.0-flash', 'gemini-2.0-pro', 'gemini-1.5-flash', 'gemini-1.5-pro'];
@@ -344,7 +344,10 @@ class GeminiClient
         if (($http_code === 403 || $http_code === 404) && !empty($info_sources_files)) {
             $error_body = json_decode($response, true);
             $error_status = $error_body['error']['status'] ?? '';
-            if (in_array($error_status, ['PERMISSION_DENIED', 'NOT_FOUND'])) {
+            $error_msg = $error_body['error']['message'] ?? '';
+
+            // Only retry if the error specifically mentions "files/" or it is a generic PERMISSION_DENIED on a file
+            if (in_array($error_status, ['PERMISSION_DENIED', 'NOT_FOUND']) && (strpos($error_msg, 'files/') !== false || $error_status === 'PERMISSION_DENIED')) {
                 // Record all attached URIs as expired so caller can clean them up
                 $this->expired_file_uris = array_column($info_sources_files, 'uri');
                 error_log("Gemini file URI expired/inaccessible, retrying text-only. URIs: " . implode(', ', $this->expired_file_uris));
