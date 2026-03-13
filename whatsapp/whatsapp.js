@@ -2,6 +2,7 @@ import makeWASocket, {
     useMultiFileAuthState,
     DisconnectReason,
     fetchLatestBaileysVersion,
+    downloadMediaMessage,
 } from '@whiskeysockets/baileys';
 
 import { Boom } from '@hapi/boom';
@@ -95,6 +96,7 @@ async function startSession(assistantId) {
 
                     // Log the structure to see what's coming
                     const msgType = Object.keys(msg.message)[0];
+                    const isAudio = msgType === 'audioMessage' || (msgType === 'ephemeralMessage' && msg.message.ephemeralMessage.message?.audioMessage);
 
                     // Broad text extraction
                     let text = msg.message.conversation ||
@@ -110,8 +112,8 @@ async function startSession(assistantId) {
                             msg.message.ephemeralMessage.message?.extendedTextMessage?.text || '';
                     }
 
-                    if (text) {
-                        console.log(`[Assistant ${assistantId}] Mensaje de ${from}: "${text}"`);
+                    if (text || isAudio) {
+                        console.log(`[Assistant ${assistantId}] Mensaje de ${from}: ${isAudio ? "[AUDIO]" : `"${text}"`}`);
 
                         try {
                             // Dynamically resolve backend URL with current port
@@ -126,9 +128,31 @@ async function startSession(assistantId) {
                             const token = process.env.INTERNAL_TOKEN || 'local_secret_123';
                             formData.append('internal_token', token);
 
+                            if (isAudio) {
+                                try {
+                                    console.log(`[Assistant ${assistantId}] Descargando audio...`);
+                                    const messageContent = msgType === 'ephemeralMessage' ? msg.message.ephemeralMessage.message : msg.message;
+                                    const buffer = await downloadMediaMessage(
+                                        msg,
+                                        'buffer',
+                                        {},
+                                        {
+                                            logger,
+                                            reuploadRequest: sock.updateMediaMessage
+                                        }
+                                    );
+                                    formData.append('audio', buffer, {
+                                        filename: 'voice.ogg',
+                                        contentType: 'audio/ogg; codecs=opus',
+                                    });
+                                } catch (downloadError) {
+                                    console.error(`[Assistant ${assistantId}] Error descargando audio:`, downloadError.message);
+                                }
+                            }
+
                             const response = await axios.post(backendUrl, formData, {
                                 headers: formData.getHeaders(),
-                                timeout: 35000 // 35s timeout
+                                timeout: 45000 // Increased timeout for audio processing
                             });
 
                             if (response.data && response.data.reply) {
