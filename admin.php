@@ -2320,9 +2320,18 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                         alert(res.message || 'Error');
                     }
                 },
-                error: function () {
+                error: function (xhr) {
                     $('#btn-submit-pdf-template').prop('disabled', false).text('Guardar Plantilla');
-                    alert('Error de conexión');
+                    let errorMsg = 'Error de conexión';
+                    if (xhr.responseText) {
+                        try {
+                            const res = JSON.parse(xhr.responseText);
+                            errorMsg = res.message || errorMsg;
+                        } catch (e) {
+                            errorMsg = 'Error del servidor: ' + xhr.status + ' ' + xhr.statusText;
+                        }
+                    }
+                    alert(errorMsg);
                 }
             });
         }

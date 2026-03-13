@@ -686,6 +686,9 @@ switch ($action) {
             exit;
         }
 
+        // Increase time limit for Gemini analysis
+        set_time_limit(300);
+
         $upload_dir = __DIR__ . "/uploads/clients/{$req_client_id}/pdf_templates/";
         if (!is_dir($upload_dir)) {
             mkdir($upload_dir, 0777, true);
