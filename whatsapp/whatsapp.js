@@ -92,34 +92,43 @@ async function startSession(assistantId) {
                         '';
 
                     if (text) {
+                        console.log(`[Assistant ${assistantId}] Mensaje entrante de ${from}: ${text}`);
                         try {
                             // Dynamically resolve backend URL with current port
                             const rawBackendUrl = process.env.BACKEND_URL || 'http://localhost/message.php';
                             const envPort = process.env.PORT || '80';
                             const backendUrl = rawBackendUrl.replace('${PORT}', envPort);
 
+                            console.log(`[Assistant ${assistantId}] Enviando a backend: ${backendUrl}`);
+
                             const formData = new FormData();
                             formData.append('text', text);
                             formData.append('assistant_id', assistantId);
                             // Security token for internal communication
-                            formData.append('internal_token', process.env.INTERNAL_TOKEN || 'local_secret_123');
+                            const token = process.env.INTERNAL_TOKEN || 'local_secret_123';
+                            formData.append('internal_token', token);
 
                             const response = await axios.post(backendUrl, formData, {
                                 headers: formData.getHeaders(),
-                                timeout: 30000 // 30s timeout
+                                timeout: 35000 // 35s timeout
                             });
 
+                            console.log(`[Assistant ${assistantId}] Respuesta del backend recibida. Status: ${response.status}`);
+
                             if (response.data && response.data.reply) {
+                                console.log(`[Assistant ${assistantId}] Enviando respuesta a WhatsApp...`);
                                 const cleanReply = response.data.reply
                                     .replace(/<br\s*\/?>/gi, '\n')
                                     .replace(/&nbsp;/g, ' ')
                                     .trim();
                                 await sock.sendMessage(from, { text: cleanReply });
+                            } else {
+                                console.log(`[Assistant ${assistantId}] El backend no devolvió una respuesta válida:`, response.data);
                             }
                         } catch (error) {
-                            console.error(`[Assistant ${assistantId}] Error backend (${error.code || 'unknown'}):`, error.message);
+                            console.error(`[Assistant ${assistantId}] Error crítico comunicando con backend:`, error.message);
                             if (error.response) {
-                                console.error(`[Assistant ${assistantId}] Respuesta backend:`, error.response.data);
+                                console.error(`[Assistant ${assistantId}] Detalle del error del backend:`, error.response.data);
                             }
                         }
                     }
