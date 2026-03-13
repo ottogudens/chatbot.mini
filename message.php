@@ -115,8 +115,33 @@ if ($matched === 0) {
     }
 }
 
-// 5. AI Fallback (Gemini)
-if ($matched === 0 && !empty($clean_msg)) {
+require_once 'gemini_client.php';
+$gemini = new GeminiClient();
+
+// 5. Handle Audio Input (if any) - Moved outside of text check
+$audio_file = $_FILES['audio'] ?? null;
+$has_audio = false;
+if ($audio_file && $audio_file['error'] === UPLOAD_ERR_OK) {
+    $upload_path = $audio_file['tmp_name'];
+    $mime_type = $audio_file['type'] ?: 'audio/ogg';
+    $gemini_uri = $gemini->upload_file_to_gemini($upload_path, $mime_type, 'whatsapp_voice_' . time());
+
+    if ($gemini_uri) {
+        $info_sources_files[] = [
+            'uri' => $gemini_uri,
+            'mime_type' => $mime_type
+        ];
+        $has_audio = true;
+        // If text is empty, set a default prompt for the audio
+        if (empty($user_msg)) {
+            $user_msg = "El usuario envió un mensaje de voz. Por favor, escúchalo, transcríbelo y responde de forma natural.";
+            $clean_msg = "voice_message_auto_prompt"; // Set a dummy clean msg to pass checks if needed
+        }
+    }
+}
+
+// 6. AI Fallback (Gemini)
+if ($matched === 0 && (!empty($clean_msg) || $has_audio)) {
     // Fetch last 5 messages for context
     $history = [];
     $hist_query = "SELECT user_message, bot_reply FROM conversation_logs ";
@@ -127,28 +152,6 @@ if ($matched === 0 && !empty($clean_msg)) {
     if ($hist_result) {
         while ($row = mysqli_fetch_assoc($hist_result)) {
             array_unshift($history, $row);
-        }
-    }
-
-    require_once 'gemini_client.php';
-    $gemini = new GeminiClient();
-
-    // 5. Handle Audio Input (if any)
-    $audio_file = $_FILES['audio'] ?? null;
-    if ($audio_file && $audio_file['error'] === UPLOAD_ERR_OK) {
-        $upload_path = $audio_file['tmp_name'];
-        $mime_type = $audio_file['type'] ?: 'audio/ogg';
-        $gemini_uri = $gemini->upload_file_to_gemini($upload_path, $mime_type, 'whatsapp_voice_' . time());
-
-        if ($gemini_uri) {
-            $info_sources_files[] = [
-                'uri' => $gemini_uri,
-                'mime_type' => $mime_type
-            ];
-            // If text is empty, set a default prompt for the audio
-            if (empty($user_msg)) {
-                $user_msg = "El usuario envió un mensaje de voz. Por favor, escúchalo, transcríbelo y responde de forma natural.";
-            }
         }
     }
 
