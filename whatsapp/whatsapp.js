@@ -89,17 +89,32 @@ async function startSession(assistantId) {
                 console.log(`[Assistant ${assistantId}] Procesando mensaje de ${msg.key.remoteJid}, fromMe=${msg.key.fromMe}`);
                 if (!msg.key.fromMe && msg.message) {
                     const from = msg.key.remoteJid;
-                    // Log the full message object for debugging
-                    console.log(`[Assistant ${assistantId}] Estructura mensaje:`, JSON.stringify(msg.message).substring(0, 500));
+                    // Avoid processing group messages if not intended
+                    if (from.endsWith('@g.us')) {
+                        console.log(`[Assistant ${assistantId}] Ignorando mensaje de grupo: ${from}`);
+                        continue;
+                    }
 
-                    const text = msg.message.conversation ||
+                    // Log the structure to see what's coming
+                    const msgType = Object.keys(msg.message)[0];
+                    console.log(`[Assistant ${assistantId}] Tipo de mensaje detectado: ${msgType}`);
+
+                    // Broad text extraction
+                    let text = msg.message.conversation ||
                         msg.message.extendedTextMessage?.text ||
                         msg.message.buttonsResponseMessage?.selectedButtonId ||
                         msg.message.listResponseMessage?.singleSelectReply?.selectedRowId ||
+                        msg.message.templateButtonReplyMessage?.selectedId ||
                         '';
 
+                    // If it's an ephemeral message, extract from content
+                    if (msgType === 'ephemeralMessage') {
+                        text = msg.message.ephemeralMessage.message?.conversation ||
+                            msg.message.ephemeralMessage.message?.extendedTextMessage?.text || '';
+                    }
+
                     if (text) {
-                        console.log(`[Assistant ${assistantId}] Mensaje extraído: ${text}`);
+                        console.log(`[Assistant ${assistantId}] Mensaje extraído correctamente de ${from}: "${text}"`);
 
                         try {
                             // Dynamically resolve backend URL with current port
