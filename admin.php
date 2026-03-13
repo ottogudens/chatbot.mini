@@ -2327,8 +2327,8 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                         try {
                             const res = JSON.parse(xhr.responseText);
                             errorMsg = res.message || errorMsg;
-                        } catch (e) {
-                            errorMsg = 'Error del servidor: ' + xhr.status + ' ' + xhr.statusText;
+                        } catch  (e) {
+                            errorMsg = 'Error del servidor (' + xhr.status + '): ' + xhr.responseText.substring(0, 500);
                         }
                     }
                     alert(errorMsg);
@@ -2352,7 +2352,8 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             if (currentAssistantId) url += '?assistant=' + currentAssistantId;
             navigator.clipboard.writeText(url).then(() => {
                 alert("Link copiado: " + url);
-            });
+             }
+    );
         }
     </script>
 </body>

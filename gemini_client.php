@@ -410,7 +410,7 @@ class GeminiClient
         }
 
         // Extract JSON from response (Gemini might wrap it in markdown)
-        if (preg_match('/\[.*\]/s', $response, $matches)) {
+        if (is_string($response) && preg_match('/\[.*\]/s', $response, $matches)) {
             $json = json_decode($matches[0], true);
             return is_array($json) ? $json : [];
         }
