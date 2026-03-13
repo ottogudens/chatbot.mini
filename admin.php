@@ -2282,7 +2282,10 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                     res.data.forEach(t => {
                         let placeholders = (t.placeholders || []).map(p => `<code style="background:rgba(255,255,255,0.1);padding:2px 4px;border-radius:4px;margin-right:4px;">${p}</code>`).join(' ');
                         let sourceBadge = t.source === 'db' ? '<span class="badge success">Personalizada</span>' : '<span class="badge">Sistema</span>';
-                        let actions = t.source === 'db' ? `<button class="btn btn-danger" onclick="deletePDFTemplate(${t.db_id})"><i class="fa-solid fa-trash"></i></button>` : '<small>Protegida</small>';
+                        let actions = t.source === 'db' ? `
+                            <button class="btn btn-sm" onclick="renamePDFTemplate(${t.db_id}, '${t.name}')" title="Renombrar"><i class="fa-solid fa-pen"></i></button>
+                            <button class="btn btn-danger btn-sm" onclick="deletePDFTemplate(${t.db_id})" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
+                        ` : '<small>Protegida</small>';
 
                         html += `<tr><td>${t.id}</td><td><b>${t.name}</b></td><td>${sourceBadge}</td><td>${placeholders}</td><td>${actions}</td></tr>`;
                     });
@@ -2322,7 +2325,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 },
                 error: function (xhr) {
                     $('#btn-submit-pdf-template').prop('disabled', false).text('Guardar Plantilla');
-                    let errorMsg = 'Error de conexión';
+                    let errorMsg = 'Error de conex ión';
                     if (xhr.responseText) {
                         try {
                             const res = JSON.parse(xhr.responseText);
@@ -2339,6 +2342,16 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
         function deletePDFTemplate(id) {
             if (confirm('¿Eliminar esta plantilla de PDF?')) {
                 $.post('api.php?action=pdf_templates_delete', { id }, res => {
+                    if (res.status === 'success') loadPDFTemplates();
+                    else alert(res.message || 'Error');
+                }, 'json');
+            }
+        }
+
+        function renamePDFTemplate(id, currentName) {
+            const newName = prompt('Nuevo nombre para la plantilla:', currentName);
+            if (newName && newName !== currentName) {
+                $.post('api.php?action=pdf_templates_rename', { id, name: newName }, res => {
                     if (res.status === 'success') loadPDFTemplates();
                     else alert(res.message || 'Error');
                 }, 'json');

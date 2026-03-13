@@ -675,11 +675,16 @@ switch ($action) {
         break;
 
     case 'pdf_templates_upload':
-        $req_client_id = $_POST['client_id'] ?? $session_client_id;
         if (!$is_superadmin && $req_client_id != $session_client_id) {
             echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
             exit;
         }
+
+        // Ensure no previous output (warnings, etc) breaks the JSON
+        if (ob_get_length())
+            ob_clean();
+        error_log("Starting PDF upload for client $req_client_id");
+
         $name = $_POST['name'] ?? '';
         if (empty($name) || !isset($_FILES['template_file'])) {
             echo json_encode(['status' => 'error', 'message' => 'Faltan datos requeridos']);
@@ -753,6 +758,32 @@ switch ($action) {
             // Delete DB record
             mysqli_query($conn, "DELETE FROM pdf_templates WHERE id = " . intval($id));
             echo json_encode(['status' => 'success']);
+        } else {
+            echo json_encode(['status' => 'error', 'message' => 'Plantilla no encontrada']);
+        }
+        break;
+
+    case 'pdf_templates_rename':
+        $id = $_POST['id'] ?? 0;
+        $new_name = $_POST['name'] ?? '';
+        if (empty($new_name)) {
+            echo json_encode(['status' => 'error', 'message' => 'El nombre es requerido']);
+            exit;
+        }
+        // Check ownership
+        $q = mysqli_query($conn, "SELECT client_id FROM pdf_templates WHERE id = " . intval($id));
+        if ($row = mysqli_fetch_assoc($q)) {
+            if (!$is_superadmin && $row['client_id'] != $session_client_id) {
+                echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
+                exit;
+            }
+            $stmt = mysqli_prepare($conn, "UPDATE pdf_templates SET name = ? WHERE id = ?");
+            mysqli_stmt_bind_param($stmt, "si", $new_name, $id);
+            if (mysqli_stmt_execute($stmt)) {
+                echo json_encode(['status' => 'success']);
+            } else {
+                echo json_encode(['status' => 'error', 'message' => 'Error al renombrar: ' . mysqli_error($conn)]);
+            }
         } else {
             echo json_encode(['status' => 'error', 'message' => 'Plantilla no encontrada']);
         }
