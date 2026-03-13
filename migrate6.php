@@ -13,7 +13,7 @@ if (mysqli_query($conn, $sql)) {
         echo "! La columna 'voice_enabled' ya existe. Saltando...\n";
     } else {
         echo "✗ Error al añadir columna: " . $error . "\n";
-        exit(1);
+        // Do not exit with 1 to allow server startup even if migration fails for some reason
     }
 }
 

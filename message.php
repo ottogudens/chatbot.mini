@@ -41,9 +41,10 @@ if ($assistant_id) {
     // Get assistant + AI config
     $ast_query = "SELECT client_id, system_prompt, gemini_model, temperature, max_output_tokens, response_style, voice_enabled FROM assistants WHERE id = $assistant_id";
     $ast_res = mysqli_query($conn, $ast_query);
-    if ($ast_row = mysqli_fetch_assoc($ast_res)) {
+    if ($ast_res && $ast_row = mysqli_fetch_assoc($ast_res)) {
         $client_id = $ast_row['client_id'];
         $custom_system_prompt = $ast_row['system_prompt'] ?? '';
+        $voice_enabled = $ast_row['voice_enabled'] ?? 1;
         $voice_enabled = $ast_row['voice_enabled'] ?? 1;
         $ai_config = [
             'model' => $ast_row['gemini_model'] ?? 'gemini-2.5-flash',

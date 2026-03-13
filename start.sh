@@ -76,10 +76,6 @@ fi
 
 # 3. Nginx Config
 echo "Configuring Nginx..."
-sed "s/\${PORT}/${PORT}/g" /app/nginx.conf.template > /app/nginx.conf
-nginx -t -c /app/nginx.conf
-
-# 4. Start Services
 echo "---------------------------------------"
 echo "Starting WhatsApp bridge..."
 cd /app/whatsapp
