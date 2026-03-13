@@ -395,10 +395,28 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
         @media (max-width: 1024px) {
             .sidebar {
                 transform: translateX(-100%);
+                width: 280px;
             }
 
             .sidebar.active {
                 transform: translateX(0);
+                box-shadow: 20px 0 50px rgba(0, 0, 0, 0.5);
+            }
+
+            .sidebar-overlay {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                backdrop-filter: blur(4px);
+                z-index: 95;
+            }
+
+            .sidebar-overlay.active {
+                display: block;
             }
 
             .main-wrapper {
@@ -410,143 +428,82 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             }
 
             .content-area {
-                padding: 20px;
+                padding: 15px;
             }
 
             .top-bar {
-                padding: 0 20px;
-            }
-        }
-
-        /* ===== RESPONSIVE: Mobile Admin Panel ===== */
-        @media (max-width: 768px) {
-            body {
-                font-size: 14px;
-            }
-
-            /* Stack layout vertically on mobile */
-            .container {
-                flex-direction: column;
-                height: auto;
-                min-height: 100vh;
-            }
-
-            /* Sidebar becomes a top bar */
-            .sidebar {
-                width: 100%;
-                height: auto;
-                flex-direction: row;
-                flex-wrap: wrap;
-                padding: 10px;
-                gap: 6px;
-                justify-content: center;
-                border-right: none;
-                border-bottom: 1px solid var(--border);
-            }
-
-            .sidebar .logo {
-                width: 100%;
-                text-align: center;
-                margin-bottom: 4px;
-                font-size: 16px;
-            }
-
-            .sidebar .logo small {
-                display: none;
-            }
-
-            .nav-btn {
-                flex-direction: column;
-                padding: 8px 10px;
-                font-size: 11px;
-                gap: 4px;
-                flex: 1;
-                min-width: 60px;
-                max-width: 90px;
-                border-radius: 10px;
-                text-align: center;
-            }
-
-            .sidebar .sep,
-            .sidebar p {
-                display: none;
-            }
-
-            /* Main content fills the screen */
-            .main-content {
-                width: 100%;
-                overflow-y: auto;
-            }
-
-            /* Global bar wraps nicely */
-            .global-bar {
-                flex-wrap: wrap;
-                gap: 8px;
-                padding: 10px 15px;
-            }
-
-            .global-bar select,
-            .global-bar .btn {
-                flex: 1;
-                min-width: 120px;
-            }
-
-            /* Panel headers stack */
-            .panel-header {
-                flex-direction: column;
-                align-items: flex-start;
+                padding: 0 15px;
                 gap: 10px;
             }
 
-            /* Tables become scrollable */
-            table {
-                font-size: 12px;
-                min-width: 480px;
+            /* Top Bar Content Optimization */
+            .global-selector label {
+                display: none;
             }
 
-            th,
-            td {
-                padding: 8px 10px;
+            /* Hide label on mobile */
+            .global-selector select {
+                max-width: 140px;
             }
 
-            /* Modals go full screen */
-            .modal {
-                width: 100% !important;
-                max-width: 100% !important;
-                height: 100%;
-                max-height: 100%;
-                border-radius: 0;
-                margin: 0;
-                overflow-y: auto;
+            .header-actions #btn-chat-link span {
+                display: none;
             }
 
-            .modal-overlay {
-                align-items: flex-end;
-            }
-
-            /* Stats cards wrap */
-            .stats-grid {
-                grid-template-columns: 1fr 1fr;
-                gap: 10px;
-            }
-
-            .stat-card {
-                padding: 14px;
-            }
-
-            .stat-number {
-                font-size: 22px;
-            }
+            /* Could hide text, but we'll stick to full icon btn for now */
         }
 
-        @media (max-width: 400px) {
-            .stats-grid {
+        @media (max-width: 480px) {
+            .top-bar {
+                flex-wrap: nowrap;
+                height: 60px;
+            }
+
+            .dashboard-cards {
                 grid-template-columns: 1fr;
             }
 
-            .nav-btn {
-                max-width: 70px;
-                font-size: 10px;
+            .panel-header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .header-actions {
+                display: none;
+            }
+
+            /* Hide extra chat link on very small screens to save space */
+        }
+
+        /* Utilities */
+        .sidebar-overlay {
+            transition: opacity 0.3s ease;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
             }
         }
     </style>
@@ -587,6 +544,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             </a>
         </div>
     </aside>
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
 
     <!-- MAIN CONTENT -->
     <main class="main-wrapper">
@@ -609,11 +567,10 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                     <i class="fa-solid fa-link"></i>
                 </button>
             </div>
-
             <div class="header-actions">
                 <a href="index.php" class="btn" id="btn-chat-link"
                     style="background:rgba(139, 92, 246, 0.1); color:var(--primary); border:1px solid var(--primary);">
-                    <i class="fa-solid fa-comment-dots"></i> Ir al Chat
+                    <i class="fa-solid fa-comment-dots"></i> <span>Ir al Chat</span>
                 </a>
             </div>
         </header>
@@ -1404,14 +1361,14 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             loadAssistants(true); // true = also reload select
 
             // Sidebar Toggle for Mobile
-            $('#mobile-toggle').on('click', function () {
-                $('#sidebar').toggleClass('active');
+            $('#mobile-toggle, #sidebar-overlay').on('click', function () {
+                $('#sidebar, #sidebar-overlay').toggleClass('active');
             });
 
             // Close sidebar when clicking a link on mobile
             $('.sidebar .nav-tab').on('click', function () {
                 if ($(window).width() <= 1024) {
-                    $('#sidebar').removeClass('active');
+                    $('#sidebar, #sidebar-overlay').removeClass('active');
                 }
             });
         });
@@ -2330,7 +2287,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                         try {
                             const res = JSON.parse(xhr.responseText);
                             errorMsg = res.message || errorMsg;
-                        } catch  (e) {
+                        } catch (e) {
                             errorMsg = 'Error del servidor (' + xhr.status + '): ' + xhr.responseText.substring(0, 500);
                         }
                     }
@@ -2365,8 +2322,8 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             if (currentAssistantId) url += '?assistant=' + currentAssistantId;
             navigator.clipboard.writeText(url).then(() => {
                 alert("Link copiado: " + url);
-             }
-    );
+            }
+            );
         }
     </script>
 </body>
