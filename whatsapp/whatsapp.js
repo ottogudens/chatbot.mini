@@ -1,10 +1,8 @@
-import pkg_baileys from '@whiskeysockets/baileys';
-const {
-    default: makeWASocket,
+import makeWASocket, {
     useMultiFileAuthState,
     DisconnectReason,
     fetchLatestBaileysVersion,
-} = pkg_baileys;
+} from '@whiskeysockets/baileys';
 
 import { Boom } from '@hapi/boom';
 import P from 'pino';
