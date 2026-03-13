@@ -41,6 +41,9 @@ if [ -d "$STORAGE_ROOT" ]; then
     # Setup directories
     mkdir -p "$STORAGE_ROOT/uploads"
     mkdir -p "$STORAGE_ROOT/whatsapp_sessions"
+    
+    # Ensure permissions are correct for PHP/Node users
+    chmod -R 777 "$STORAGE_ROOT"
 
     # Symlink Uploads
     if [ ! -L "/app/uploads" ]; then

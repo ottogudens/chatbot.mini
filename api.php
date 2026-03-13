@@ -691,7 +691,10 @@ switch ($action) {
 
         $upload_dir = __DIR__ . "/uploads/clients/{$req_client_id}/pdf_templates/";
         if (!is_dir($upload_dir)) {
-            mkdir($upload_dir, 0777, true);
+            if (!@mkdir($upload_dir, 0777, true)) {
+                echo json_encode(['status' => 'error', 'message' => 'Error de permisos: No se pudo crear el directorio de carga.']);
+                exit;
+            }
         }
 
         $file = $_FILES['template_file'];
