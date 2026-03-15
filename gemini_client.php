@@ -9,8 +9,8 @@ class GeminiClient
     private $api_key;
     private $model = "gemini-1.5-flash"; // More stable default for production
 
-    // Models that use extended thinking — require thinkingBudget:0 to enable function calling
-    private $thinking_models = ['gemini-2.0-flash', 'gemini-2.0-pro', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+    // Models that use extended thinking — require thinkingBudget:0 to disable function calling
+    private $thinking_models = ['gemini-2.0-flash-thinking', 'gemini-2.0-pro-thinking', 'gemini-1.5-flash-thinking', 'gemini-1.5-pro-thinking'];
     private $api_url = "https://generativelanguage.googleapis.com/v1beta/models/";
 
     /** URIs that were found to be expired/inaccessible during the last get_response() call */
@@ -260,7 +260,7 @@ class GeminiClient
         }
 
         $data = [
-            "system_instruction" => [
+            "systemInstruction" => [
                 "parts" => [["text" => $system_prompt]]
             ],
             "contents" => $contents,
