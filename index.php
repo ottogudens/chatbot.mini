@@ -108,6 +108,7 @@ if ($assistant_id) {
             // Assistant Context
             const assistantId = <?php echo $assistant_id ? $assistant_id : 'null'; ?>;
             const botName = "<?php echo $bot_name; ?>";
+            const internalToken = "<?php echo getenv('INTERNAL_TOKEN') ?: 'local_secret_123'; ?>";
 
             // --- History Persistence Logic ---
             const STORAGE_KEY = 'skalebot_history_' + (assistantId || 'global');
@@ -231,7 +232,7 @@ if ($assistant_id) {
                         url: 'message.php',
                         type: 'POST',
                         dataType: 'json',
-                        data: { text: textValue, assistant_id: assistantId },
+                        data: { text: textValue, assistant_id: assistantId, internal_token: internalToken },
                         success: function (result) {
                             // Hide typing indicator
                             $("#typing-indicator").addClass('hidden');
