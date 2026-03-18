@@ -19,8 +19,12 @@ $secure_actions = [
     'info_create',
     'info_update',
     'info_delete',
-    'whatsapp_connect',
-    'whatsapp_disconnect'
+    'whatsapp_disconnect',
+    'leads_list',
+    'leads_create',
+    'leads_update',
+    'leads_delete',
+    'leads_export'
 ];
 if (in_array($action, $secure_actions)) {
     if (!check_auth(false)) {
@@ -219,6 +223,94 @@ switch ($action) {
         mysqli_stmt_bind_param($stmt, "i", $id);
         echo json_encode(['status' => mysqli_stmt_execute($stmt) ? 'success' : 'error']);
         break;
+
+    // ---- Leads (Marketing) ----
+    case 'leads_list':
+        $req_client_id = $_GET['client_id'] ?? $session_client_id;
+        if (!$is_superadmin && $req_client_id != $session_client_id) {
+            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
+            exit;
+        }
+        $query = "SELECT l.*, a.name as assistant_name FROM leads l LEFT JOIN assistants a ON l.assistant_id = a.id WHERE l.client_id = " . intval($req_client_id) . " ORDER BY l.id DESC";
+        $result = mysqli_query($conn, $query);
+        $data = [];
+        if ($result) {
+            while ($row = mysqli_fetch_assoc($result)) {
+                $data[] = $row;
+            }
+        }
+        echo json_encode(['status' => 'success', 'data' => $data]);
+        break;
+
+    case 'leads_create':
+        $client_id = $_POST['client_id'] ?? $session_client_id;
+        if (!$is_superadmin && $client_id != $session_client_id) {
+            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
+            exit;
+        }
+        $ast_id = !empty($_POST['assistant_id']) ? intval($_POST['assistant_id']) : null;
+        $name = $_POST['name'] ?? '';
+        $phone = $_POST['phone'] ?? '';
+        $email = $_POST['email'] ?? '';
+        $notes = $_POST['notes'] ?? '';
+        $stmt = mysqli_prepare($conn, "INSERT INTO leads (client_id, assistant_id, name, phone, email, notes) VALUES (?, ?, ?, ?, ?, ?)");
+        mysqli_stmt_bind_param($stmt, "iissss", $client_id, $ast_id, $name, $phone, $email, $notes);
+        if (mysqli_stmt_execute($stmt))
+            echo json_encode(['status' => 'success']);
+        else
+            echo json_encode(['status' => 'error', 'message' => mysqli_error($conn)]);
+        break;
+
+    case 'leads_update':
+        $id = $_POST['id'] ?? 0;
+        $q = mysqli_query($conn, "SELECT client_id FROM leads WHERE id=" . intval($id));
+        $row = mysqli_fetch_assoc($q);
+        if (!$row || (!$is_superadmin && !empty($row['client_id']) && $row['client_id'] != $session_client_id)) {
+            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
+            exit;
+        }
+        $name = $_POST['name'] ?? '';
+        $phone = $_POST['phone'] ?? '';
+        $email = $_POST['email'] ?? '';
+        $status = $_POST['status'] ?? 'nuevo';
+        $notes = $_POST['notes'] ?? '';
+        $stmt = mysqli_prepare($conn, "UPDATE leads SET name=?, phone=?, email=?, status=?, notes=? WHERE id=?");
+        mysqli_stmt_bind_param($stmt, "sssssi", $name, $phone, $email, $status, $notes, $id);
+        echo json_encode(['status' => mysqli_stmt_execute($stmt) ? 'success' : 'error']);
+        break;
+
+    case 'leads_delete':
+        $id = $_POST['id'] ?? 0;
+        $q = mysqli_query($conn, "SELECT client_id FROM leads WHERE id=" . intval($id));
+        $row = mysqli_fetch_assoc($q);
+        if (!$row || (!$is_superadmin && !empty($row['client_id']) && $row['client_id'] != $session_client_id)) {
+            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
+            exit;
+        }
+        mysqli_query($conn, "DELETE FROM leads WHERE id=" . intval($id));
+        echo json_encode(['status' => 'success']);
+        break;
+
+    case 'leads_export':
+        $req_client_id = $_GET['client_id'] ?? $session_client_id;
+        if (!$is_superadmin && $req_client_id != $session_client_id) {
+            die("No autorizado");
+        }
+        header('Content-Type: text/csv');
+        header('Content-Disposition: attachment; filename="prospectos_' . date('Y-m-d') . '.csv"');
+        $output = fopen('php://output', 'w');
+        fputcsv($output, ['ID', 'Nombre', 'Telefono', 'Email', 'Estado', 'Notas', 'Asistente', 'Fecha']);
+        $query = "SELECT l.id, l.name, l.phone, l.email, l.status, l.notes, a.name as assistant_name, l.created_at FROM leads l LEFT JOIN assistants a ON l.assistant_id = a.id WHERE l.client_id = " . intval($req_client_id);
+        if (!empty($_GET['assistant_id'])) {
+            $query .= " AND l.assistant_id = " . intval($_GET['assistant_id']);
+        }
+        $query .= " ORDER BY l.id DESC";
+        $result = mysqli_query($conn, $query);
+        while ($row = mysqli_fetch_assoc($result)) {
+            fputcsv($output, $row);
+        }
+        fclose($output);
+        exit;
 
     // ---- Assistants ----
     case 'assistants_list':

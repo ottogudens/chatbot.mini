@@ -323,6 +323,21 @@ class GeminiClient
                                 ],
                                 "required" => ["template_id", "data"]
                             ]
+                        ],
+                        [
+                            "name" => "register_lead",
+                            "description" => "Registra los datos de un cliente potencial o interesado (lead) en la base de datos de marketing del cliente. Usa esto cuando el usuario muestre interés o proporcione sus datos de contacto.",
+                            "parameters" => [
+                                "type" => "OBJECT",
+                                "properties" => [
+                                    "name" => ["type" => "STRING", "description" => "Nombre del interesado"],
+                                    "phone" => ["type" => "STRING", "description" => "Teléfono de contacto"],
+                                    "email" => ["type" => "STRING", "description" => "Correo electrónico"],
+                                    "notes" => ["type" => "STRING", "description" => "Notas sobre el interés del cliente o resumen de la necesidad"],
+                                    "extra_info" => ["type" => "STRING", "description" => "JSON opcional con información adicional capturada (ej: '{\"presupuesto\": 5000, \"cursa\": \"IA\"}')"]
+                                ],
+                                "required" => ["name"]
+                            ]
                         ]
                     ]
                 ]

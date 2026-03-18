@@ -185,6 +185,20 @@ if ($matched === 0 && (!empty($clean_msg) || $has_audio)) {
             $template_id = $func_args['template_id'] ?? '';
             $data = $func_args['data'] ?? [];
             $func_result = $pdf_helper->generate_from_template($template_id, $data, $client_id ?? null);
+        } else if ($func_name === 'register_lead') {
+            $name = $func_args['name'] ?? 'S/N';
+            $phone = $func_args['phone'] ?? '';
+            $email = $func_args['email'] ?? '';
+            $notes = $func_args['notes'] ?? '';
+            $extra = $func_args['extra_info'] ?? null;
+
+            $stmt_lead = mysqli_prepare($conn, "INSERT INTO leads (client_id, assistant_id, name, phone, email, notes, captured_data) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            mysqli_stmt_bind_param($stmt_lead, "iisssss", $client_id, $assistant_id, $name, $phone, $email, $notes, $extra);
+            if (mysqli_stmt_execute($stmt_lead)) {
+                $func_result = "Prospecto '$name' registrado exitosamente en el CRM.";
+            } else {
+                $func_result = "Error al registrar prospecto: " . mysqli_error($conn);
+            }
         } else {
             $func_result = "Function not implemented.";
         }

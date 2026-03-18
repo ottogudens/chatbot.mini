@@ -531,6 +531,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             <button class="nav-tab" data-target="integrations-tab"><i class="fa-brands fa-google-drive"></i>
                 Integraciones</button>
             <button class="nav-tab" data-target="rules-tab"><i class="fa-solid fa-book"></i> Reglas Q&A</button>
+            <button class="nav-tab" data-target="leads-tab"><i class="fa-solid fa-address-book"></i> Prospectos</button>
             <button class="nav-tab" data-target="pdf-templates-tab"><i class="fa-solid fa-file-pdf"></i> Plantillas
                 PDF</button>
             <button class="nav-tab" data-target="logs-tab"><i class="fa-solid fa-list"></i> Logs</button>
@@ -717,6 +718,38 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                                     <th>Categoría</th>
                                     <th>Consultas</th>
                                     <th>Respuesta</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LEADS TAB -->
+            <div id="leads-tab" class="tab-content">
+                <div class="panel-header">
+                    <h2>Base de Datos de Prospectos</h2>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn btn-outline" onclick="exportLeads()"><i class="fa-solid fa-download"></i>
+                            Exportar CSV</button>
+                        <button class="btn" onclick="openLeadModal()"><i class="fa-solid fa-plus"></i> Nuevo
+                            Prospecto</button>
+                    </div>
+                </div>
+                <div class="panel">
+                    <div style="overflow-x: auto;">
+                        <table id="leads-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Asistente</th>
+                                    <th>Nombre</th>
+                                    <th>Contacto</th>
+                                    <th>Estado</th>
+                                    <th>Notas</th>
+                                    <th>Fecha</th>
                                     <th>Acciones</th>
                                 </tr>
                             </thead>
@@ -1324,6 +1357,49 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
         </div>
     </div>
 
+    <!-- LEAD MODAL -->
+    <div class="modal-overlay" id="lead-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="lead-modal-title">Nuevo Prospecto</h2>
+                <button class="close-btn" onclick="closeModal('lead-modal')">&times;</button>
+            </div>
+            <form id="lead-form" onsubmit="submitLead(event)">
+                <input type="hidden" name="id" id="lead-id">
+                <div class="form-group">
+                    <label>Nombre del Prospecto</label>
+                    <input type="text" name="name" id="lead-name" required>
+                </div>
+                <div class="form-group">
+                    <label>Teléfono</label>
+                    <input type="text" name="phone" id="lead-phone">
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" name="email" id="lead-email">
+                </div>
+                <div class="form-group">
+                    <label>Estado</label>
+                    <select name="status" id="lead-status">
+                        <option value="nuevo">Nuevo</option>
+                        <option value="contactado">Contactado</option>
+                        <option value="interesado">Interesado</option>
+                        <option value="cerrado">Cerrado (Vendido)</option>
+                        <option value="descartado">Descartado</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Notas / Requerimiento</label>
+                    <textarea name="notes" id="lead-notes" rows="4"></textarea>
+                </div>
+                <div style="text-align:right; margin-top:20px;">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('lead-modal')">Cancelar</button>
+                    <button type="submit" class="btn">Guardar Prospecto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         // Global State
         const IS_SUPERADMIN = <?php echo $is_superadmin ? 'true' : 'false'; ?>;
@@ -1338,6 +1414,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 const target = $(this).data('target');
                 $('.tab-content').removeClass('active'); $('#' + target).addClass('active');
                 if (target === 'pdf-templates-tab') loadPDFTemplates();
+                if (target === 'leads-tab') loadLeads();
                 if (target === 'integrations-tab') {
                     loadDriveStatus();
                     reloadWhatsAppIntegration();
@@ -1388,6 +1465,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             loadRules();
             syncVoiceToggleState();
             loadLogs();
+            loadLeads();
             loadCalendarSettings();
             reloadWhatsAppIntegration();
             loadAppointments();
@@ -2188,6 +2266,70 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                     $('#logs-table tbody').html(html || '<tr><td colspan="4" style="text-align:center;">No hay interacciones registradas.</td></tr>');
                 }
             }, 'json');
+        }
+
+        // --- Leads ---
+        function loadLeads() {
+            let u = `api.php?action=leads_list`;
+            if (currentAssistantId) u += '&assistant_id=' + currentAssistantId;
+            $.get(u, function (res) {
+                if (res.status === 'success') {
+                    let html = '';
+                    res.data.forEach(l => {
+                        let contact = (l.phone || '') + (l.phone && l.email ? ' / ' : '') + (l.email || '');
+                        let captured = '';
+                        if (l.captured_data) {
+                            try {
+                                let cd = JSON.parse(l.captured_data);
+                                for (let key in cd) captured += `<small><b>${key}:</b> ${cd[key]}</small><br>`;
+                            } catch (e) { captured = l.captured_data; }
+                        }
+                        let statusBadge = `<span class="badge" style="background:var(--primary); color:white;">${l.status}</span>`;
+                        if (l.status === 'nuevo') statusBadge = `<span class="badge" style="background:#3b82f6;">Nuevo</span>`;
+                        if (l.status === 'cerrado') statusBadge = `<span class="badge" style="background:#10b981;">Cerrado</span>`;
+                        if (l.status === 'descartado') statusBadge = `<span class="badge" style="background:#ef4444;">Descartado</span>`;
+
+                        html += `<tr>
+                            <td>#${l.id}</td>
+                            <td><span style="font-size:11px;">${l.assistant_name || 'N/A'}</span></td>
+                            <td><b>${l.name || 'S/N'}</b></td>
+                            <td style="font-size:13px;">${contact || 'Sin contacto'}</td>
+                            <td>${statusBadge}</td>
+                            <td style="font-size:12px; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${l.notes || ''}</td>
+                            <td style="font-size:11px;">${captured || '-'}</td>
+                            <td>
+                                <button class="btn btn-outline btn-sm" onclick='editLead(${JSON.stringify(l).replace(/'/g, "&#39;")})'><i class="fa-solid fa-pen"></i></button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteLead(${l.id})"><i class="fa-solid fa-trash"></i></button>
+                            </td>
+                        </tr>`;
+                    });
+                    $('#leads-table tbody').html(html || '<tr><td colspan="8" style="text-align:center;">No hay prospectos capturados.</td></tr>');
+                }
+            }, 'json');
+        }
+        function openLeadModal() { $('#lead-form')[0].reset(); $('#lead-id').val(''); $('#lead-modal-title').text('Nuevo Prospecto'); $('#lead-modal').addClass('active'); }
+        function editLead(l) {
+            $('#lead-id').val(l.id);
+            $('#lead-name').val(l.name);
+            $('#lead-phone').val(l.phone);
+            $('#lead-email').val(l.email);
+            $('#lead-status').val(l.status);
+            $('#lead-notes').val(l.notes);
+            $('#lead-modal-title').text('Editar Prospecto');
+            $('#lead-modal').addClass('active');
+        }
+        function submitLead(e) {
+            e.preventDefault();
+            const action = $('#lead-id').val() ? 'leads_update' : 'leads_create';
+            $.post('api.php?action=' + action, $('#lead-form').serialize(), function (res) {
+                if (res.status === 'success') { closeModal('lead-modal'); loadLeads(); } else alert(res.message || 'Error');
+            }, 'json');
+        }
+        function deleteLead(id) { if (confirm('¿Eliminar prospecto?')) { $.post('api.php?action=leads_delete', { id }, res => { if (res.status === 'success') loadLeads(); else alert('Error'); }, 'json'); } }
+        function exportLeads() {
+            let u = 'api.php?action=leads_export';
+            if (currentAssistantId) u += '&assistant_id=' + currentAssistantId;
+            window.location.href = u;
         }
 
         // --- Stats & Charts ---
