@@ -33,8 +33,8 @@ class GeminiClient
                 return true;
             }
         }
-        // Also detect by suffix pattern: any 2.0+ model is likely a thinking model
-        return (bool) preg_match('/gemini-(2\.)/', $model);
+        // Safely identify thinking models by name containing '-thinking'
+        return stripos($model, '-thinking') !== false;
     }
 
     /**
