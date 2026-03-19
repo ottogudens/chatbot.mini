@@ -10,6 +10,16 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkaleBot - Panel Administrativo Múltiple</title>
+    <!-- PWA Manifest & Theme -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#8b5cf6">
+    <meta name="mobile-web-app-capable" content="yes">
+    <!-- iOS PWA Support -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SkaleBot Admin">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+    <link rel="icon" type="image/png" href="/icons/icon-192.png">
     <!-- Google Fonts: Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- FontAwesome -->
@@ -2453,19 +2463,25 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 $.post('api.php?action=pdf_templates_rename', { id, name: newName }, res => {
                     if (res.status === 'success') loadPDFTemplates();
                     else alert(res.message || 'Error');
-                }, 'json');
             }
         }
 
         // --- Utilities ---
         function closeModal(id) { $('#' + id).removeClass('active'); }
+
         function copyChatLink() {
             let url = window.location.origin + window.location.pathname.replace('admin.php', 'index.php');
             if (currentAssistantId) url += '?assistant=' + currentAssistantId;
             navigator.clipboard.writeText(url).then(() => {
                 alert("Link copiado: " + url);
-            }
-            );
+            });
+        }
+
+        // ==========================================
+        // Service Worker Registration (PWA)
+        // ==========================================
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW error:', err));
         }
     </script>
 </body>

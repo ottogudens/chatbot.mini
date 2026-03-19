@@ -63,6 +63,9 @@ if ($assistant_id) {
                 <button id="theme-toggle" title="Cambiar tema">
                     <i class="fa-solid fa-moon"></i>
                 </button>
+                <button id="install-btn" title="Instalar App" style="display: none;">
+                    <i class="fa-solid fa-download"></i>
+                </button>
                 <a href="admin.php" id="admin-btn" title="Panel de Administración">
                     <i class="fa-solid fa-gear"></i>
                 </a>
@@ -312,6 +315,35 @@ if ($assistant_id) {
                 console.warn("La API de reconocimiento de voz no está soportada en este navegador.");
                 micBtn.style.display = 'none'; // Hide if not supported
             }
+            // ==========================================
+            // PWA Install Prompt Logic
+            // ==========================================
+            let deferredPrompt;
+            const installBtn = document.getElementById('install-btn');
+
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                installBtn.style.display = 'inline-block';
+            });
+
+            if (installBtn) {
+                installBtn.addEventListener('click', async () => {
+                    if (deferredPrompt) {
+                        deferredPrompt.prompt();
+                        const { outcome } = await deferredPrompt.userChoice;
+                        console.log(`User response to the install prompt: ${outcome}`);
+                        deferredPrompt = null;
+                        installBtn.style.display = 'none';
+                    }
+                });
+            }
+
+            window.addEventListener('appinstalled', () => {
+                console.log('PWA was installed');
+                if (installBtn) installBtn.style.display = 'none';
+            });
+
             // ==========================================
             // Service Worker Registration (PWA)
             // ==========================================
