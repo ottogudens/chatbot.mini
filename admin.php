@@ -2463,6 +2463,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 $.post('api.php?action=pdf_templates_rename', { id, name: newName }, res => {
                     if (res.status === 'success') loadPDFTemplates();
                     else alert(res.message || 'Error');
+                }, 'json');
             }
         }
 

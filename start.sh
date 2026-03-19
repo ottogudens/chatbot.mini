@@ -84,7 +84,8 @@ nginx -t -c /app/nginx.conf
 
 # 4. Run Migrations
 echo "Running database migrations..."
-php migrate6.php || echo "Migration failed, check logs."
+php migrate6.php || echo "Migration 6 failed, check logs."
+php migrate7.php || echo "Migration 7 failed, check logs."
 
 # 5. Start Services
 echo "---------------------------------------"
