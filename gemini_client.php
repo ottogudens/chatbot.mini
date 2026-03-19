@@ -7,7 +7,7 @@
 class GeminiClient
 {
     private $api_key;
-    private $model = "gemini-1.5-flash"; // More stable default for production
+    private $model = "gemini-2.0-flash"; // Modern, fast and stable default for production
 
     // Models that use extended thinking — require thinkingBudget:0 to disable function calling
     private $thinking_models = ['gemini-2.0-flash-thinking', 'gemini-2.0-pro-thinking', 'gemini-1.5-flash-thinking', 'gemini-1.5-pro-thinking'];
@@ -28,13 +28,14 @@ class GeminiClient
      */
     private function is_thinking_model($model)
     {
-        foreach ($this->thinking_models as $tm) {
-            if (stripos($model, $tm) !== false || stripos($model, $tm) === 0) {
+        // Models that require thinkingConfig: {thinkingBudget: 0} to use tools correctly
+        $thinking_indicators = ['-thinking', 'gemini-2.5', 'gemini-3.0', 'gemini-3.1', 'deep-research'];
+        foreach ($thinking_indicators as $indicator) {
+            if (stripos($model, $indicator) !== false) {
                 return true;
             }
         }
-        // Safely identify thinking models by name containing '-thinking'
-        return stripos($model, '-thinking') !== false;
+        return false;
     }
 
     /**

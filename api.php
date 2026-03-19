@@ -344,7 +344,7 @@ switch ($action) {
         $client_id = !$is_superadmin ? $session_client_id : ($_POST['client_id'] ?? '');
         $name = $_POST['name'] ?? '';
         $sp = $_POST['system_prompt'] ?? '';
-        $gemini_model = $_POST['gemini_model'] ?? 'gemini-2.5-flash';
+        $gemini_model = $_POST['gemini_model'] ?? 'gemini-2.0-flash';
         $temperature = floatval($_POST['temperature'] ?? 0.70);
         $max_tokens = intval($_POST['max_output_tokens'] ?? 1500);
         $response_style = $_POST['response_style'] ?? 'balanced';

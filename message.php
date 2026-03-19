@@ -46,7 +46,7 @@ if ($assistant_id) {
         $custom_system_prompt = $ast_row['system_prompt'] ?? '';
         $voice_enabled = $ast_row['voice_enabled'] ?? 1;
         $ai_config = [
-            'model' => $ast_row['gemini_model'] ?? 'gemini-2.5-flash',
+            'model' => $ast_row['gemini_model'] ?? 'gemini-2.0-flash',
             'temperature' => $ast_row['temperature'] ?? 0.7,
             'max_output_tokens' => $ast_row['max_output_tokens'] ?? 1500,
             'response_style' => $ast_row['response_style'] ?? 'balanced',
