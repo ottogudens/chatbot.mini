@@ -304,6 +304,44 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             text-transform: uppercase;
         }
 
+        .field-tag-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            border: 1px dashed var(--glass-border);
+            min-height: 50px;
+        }
+
+        .field-tag {
+            background: var(--primary);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            animation: fadeIn 0.3s ease;
+        }
+
+        .field-tag i {
+            cursor: pointer;
+            font-size: 10px;
+            padding: 4px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.1);
+            transition: background 0.2s;
+        }
+
+        .field-tag i:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
         .badge.failed {
             background: rgba(239, 68, 68, 0.15);
             color: #fca5a5;
@@ -544,6 +582,8 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             <button class="nav-tab" data-target="leads-tab"><i class="fa-solid fa-address-book"></i> Prospectos</button>
             <button class="nav-tab" data-target="pdf-templates-tab"><i class="fa-solid fa-file-pdf"></i> Plantillas
                 PDF</button>
+            <button class="nav-tab" data-target="pdf-generated-tab"><i class="fa-solid fa-file-invoice"></i> Documentos
+                Generados</button>
             <button class="nav-tab" data-target="logs-tab"><i class="fa-solid fa-list"></i> Logs</button>
             <button class="nav-tab" data-target="appointments-tab"><i class="fa-regular fa-calendar-check"></i>
                 Reservas</button>
@@ -1006,6 +1046,31 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                     </div>
                 </div>
             </div>
+            <!-- GENERATED DOCUMENTS TAB -->
+            <div id="pdf-generated-tab" class="tab-content">
+                <div class="panel-header">
+                    <h2>Documentos Generados</h2>
+                    <button class="btn btn-outline" onclick="loadGeneratedDocs()"><i class="fa-solid fa-rotate"></i> Actualizar</button>
+                </div>
+                <div class="panel">
+                    <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px;">Documentos creados por el asistente durante las conversaciones.</p>
+                    <div style="overflow-x: auto;">
+                        <table id="pdf-generated-table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Asistente</th>
+                                    <th>Plantilla</th>
+                                    <th>Archivo</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
             <!-- HELP & TUTORIALS TAB -->
             <div id="help-tab" class="tab-content">
                 <style>
@@ -1464,33 +1529,64 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 <button class="close-modal" onclick="closeModal('pdf-template-modal')">&times;</button>
             </div>
             <form id="pdf-template-form" onsubmit="submitPDFTemplate(event)">
-                <?php if ($is_superadmin): ?>
+                <!-- STEP 1: Upload -->
+                <div id="pdf-template-step-1">
+                    <?php if ($is_superadmin): ?>
+                        <div class="form-group">
+                            <label>Cliente</label>
+                            <select name="client_id" required>
+                                <?php
+                                require_once 'db.php';
+                                $q = mysqli_query($conn, "SELECT id, name FROM clients");
+                                while ($c = mysqli_fetch_assoc($q))
+                                    echo "<option value='{$c['id']}'>{$c['name']}</option>";
+                                ?>
+                            </select>
+                        </div>
+                    <?php endif; ?>
                     <div class="form-group">
-                        <label>Cliente</label>
-                        <select name="client_id" required>
-                            <?php
-                            require_once 'db.php';
-                            $q = mysqli_query($conn, "SELECT id, name FROM clients");
-                            while ($c = mysqli_fetch_assoc($q))
-                                echo "<option value='{$c['id']}'>{$c['name']}</option>";
-                            ?>
-                        </select>
+                        <label>Nombre de la Plantilla (Ej: Factura Simple)</label>
+                        <input type="text" name="name" id="pdf-tpl-name" placeholder="Factura, Recibo, etc." required>
                     </div>
-                <?php endif; ?>
-                <div class="form-group">
-                    <label>Nombre de la Plantilla (Ej: Factura Simple)</label>
-                    <input type="text" name="name" placeholder="Factura, Recibo, etc." required>
+                    <div class="form-group">
+                        <label>Descripción / Propósito</label>
+                        <textarea name="description" placeholder="Ej: Para enviar después de una asesoría técnica..." rows="2"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Archivo de Plantilla (.txt o .pdf)</label>
+                        <input type="file" name="template_file" id="pdf-tpl-file" accept=".txt,.pdf" required>
+                        <p class="form-help">Sube un archivo de texto con <code>{{marcadores}}</code> o un PDF para que la IA lo analice.</p>
+                    </div>
+                    <div style="text-align:right; margin-top:20px;">
+                        <button type="button" class="btn btn-outline" onclick="closeModal('pdf-template-modal')">Cancelar</button>
+                        <button type="button" class="btn" id="btn-analyze-pdf" onclick="analyzePDFTemplate()">Analizar y Continuar <i class="fa-solid fa-arrow-right"></i></button>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>Archivo de Plantilla (.txt o .pdf)</label>
-                    <input type="file" name="template_file" accept=".txt,.pdf" required>
-                    <p class="form-help">Sube un archivo de texto con <code>{{marcadores}}</code> o un PDF para que la
-                        IA lo analice y extraiga los campos automáticamente.</p>
-                </div>
-                <div style="text-align:right; margin-top:20px;">
-                    <button type="button" class="btn btn-outline"
-                        onclick="closeModal('pdf-template-modal')">Cancelar</button>
-                    <button type="submit" class="btn" id="btn-submit-pdf-template">Guardar Plantilla</button>
+
+                <!-- STEP 2: Review Fields -->
+                <div id="pdf-template-step-2" style="display:none;">
+                    <h3 style="font-size:15px; margin-bottom:10px; color:var(--primary);">Campos Identificados</h3>
+                    <p style="font-size:13px; color:var(--text-muted); margin-bottom:15px;">Estos son los datos que el asistente pedirá al usuario. Puedes agregar o quitar campos.</p>
+                    
+                    <div class="form-group">
+                        <label>Agregar Nuevo Campo</label>
+                        <div style="display:flex; gap:10px;">
+                            <input type="text" id="new-field-name" placeholder="Ej: monto_total">
+                            <button type="button" class="btn btn-outline" onclick="addFieldTag()" style="padding:0 15px;"><i class="fa-solid fa-plus"></i></button>
+                        </div>
+                    </div>
+
+                    <div class="field-tag-container" id="placeholder-tags">
+                        <!-- Tags populated via JS -->
+                    </div>
+
+                    <input type="hidden" name="placeholders" id="final-placeholders">
+                    <input type="hidden" name="temp_file_path" id="pdf-temp-path">
+
+                    <div style="text-align:right; margin-top:25px; display:flex; justify-content:space-between; align-items:center;">
+                        <button type="button" class="btn btn-outline" onclick="showUploadStep()"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
+                        <button type="submit" class="btn" id="btn-submit-pdf-template">Confirmar y Guardar Plantilla</button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -1553,6 +1649,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 const target = $(this).data('target');
                 $('.tab-content').removeClass('active'); $('#' + target).addClass('active');
                 if (target === 'pdf-templates-tab') loadPDFTemplates();
+                if (target === 'pdf-generated-tab') loadGeneratedDocs();
                 if (target === 'leads-tab') loadLeads();
                 if (target === 'integrations-tab') {
                     loadDriveStatus();
@@ -1608,6 +1705,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             loadCalendarSettings();
             reloadWhatsAppIntegration();
             loadAppointments();
+            loadGeneratedDocs();
         }
 
         function syncVoiceToggleState() {
@@ -2513,19 +2611,19 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
         // --- PDF Templates ---
         function loadPDFTemplates() {
             let u = 'api.php?action=pdf_templates_list';
-            const selClient = IS_SUPERADMIN ? '' : '&client_id=' + (clientsCache[0]?.id || '');
+            const selClient = IS_SUPERADMIN ? '' : '&client_id=' + (id_client_sesion || '');
             $.get(u + selClient, function (res) {
                 if (res.status === 'success') {
                     let html = '';
                     res.data.forEach(t => {
                         let placeholders = (t.placeholders || []).map(p => `<code style="background:rgba(255,255,255,0.1);padding:2px 4px;border-radius:4px;margin-right:4px;">${p}</code>`).join(' ');
                         let sourceBadge = t.source === 'db' ? '<span class="badge success">Personalizada</span>' : '<span class="badge">Sistema</span>';
+                        let desc = t.description ? `<br><small style="color:var(--text-muted);">${t.description}</small>` : '';
                         let actions = t.source === 'db' ? `
-                            <button class="btn btn-sm" onclick="renamePDFTemplate(${t.db_id}, '${t.name}')" title="Renombrar"><i class="fa-solid fa-pen"></i></button>
-                            <button class="btn btn-danger btn-sm" onclick="deletePDFTemplate(${t.db_id})" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
+                            <button class="btn btn-sm" onclick="deletePDFTemplate(${t.db_id})" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
                         ` : '<small>Protegida</small>';
 
-                        html += `<tr><td>${t.id}</td><td><b>${t.name}</b></td><td>${sourceBadge}</td><td>${placeholders}</td><td>${actions}</td></tr>`;
+                        html += `<tr><td>${t.id}</td><td><b>${t.name}</b>${desc}</td><td>${sourceBadge}</td><td>${placeholders}</td><td>${actions}</td></tr>`;
                     });
                     $('#pdf-templates-table tbody').html(html || '<tr><td colspan="5" style="text-align:center;">No hay plantillas disponibles.</td></tr>');
                 }
@@ -2534,40 +2632,129 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
 
         function openPDFTemplateModal() {
             $('#pdf-template-form')[0].reset();
+            $('#pdf-template-step-1').show();
+            $('#pdf-template-step-2').hide();
+            $('#placeholder-tags').empty();
             $('#pdf-template-modal').addClass('active');
         }
 
-        function submitPDFTemplate(e) {
-            e.preventDefault();
+        function showUploadStep() {
+            $('#pdf-template-step-1').show();
+            $('#pdf-template-step-2').hide();
+        }
+
+        function analyzePDFTemplate() {
+            const name = $('#pdf-tpl-name').val();
+            const file = $('#pdf-tpl-file')[0].files[0];
+            if (!name || !file) {
+                alert('Por favor ingress name and file.');
+                return;
+            }
+
             const formData = new FormData($('#pdf-template-form')[0]);
-            $('#btn-submit-pdf-template').prop('disabled', true).text('Subiendo...');
+            $('#btn-analyze-pdf').prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Analizando...');
 
             $.ajax({
-                url: 'api.php?action=pdf_templates_upload',
+                url: 'api.php?action=pdf_templates_analyze',
                 type: 'POST',
                 data: formData,
                 processData: false,
                 contentType: false,
                 dataType: 'json',
                 success: function (res) {
-                    $('#btn-submit-pdf-template').prop('disabled', false).text('Subir Plantilla');
+                    $('#btn-analyze-pdf').prop('disabled', false).html('Analizar y Continuar <i class="fa-solid fa-arrow-right"></i>');
                     if (res.status === 'success') {
-                        closeModal('pdf-template-modal');
-                        loadPDFTemplates();
-                        if (res.detected_fields && res.detected_fields.length > 0) {
-                            alert('Plantilla analizada. Campos detectados: ' + res.detected_fields.join(', '));
-                        }
+                        $('#pdf-temp-path').val(res.temp_file);
+                        $('#placeholder-tags').empty();
+                        (res.detected_fields || []).forEach(f => addFieldTag(f));
+                        $('#pdf-template-step-1').hide();
+                        $('#pdf-template-step-2').show();
                     } else {
-                        alert(res.message || 'Error');
+                        alert(res.message || 'Error analizando PDF');
                     }
                 },
-                error: function (xhr) {
-                    $('#btn-submit-pdf-template').prop('disabled', false).text('Guardar Plantilla');
-                    let errorMsg = 'Error de conex ión';
-                    if (xhr.responseText) {
-                        try {
-                            const res = JSON.parse(xhr.responseText);
-                            errorMsg = res.message || errorMsg;
+                error: function () {
+                    $('#btn-analyze-pdf').prop('disabled', false).html('Analizar y Continuar <i class="fa-solid fa-arrow-right"></i>');
+                    alert('Error de conexión al analizar el PDF.');
+                }
+            });
+        }
+
+        function addFieldTag(name = null) {
+            const field = name || $('#new-field-name').val().trim();
+            if (!field) return;
+            const safeField = field.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+            
+            // Check if already exists
+            let exists = false;
+            $('.field-tag span').each(function() { if($(this).text() === safeField) exists = true; });
+            if (exists && !name) { alert('El campo ya existe'); return; }
+
+            const tag = $(`<div class="field-tag"><span>${safeField}</span><i class="fa-solid fa-xmark" onclick="removeFieldTag(this)"></i></div>`);
+            $('#placeholder-tags').append(tag);
+            if (!name) $('#new-field-name').val('');
+            updateFinalPlaceholders();
+        }
+
+        function removeFieldTag(el) {
+            $(el).parent().remove();
+            updateFinalPlaceholders();
+        }
+
+        function updateFinalPlaceholders() {
+            const fields = [];
+            $('.field-tag span').each(function() { fields.push($(this).text()); });
+            $('#final-placeholders').val(JSON.stringify(fields));
+        }
+
+        function submitPDFTemplate(e) {
+            e.preventDefault();
+            updateFinalPlaceholders();
+            const formData = $('#pdf-template-form').serialize();
+            $('#btn-submit-pdf-template').prop('disabled', true).text('Guardando...');
+
+            $.post('api.php?action=pdf_templates_save', formData, function (res) {
+                $('#btn-submit-pdf-template').prop('disabled', false).text('Confirmar y Guardar Plantilla');
+                if (res.status === 'success') {
+                    closeModal('pdf-template-modal');
+                    loadPDFTemplates();
+                } else {
+                    alert(res.message || 'Error al guardar');
+                }
+            }, 'json');
+        }
+
+        function loadGeneratedDocs() {
+            let u = 'api.php?action=pdf_generated_list';
+            if (currentAssistantId) u += '&assistant_id=' + currentAssistantId;
+
+            $.get(u, function (res) {
+                if (res.status === 'success') {
+                    let html = '';
+                    res.data.forEach(d => {
+                        html += `<tr>
+                            <td>${d.created_at}</td>
+                            <td>${d.assistant_name || 'Desconocido'}</td>
+                            <td>${d.template_name}</td>
+                            <td><a href="${d.file_url}" target="_blank" class="btn btn-sm"><i class="fa-solid fa-file-pdf"></i> Ver PDF</a></td>
+                            <td>
+                                <button class="btn btn-danger btn-sm" onclick="deleteGeneratedDoc(${d.id})" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
+                            </td>
+                        </tr>`;
+                    });
+                    $('#pdf-generated-table tbody').html(html || '<tr><td colspan="5" style="text-align:center;">No hay documentos generados.</td></tr>');
+                }
+            }, 'json');
+        }
+
+        function deleteGeneratedDoc(id) {
+            if (confirm('¿Eliminar este documento permanentemente?')) {
+                $.post('api.php?action=pdf_generated_delete', { id }, function(res) {
+                    if (res.status === 'success') loadGeneratedDocs();
+                    else alert(res.message || 'Error');
+                }, 'json');
+            }
+        }
                         } catch (e) {
                             errorMsg = 'Error del servidor (' + xhr.status + '): ' + xhr.responseText.substring(0, 500);
                         }

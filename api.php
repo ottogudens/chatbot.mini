@@ -760,78 +760,136 @@ switch ($action) {
             echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
             exit;
         }
-        require_once 'pdf_helper.php';
-        $pdf_helper = new PDFHelper($conn);
-        $templates = $pdf_helper->list_templates($req_client_id);
+        $q = mysqli_query($conn, "SELECT id, name, description, file_path, placeholders FROM pdf_templates WHERE client_id = " . intval($req_client_id));
+        $templates = [];
+        while($row = mysqli_fetch_assoc($q)){
+            $templates[] = [
+                'id' => $row['id'],
+                'db_id' => $row['id'],
+                'name' => $row['name'],
+                'description' => $row['description'],
+                'placeholders' => json_decode($row['placeholders'], true) ?: [],
+                'source' => 'db'
+            ];
+        }
         echo json_encode(['status' => 'success', 'data' => $templates]);
         break;
 
-    case 'pdf_templates_upload':
+    case 'pdf_templates_analyze':
         $req_client_id = $_POST['client_id'] ?? $session_client_id;
         if (!$is_superadmin && $req_client_id != $session_client_id) {
             echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
             exit;
         }
 
-        // Ensure no previous output (warnings, etc) breaks the JSON
-        if (ob_get_length())
-            ob_clean();
-        error_log("Starting PDF upload for client $req_client_id");
-
-        $name = $_POST['name'] ?? '';
-        if (empty($name) || !isset($_FILES['template_file'])) {
-            echo json_encode(['status' => 'error', 'message' => 'Faltan datos requeridos']);
+        if (!isset($_FILES['template_file'])) {
+            echo json_encode(['status' => 'error', 'message' => 'Archivo no proporcionado']);
             exit;
         }
 
-        // Increase time limit for Gemini analysis
         set_time_limit(300);
-
-        $upload_dir = __DIR__ . "/uploads/clients/{$req_client_id}/pdf_templates/";
-        if (!is_dir($upload_dir)) {
-            if (!@mkdir($upload_dir, 0777, true)) {
-                echo json_encode(['status' => 'error', 'message' => 'Error de permisos: No se pudo crear el directorio de carga.']);
-                exit;
-            }
-        }
+        $temp_dir = __DIR__ . "/uploads/temp/";
+        if (!is_dir($temp_dir)) @mkdir($temp_dir, 0777, true);
 
         $file = $_FILES['template_file'];
         $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-        $safe_filename = time() . '_' . preg_replace("/[^a-zA-Z0-9.-]/", "_", $file['name']);
-        $target_path = $upload_dir . $safe_filename;
+        $temp_filename = "analyze_" . time() . "_" . uniqid() . "." . $ext;
+        $temp_path = $temp_dir . $temp_filename;
 
-        if (move_uploaded_file($file['tmp_name'], $target_path)) {
+        if (move_uploaded_file($file['tmp_name'], $temp_path)) {
             $placeholders = [];
-
             if ($ext === 'pdf') {
                 require_once 'gemini_client.php';
                 $gemini = new GeminiClient();
-                $uri = $gemini->upload_file_to_gemini($target_path, 'application/pdf', $name);
-                if ($uri) {
-                    $placeholders = $gemini->analyze_pdf_placeholders($uri, 'application/pdf');
-                }
+                $uri = $gemini->upload_file_to_gemini($temp_path, 'application/pdf', 'Análisis Temporal');
+                if ($uri) $placeholders = $gemini->analyze_pdf_placeholders($uri, 'application/pdf');
             } else {
-                // Existing logic for .txt/standard files
-                $content = file_get_contents($target_path);
+                $content = file_get_contents($temp_path);
                 preg_match_all('/\{\{(.*?)\}\}/', $content, $matches);
                 $placeholders = isset($matches[1]) ? array_unique($matches[1]) : [];
             }
-
-            $placeholders_json = json_encode(array_values($placeholders));
-            $relative_path = "uploads/clients/{$req_client_id}/pdf_templates/" . $safe_filename;
-
-            $client_id_int = intval($req_client_id);
-            $stmt = mysqli_prepare($conn, "INSERT INTO pdf_templates (client_id, name, file_path, placeholders) VALUES (?, ?, ?, ?)");
-            mysqli_stmt_bind_param($stmt, "isss", $client_id_int, $name, $relative_path, $placeholders_json);
-
-            if (mysqli_stmt_execute($stmt)) {
-                echo json_encode(['status' => 'success', 'detected_fields' => array_values($placeholders)]);
-            } else {
-                unlink($target_path);
-                echo json_encode(['status' => 'error', 'message' => 'Error en base de datos: ' . mysqli_error($conn)]);
-            }
+            echo json_encode([
+                'status' => 'success', 
+                'detected_fields' => array_values($placeholders),
+                'temp_file' => "uploads/temp/" . $temp_filename
+            ]);
         } else {
-            echo json_encode(['status' => 'error', 'message' => 'Error moviendo el archivo']);
+            echo json_encode(['status' => 'error', 'message' => 'Error al procesar archivo temporal']);
+        }
+        break;
+
+    case 'pdf_templates_save':
+        $req_client_id = $_POST['client_id'] ?? $session_client_id;
+        if (!$is_superadmin && $req_client_id != $session_client_id) {
+            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
+            exit;
+        }
+
+        $name = $_POST['name'] ?? '';
+        $desc = $_POST['description'] ?? '';
+        $placeholders_json = $_POST['placeholders'] ?? '[]';
+        $temp_file = $_POST['temp_file_path'] ?? '';
+
+        if (empty($name) || empty($temp_file)) {
+            echo json_encode(['status' => 'error', 'message' => 'Faltan datos']);
+            exit;
+        }
+
+        $full_temp_path = __DIR__ . '/' . $temp_file;
+        if (!file_exists($full_temp_path)) {
+            echo json_encode(['status' => 'error', 'message' => 'El archivo temporal ha expirado']);
+            exit;
+        }
+
+        $upload_dir = "uploads/clients/{$req_client_id}/pdf_templates/";
+        if (!is_dir(__DIR__ . '/' . $upload_dir)) @mkdir(__DIR__ . '/' . $upload_dir, 0777, true);
+
+        $filename = basename($temp_file);
+        $final_path = $upload_dir . $filename;
+        
+        if (rename($full_temp_path, __DIR__ . '/' . $final_path)) {
+            $client_id_int = intval($req_client_id);
+            $stmt = mysqli_prepare($conn, "INSERT INTO pdf_templates (client_id, name, description, file_path, placeholders) VALUES (?, ?, ?, ?, ?)");
+            mysqli_stmt_bind_param($stmt, "issss", $client_id_int, $name, $desc, $final_path, $placeholders_json);
+            
+            if (mysqli_stmt_execute($stmt)) echo json_encode(['status' => 'success']);
+            else echo json_encode(['status' => 'error', 'message' => mysqli_error($conn)]);
+        } else {
+            echo json_encode(['status' => 'error', 'message' => 'Error al mover archivo final']);
+        }
+        break;
+
+    case 'pdf_generated_list':
+        $req_client_id = $_GET['client_id'] ?? $session_client_id;
+        $assistant_id = $_GET['assistant_id'] ?? null;
+        
+        $sql = "SELECT g.*, a.name as assistant_name, t.name as template_name 
+                FROM generated_documents g
+                LEFT JOIN assistants a ON g.assistant_id = a.id
+                LEFT JOIN pdf_templates t ON g.template_id = t.id
+                WHERE g.client_id = " . intval($req_client_id);
+        
+        if ($assistant_id) $sql .= " AND g.assistant_id = " . intval($assistant_id);
+        $sql .= " ORDER BY g.created_at DESC LIMIT 100";
+        
+        $q = mysqli_query($conn, $sql);
+        $docs = [];
+        while($row = mysqli_fetch_assoc($q)) $docs[] = $row;
+        echo json_encode(['status' => 'success', 'data' => $docs]);
+        break;
+
+    case 'pdf_generated_delete':
+        $id = $_POST['id'] ?? 0;
+        $q = mysqli_query($conn, "SELECT file_name FROM generated_documents WHERE id = " . intval($id));
+        if ($row = mysqli_fetch_assoc($q)) {
+            // Delete file from storage
+            $fpath = __DIR__ . '/uploads/' . $row['file_name'];
+            if (file_exists($fpath)) @unlink($fpath);
+            
+            mysqli_query($conn, "DELETE FROM generated_documents WHERE id = " . intval($id));
+            echo json_encode(['status' => 'success']);
+        } else {
+            echo json_encode(['status' => 'error', 'message' => 'No encontrado']);
         }
         break;
 

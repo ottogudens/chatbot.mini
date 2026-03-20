@@ -184,7 +184,7 @@ if ($matched === 0 && (!empty($clean_msg) || $has_audio)) {
             $pdf_helper = new PDFHelper($conn);
             $template_id = $func_args['template_id'] ?? '';
             $data = $func_args['data'] ?? [];
-            $func_result = $pdf_helper->generate_from_template($template_id, $data, $client_id ?? null);
+            $func_result = $pdf_helper->generate_from_template($template_id, $data, $client_id ?? null, $assistant_id ?? null);
         } else if ($func_name === 'register_lead') {
             $name = $func_args['name'] ?? 'S/N';
             $phone = $func_args['phone'] ?? '';

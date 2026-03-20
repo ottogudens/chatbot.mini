@@ -65,7 +65,7 @@ class PDFHelper
         return $templates;
     }
 
-    public function generate_from_template($template_id, $data, $client_id = null)
+    public function generate_from_template($template_id, $data, $client_id = null, $assistant_id = null)
     {
         $content = "";
 
@@ -148,9 +148,22 @@ class PDFHelper
 
         $pdf->Output('F', $filepath);
 
+        // Record in database if connection available
+        if ($this->conn && $client_id) {
+            $file_url_part = 'uploads/' . $filename;
+            $stmt = mysqli_prepare($this->conn, "INSERT INTO generated_documents (client_id, assistant_id, template_id, file_name, file_url) VALUES (?, ?, ?, ?, ?)");
+            $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? "https" : "http";
+            $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+            $base_url = $protocol . "://" . $host . str_replace(basename($_SERVER['SCRIPT_NAME'] ?? ''), "", $_SERVER['SCRIPT_NAME'] ?? '');
+            $full_url = rtrim($base_url, '/') . '/' . $file_url_part;
+            
+            mysqli_stmt_bind_param($stmt, "iisss", $client_id, $assistant_id, $template_id, $filename, $full_url);
+            mysqli_stmt_execute($stmt);
+        }
+
         $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? "https" : "http";
         $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-        $base_url = $protocol . "://" . $host . str_replace(basename($_SERVER['SCRIPT_NAME']), "", $_SERVER['SCRIPT_NAME']);
+        $base_url = $protocol . "://" . $host . str_replace(basename($_SERVER['SCRIPT_NAME'] ?? ''), "", $_SERVER['SCRIPT_NAME'] ?? '');
 
         return [
             "success" => true,
