@@ -2726,7 +2726,9 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
         }
 
         function loadGeneratedDocs() {
+            let cid = getSelectedClientId();
             let u = 'api.php?action=pdf_generated_list';
+            if (cid) u += '&client_id=' + cid;
             if (currentAssistantId) u += '&assistant_id=' + currentAssistantId;
 
             $.get(u, function (res) {

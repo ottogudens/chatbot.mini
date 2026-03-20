@@ -860,14 +860,20 @@ switch ($action) {
         break;
 
     case 'pdf_generated_list':
-        $req_client_id = $_GET['client_id'] ?? $session_client_id;
+        $req_client_id = $_GET['client_id'] ?? null;
         $assistant_id = $_GET['assistant_id'] ?? null;
         
-        $sql = "SELECT g.*, a.name as assistant_name, t.name as template_name 
+        $sql = "SELECT g.*, a.name as assistant_name, COALESCE(t.name, g.template_id) as template_name 
                 FROM generated_documents g
                 LEFT JOIN assistants a ON g.assistant_id = a.id
-                LEFT JOIN pdf_templates t ON g.template_id = t.id
-                WHERE g.client_id = " . intval($req_client_id);
+                LEFT JOIN pdf_templates t ON g.template_id = CAST(t.id AS CHAR)
+                WHERE 1=1";
+        
+        if (!$is_superadmin) {
+            $sql .= " AND g.client_id = " . intval($session_client_id);
+        } else if ($req_client_id) {
+            $sql .= " AND g.client_id = " . intval($req_client_id);
+        }
         
         if ($assistant_id) $sql .= " AND g.assistant_id = " . intval($assistant_id);
         $sql .= " ORDER BY g.created_at DESC LIMIT 100";
