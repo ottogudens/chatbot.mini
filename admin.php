@@ -2756,14 +2756,6 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 }, 'json');
             }
         }
-                        } catch (e) {
-                            errorMsg = 'Error del servidor (' + xhr.status + '): ' + xhr.responseText.substring(0, 500);
-                        }
-                    }
-                    alert(errorMsg);
-                }
-            });
-        }
 
         function deletePDFTemplate(id) {
             if (confirm('¿Eliminar esta plantilla de PDF?')) {
