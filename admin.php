@@ -547,6 +547,9 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             <button class="nav-tab" data-target="logs-tab"><i class="fa-solid fa-list"></i> Logs</button>
             <button class="nav-tab" data-target="appointments-tab"><i class="fa-regular fa-calendar-check"></i>
                 Reservas</button>
+            <hr style="opacity:0.05; margin:10px 0;">
+            <button class="nav-tab" data-target="help-tab" style="color:#60a5fa;"><i class="fa-solid fa-circle-info"></i>
+                Centro de Ayuda</button>
         </nav>
 
         <div class="sidebar-footer">
@@ -1000,6 +1003,133 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                         <p><i class="fa-solid fa-circle-info"></i> Sube archivos <b>.txt</b> con marcadores como
                             <code>{{nombre}}</code> para que el asistente pueda completarlos.
                         </p>
+                    </div>
+                </div>
+            </div>
+            <!-- HELP & TUTORIALS TAB -->
+            <div id="help-tab" class="tab-content">
+                <style>
+                    .help-card {
+                        background: rgba(255, 255, 255, 0.03);
+                        border: 1px solid var(--glass-border);
+                        border-radius: 12px;
+                        padding: 24px;
+                        transition: all 0.3s ease;
+                        height: 100%;
+                    }
+
+                    .help-card:hover {
+                        background: rgba(255, 255, 255, 0.05);
+                        border-color: var(--primary);
+                        transform: translateY(-2px);
+                    }
+
+                    .help-icon {
+                        font-size: 28px;
+                        color: var(--primary);
+                        margin-bottom: 20px;
+                        display: block;
+                    }
+
+                    .help-card h4 {
+                        font-size: 18px;
+                        margin-bottom: 12px;
+                        color: white;
+                    }
+
+                    .help-card p {
+                        font-size: 13.5px;
+                        color: var(--text-muted);
+                        line-height: 1.6;
+                    }
+
+                    .step-badge {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        width: 24px;
+                        height: 24px;
+                        background: var(--primary);
+                        color: white;
+                        border-radius: 50%;
+                        font-size: 12px;
+                        font-weight: bold;
+                        margin-right: 8px;
+                    }
+
+                    .help-feature-list {
+                        list-style: none;
+                        margin-top: 15px;
+                    }
+
+                    .help-feature-list li {
+                        font-size: 13px;
+                        margin-bottom: 8px;
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                    }
+
+                    .help-feature-list i {
+                        color: var(--success);
+                        font-size: 11px;
+                    }
+                </style>
+
+                <div class="panel">
+                    <div class="panel-header" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+                        <h2 style="font-size: 28px; font-weight: 700;">Centro de Ayuda Skale IA</h2>
+                        <p style="color: var(--text-muted); font-size: 15px;">Guía rápida para configurar el ecosistema de tus asistentes inteligentes.</p>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px;">
+                        <!-- Step 1: Assistants -->
+                        <div class="help-card">
+                            <i class="fa-solid fa-robot help-icon" style="color: #60a5fa;"></i>
+                            <h4><span class="step-badge">1</span> Configura tu Asistente</h4>
+                            <p>El primer paso es crear un asistente para tu cliente.</p>
+                            <ul class="help-feature-list">
+                                <li><i class="fa-solid fa-check"></i> <b>System Prompt:</b> Describe su personalidad (ej: "Eres un vendedor amable...").</li>
+                                <li><i class="fa-solid fa-check"></i> <b>Temperatura:</b> 0.3 para datos exactos, 0.7 para conversación natural.</li>
+                                <li><i class="fa-solid fa-check"></i> <b>Modelo:</b> Recomendamos Gemini 2.0 Flash por rapidez.</li>
+                            </ul>
+                        </div>
+
+                        <!-- Step 2: Training -->
+                        <div class="help-card">
+                            <i class="fa-solid fa-graduation-cap help-icon" style="color: #10b981;"></i>
+                            <h4><span class="step-badge">2</span> Entrenamiento Artificial</h4>
+                            <p>Dale "cerebro" a la IA subiendo información real de la empresa.</p>
+                            <ul class="help-feature-list">
+                                <li><i class="fa-solid fa-check"></i> <b>PDFs:</b> Sube catálogos, listas de precios o manuales.</li>
+                                <li><i class="fa-solid fa-check"></i> <b>Links:</b> Pega la URL de tu web para que la IA la "lea".</li>
+                                <li><i class="fa-solid fa-check"></i> <b>Texto:</b> Copia y pega información suelta importante.</li>
+                            </ul>
+                        </div>
+
+                        <!-- Step 3: Automation -->
+                        <div class="help-card">
+                            <i class="fa-solid fa-bolt-lightning help-icon" style="color: #f59e0b;"></i>
+                            <h4><span class="step-badge">3</span> Automatización Pro</h4>
+                            <p>Convierte conversaciones en ventas y citas automáticamente.</p>
+                            <ul class="help-feature-list">
+                                <li><i class="fa-solid fa-check"></i> <b>Prospectos (Leads):</b> La IA detectará interesados y los listará aquí.</li>
+                                <li><i class="fa-solid fa-check"></i> <b>Calendario:</b> Agendamiento automático en Google Calendar.</li>
+                                <li><i class="fa-solid fa-check"></i> <b>PDF Maker:</b> Crea cotizaciones al vuelo desde una plantilla.</li>
+                            </ul>
+                        </div>
+
+                        <!-- Tips -->
+                        <div class="help-card" style="border: 1px dashed var(--primary); background: rgba(139, 92, 246, 0.05);">
+                            <i class="fa-solid fa-lightbulb help-icon"></i>
+                            <h4>Consejos de Oro</h4>
+                            <p>Para obtener mejores resultados, sigue estas prácticas:</p>
+                            <ul class="help-feature-list">
+                                <li><i class="fa-solid fa-star"></i> Sé específico en el System Prompt sobre lo que NO debe decir.</li>
+                                <li><i class="fa-solid fa-star"></i> Prueba el chat con el botón lateral cada vez que cambies algo.</li>
+                                <li><i class="fa-solid fa-star"></i> Revisa los Logs para ver dónde se confunde la IA y mejorar sus reglas.</li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
             </div>
