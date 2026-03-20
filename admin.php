@@ -1638,6 +1638,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
     <script>
         // Global State
         const IS_SUPERADMIN = <?php echo $is_superadmin ? 'true' : 'false'; ?>;
+        const id_client_sesion = <?php echo json_encode($_SESSION['client_id'] ?? null); ?>;
         let currentAssistantId = null;
         let clientsCache = [];
         let assistantsCache = [];
