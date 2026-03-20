@@ -802,18 +802,24 @@ switch ($action) {
                 require_once 'gemini_client.php';
                 $gemini = new GeminiClient();
                 $uri = $gemini->upload_file_to_gemini($temp_path, 'application/pdf', 'Análisis Temporal');
-                if ($uri) $placeholders = $gemini->analyze_pdf_placeholders($uri, 'application/pdf');
+                if ($uri) {
+                    $placeholders = $gemini->analyze_pdf_placeholders($uri, 'application/pdf');
+                } else {
+                    error_log("PDF Analyze Error: Failed to upload example PDF to Gemini.");
+                }
             } else {
                 $content = file_get_contents($temp_path);
                 preg_match_all('/\{\{(.*?)\}\}/', $content, $matches);
                 $placeholders = isset($matches[1]) ? array_unique($matches[1]) : [];
             }
+            error_log("PDF Analyze Success: Found " . count($placeholders) . " fields for file " . $file['name']);
             echo json_encode([
                 'status' => 'success', 
                 'detected_fields' => array_values($placeholders),
                 'temp_file' => "uploads/temp/" . $temp_filename
             ]);
         } else {
+            error_log("PDF Analyze Error: Failed to move uploaded file to $temp_path");
             echo json_encode(['status' => 'error', 'message' => 'Error al procesar archivo temporal']);
         }
         break;

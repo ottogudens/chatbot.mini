@@ -91,6 +91,7 @@ class GeminiClient
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $init_data);
         curl_setopt($ch, CURLOPT_HEADER, true); // Need headers to get upload URI
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 
         $response = curl_exec($ch);
         $header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
@@ -121,6 +122,7 @@ class GeminiClient
         curl_setopt($ch2, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch2, CURLOPT_HTTPHEADER, $upload_headers);
         curl_setopt($ch2, CURLOPT_POST, true);
+        curl_setopt($ch2, CURLOPT_SSL_VERIFYPEER, false);
         // Using CURLFile for direct streaming would be better for 500MB, but file_get_contents is simpler for now
         // A robust solution for 500MB would stream the file from disk using CURLOPT_INFILE
         $file_handle = fopen($file_path, 'r');
@@ -415,14 +417,18 @@ class GeminiClient
      */
     public function analyze_pdf_placeholders($file_uri, $mime_type)
     {
-        $prompt = "Analiza este documento PDF e identifica todos los campos, etiquetas o espacios vacíos donde un usuario final o el sistema debería ingresar o completar información variable (ej: Nombre, Fecha, Dirección, Monto, tabla de productos, etc.). 
-        Ignora el texto estático legal o descriptivo que no requiere ser completado.
-        Devuelve ÚNICAMENTE un arreglo JSON con los nombres técnicos sugeridos para estos campos.
-        Los nombres deben ser: en minúsculas, sin espacios, sin acentos, usando guiones bajos (_) en lugar de espacios.
-        Sé exhaustivo pero evita duplicados.
-        Ejemplo de salida: [\"nombre_cliente\", \"fecha_emision\", \"monto_total\", \"detalle_servicio\"]";
+        $prompt = "Analiza detalladamente este documento PDF. Tu tarea es identificar todos los elementos que parezcan datos variables, espacios para rellenar, campos de formulario o etiquetas que requieran información específica (ej. Nombre de empresa, Fecha, Monto, RUT, Dirección, detalle de productos, etc.).
 
-        $response = $this->get_response($prompt, [], "Eres un extractor de metadatos de documentos.", "", [
+        Ignora el texto estático legal o de relleno.
+        
+        Devuelve ÚNICAMENTE un arreglo JSON con nombres técnicos sugeridos para estos campos.
+        Los nombres deben ser: minúsculas, sin espacios, sin acentos (usa _ en vez de espacios).
+        
+        EJEMPLO DE SALIDA: [\"nombre_cliente\", \"fecha_factura\", \"monto_total\", \"descripcion_servicio\"]
+        
+        SI NO ENCUENTRAS NINGUNO, responde simplemente: []";
+
+        $response = $this->get_response($prompt, [], "Eres un analista de formularios y extractor de datos variables.", "", [
             ['uri' => $file_uri, 'mime_type' => $mime_type]
         ], null, [], false);
 
@@ -431,10 +437,23 @@ class GeminiClient
             return [];
         }
 
-        // Extract JSON from response (Gemini might wrap it in markdown)
-        if (is_string($response) && preg_match('/\[.*\]/s', $response, $matches)) {
-            $json = json_decode($matches[0], true);
-            return is_array($json) ? $json : [];
+        // Extract JSON from response (Gemini might wrap it in markdown or add commentary)
+        $clean_response = is_string($response) ? trim($response) : '';
+        
+        // Try to find the first [ and the last ]
+        $first_bracket = strpos($clean_response, '[');
+        $last_bracket = strrpos($clean_response, ']');
+        
+        if ($first_bracket !== false && $last_bracket !== false && $last_bracket > $first_bracket) {
+            $json_str = substr($clean_response, $first_bracket, $last_bracket - $first_bracket + 1);
+            $json = json_decode($json_str, true);
+            if (is_array($json)) {
+                return $json;
+            }
+        }
+
+        if (!empty($clean_response)) {
+            error_log("Gemini Analysis Parsing Failed. Raw response: " . substr($clean_response, 0, 500));
         }
 
         return [];

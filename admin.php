@@ -2667,7 +2667,11 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                     if (res.status === 'success') {
                         $('#pdf-temp-path').val(res.temp_file);
                         $('#placeholder-tags').empty();
-                        (res.detected_fields || []).forEach(f => addFieldTag(f));
+                        if (!res.detected_fields || res.detected_fields.length === 0) {
+                            $('#placeholder-tags').html('<p style="color:var(--text-muted); font-size:13px; font-style:italic; margin-bottom:10px;">No se detectaron campos automáticamente. Puedes agregarlos manualmente abajo con el botón (+).</p>');
+                        } else {
+                            res.detected_fields.forEach(f => addFieldTag(f));
+                        }
                         $('#pdf-template-step-1').hide();
                         $('#pdf-template-step-2').show();
                     } else {
