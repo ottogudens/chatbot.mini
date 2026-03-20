@@ -149,12 +149,17 @@ class PDFHelper
         $pdf->Output('F', $filepath);
 
         $recorded = false;
+        $debug_log = __DIR__ . '/uploads/pdf_debug.log';
+        $log_data = date('[Y-m-d H:i:s]') . " Gen PDF: template=$template_id, client=" . ($client_id ?? 'NULL') . ", assistant=" . ($assistant_id ?? 'NULL') . "\n";
+
         // Record in database if connection available
         if ($this->conn && isset($client_id) && $client_id !== null) {
             $file_url_part = 'uploads/' . $filename;
             $stmt = mysqli_prepare($this->conn, "INSERT INTO generated_documents (client_id, assistant_id, template_id, file_name, file_url) VALUES (?, ?, ?, ?, ?)");
             if (!$stmt) {
-                error_log("PDFHelper Error: Failed to prepare statement: " . mysqli_error($this->conn));
+                $err = mysqli_error($this->conn);
+                error_log("PDFHelper Error: Failed to prepare statement: $err");
+                $log_data .= "  - DB Error (Prepare): $err\n";
             } else {
                 $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? "https" : "http";
                 $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
@@ -163,16 +168,20 @@ class PDFHelper
                 
                 mysqli_stmt_bind_param($stmt, "iisss", $client_id, $assistant_id, $template_id, $filename, $full_url);
                 if (!mysqli_stmt_execute($stmt)) {
-                    error_log("PDFHelper Error: Failed to execute statement: " . mysqli_stmt_error($stmt));
+                    $err = mysqli_stmt_error($stmt);
+                    error_log("PDFHelper Error: Failed to execute statement: $err");
+                    $log_data .= "  - DB Error (Execute): $err\n";
                 } else {
                     error_log("PDFHelper Success: Recorded document $filename for client $client_id");
+                    $log_data .= "  - DB Success: Recorded document $filename\n";
                     $recorded = true;
                 }
             }
         } else {
-            if (!$this->conn) error_log("PDFHelper Warning: No DB connection provided.");
-            if (!$client_id) error_log("PDFHelper Warning: No client_id provided for recording.");
+            if (!$this->conn) { error_log("PDFHelper Warning: No DB connection provided."); $log_data .= "  - Warning: No DB connection\n"; }
+            if ($client_id === null) { error_log("PDFHelper Warning: No client_id provided for recording."); $log_data .= "  - Warning: No client_id\n"; }
         }
+        @file_put_contents($debug_log, $log_data, FILE_APPEND);
 
         $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? "https" : "http";
         $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
