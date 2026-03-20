@@ -2746,8 +2746,12 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                         </tr>`;
                     });
                     $('#pdf-generated-table tbody').html(html || '<tr><td colspan="5" style="text-align:center;">No hay documentos generados.</td></tr>');
+                } else {
+                    $('#pdf-generated-table tbody').html('<tr><td colspan="5" style="text-align:center; color:red;">Error: ' + (res.message || 'Error desconocido') + '</td></tr>');
                 }
-            }, 'json');
+            }, 'json').fail(function() {
+                $('#pdf-generated-table tbody').html('<tr><td colspan="5" style="text-align:center; color:red;">Error de conexión con el servidor.</td></tr>');
+            });
         }
 
         function deleteGeneratedDoc(id) {

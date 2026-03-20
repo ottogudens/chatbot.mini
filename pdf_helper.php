@@ -148,6 +148,7 @@ class PDFHelper
 
         $pdf->Output('F', $filepath);
 
+        $recorded = false;
         // Record in database if connection available
         if ($this->conn && isset($client_id) && $client_id !== null) {
             $file_url_part = 'uploads/' . $filename;
@@ -165,6 +166,7 @@ class PDFHelper
                     error_log("PDFHelper Error: Failed to execute statement: " . mysqli_stmt_error($stmt));
                 } else {
                     error_log("PDFHelper Success: Recorded document $filename for client $client_id");
+                    $recorded = true;
                 }
             }
         } else {
@@ -178,6 +180,7 @@ class PDFHelper
 
         return [
             "success" => true,
+            "recorded" => $recorded,
             "filename" => $filename,
             "url" => rtrim($base_url, '/') . '/uploads/' . $filename
         ];
