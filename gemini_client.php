@@ -7,7 +7,7 @@
 class GeminiClient
 {
     private $api_key;
-    private $model = "gemini-2.0-flash"; // Modern, fast and stable default for production
+    private $model = "gemini-2.5-flash"; // Modern, fast and stable default for production (supports thinking)
 
     // Models that use extended thinking — require thinkingBudget:0 to disable function calling
     private $thinking_models = ['gemini-2.0-flash-thinking', 'gemini-2.0-pro-thinking', 'gemini-1.5-flash-thinking', 'gemini-1.5-pro-thinking'];
@@ -415,9 +415,12 @@ class GeminiClient
      */
     public function analyze_pdf_placeholders($file_uri, $mime_type)
     {
-        $prompt = "Analiza este documento PDF e identifica todos los campos, etiquetas o espacios donde un usuario debería ingresar información (ej: Nombre, Fecha, Dirección, Monto, etc.). 
-        Devuelve ÚNICAMENTE un arreglo JSON con los nombres técnicos sugeridos para estos campos (en minúsculas, sin espacios, usando guiones bajos si es necesario).
-        Ejemplo de salida: [\"nombre_cliente\", \"fecha_emision\", \"monto_total\"]";
+        $prompt = "Analiza este documento PDF e identifica todos los campos, etiquetas o espacios vacíos donde un usuario final o el sistema debería ingresar o completar información variable (ej: Nombre, Fecha, Dirección, Monto, tabla de productos, etc.). 
+        Ignora el texto estático legal o descriptivo que no requiere ser completado.
+        Devuelve ÚNICAMENTE un arreglo JSON con los nombres técnicos sugeridos para estos campos.
+        Los nombres deben ser: en minúsculas, sin espacios, sin acentos, usando guiones bajos (_) en lugar de espacios.
+        Sé exhaustivo pero evita duplicados.
+        Ejemplo de salida: [\"nombre_cliente\", \"fecha_emision\", \"monto_total\", \"detalle_servicio\"]";
 
         $response = $this->get_response($prompt, [], "Eres un extractor de metadatos de documentos.", "", [
             ['uri' => $file_uri, 'mime_type' => $mime_type]

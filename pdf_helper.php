@@ -106,13 +106,19 @@ class PDFHelper
             $uri = $gemini->upload_file_to_gemini($template_path, 'application/pdf', 'Original Template');
 
             // 2. Ask Gemini to "re-fill" the content
-            $data_json = json_encode($data);
-            $prompt = "Toma este PDF como plantilla y genera una respuesta que contenga TODA la información del PDF pero reemplazando los campos lógicos con estos datos: $data_json. 
-            Mantén una estructura profesional y similar al documento original. Devuelve el contenido final como texto plano formateado.";
+            $data_json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+            $prompt = "Actúa como un procesador de documentos experto. Toma el PDF adjunto como estructura y plantilla base. 
+            Tu objetivo es generar el contenido de un NUEVO documento que complete todos los campos variables del original usando ESTOS DATOS: $data_json.
+            
+            REGLAS:
+            1. Respeta el tono, los encabezados y la disposición lógica de la información del original.
+            2. Si un dato no está en el JSON pero es necesario, intenta inferirlo del contexto o déjalo como [Pendiente].
+            3. Devuelve ÚNICAMENTE el texto final completo del documento, listo para ser convertido a PDF.
+            4. NO incluyas explicaciones, saludos, ni bloques de código markdown (```). Solo el texto plano.";
 
-            $filled_content = $gemini->get_response($prompt, [], "Eres un generador de documentos.", "", [
+            $filled_content = $gemini->get_response($prompt, [], "Eres un generador de documentos profesionales.", "", [
                 ['uri' => $uri, 'mime_type' => 'application/pdf']
-            ]);
+            ], null, [], false);
 
             $content = $filled_content;
         } else {

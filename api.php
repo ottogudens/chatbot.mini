@@ -344,7 +344,7 @@ switch ($action) {
         $client_id = !$is_superadmin ? $session_client_id : ($_POST['client_id'] ?? '');
         $name = $_POST['name'] ?? '';
         $sp = $_POST['system_prompt'] ?? '';
-        $gemini_model = $_POST['gemini_model'] ?? 'gemini-2.0-flash';
+        $gemini_model = $_POST['gemini_model'] ?? 'gemini-2.5-flash';
         $temperature = floatval($_POST['temperature'] ?? 0.70);
         $max_tokens = intval($_POST['max_output_tokens'] ?? 1500);
         $response_style = $_POST['response_style'] ?? 'balanced';
@@ -767,6 +767,7 @@ switch ($action) {
         break;
 
     case 'pdf_templates_upload':
+        $req_client_id = $_POST['client_id'] ?? $session_client_id;
         if (!$is_superadmin && $req_client_id != $session_client_id) {
             echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
             exit;
@@ -819,8 +820,9 @@ switch ($action) {
             $placeholders_json = json_encode(array_values($placeholders));
             $relative_path = "uploads/clients/{$req_client_id}/pdf_templates/" . $safe_filename;
 
+            $client_id_int = intval($req_client_id);
             $stmt = mysqli_prepare($conn, "INSERT INTO pdf_templates (client_id, name, file_path, placeholders) VALUES (?, ?, ?, ?)");
-            mysqli_stmt_bind_param($stmt, "isss", $req_client_id, $name, $relative_path, $placeholders_json);
+            mysqli_stmt_bind_param($stmt, "isss", $client_id_int, $name, $relative_path, $placeholders_json);
 
             if (mysqli_stmt_execute($stmt)) {
                 echo json_encode(['status' => 'success', 'detected_fields' => array_values($placeholders)]);

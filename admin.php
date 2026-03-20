@@ -1310,9 +1310,8 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                         <label>Modelo Gemini</label>
                         <select id="assistant-model" name="gemini_model">
                             <option value="gemini-2.5-flash">gemini-2.5-flash (estable, recomendado)</option>
-                            <option value="gemini-2.0-flash-001">gemini-2.0-flash-001 (versión estable anclada)</option>
-                            <option value="gemini-1.5-flash">gemini-1.5-flash (alternativa estable)</option>
-                            <option value="gemini-1.5-pro">gemini-1.5-pro (más capaz, más lento)</option>
+                            <option value="gemini-1.5-flash">gemini-1.5-flash (clásico, muy rápido)</option>
+                            <option value="gemini-1.5-pro">gemini-1.5-pro (inteligencia máxima, más lento)</option>
                         </select>
                     </div>
                     <div class="form-group">
