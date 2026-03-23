@@ -245,16 +245,20 @@ class GeminiClient
         ];
 
         if ($function_state) {
+            // Cast args to object: PHP encodes empty arrays as [] (list) but Gemini expects {} (object)
+            $fc_call = $function_state['call'];
+            $fc_call['args'] = (object)($fc_call['args'] ?? []);
+
             $contents[] = [
                 "role" => "model",
-                "parts" => [["functionCall" => $function_state['call']]]
+                "parts" => [["functionCall" => $fc_call]]
             ];
             $contents[] = [
                 "role" => "function",
                 "parts" => [
                     [
                         "functionResponse" => [
-                            "name" => $function_state['call']['name'],
+                            "name"     => $function_state['call']['name'],
                             "response" => ["content" => $function_state['result']]
                         ]
                     ]
@@ -404,9 +408,12 @@ class GeminiClient
         $part = $result['candidates'][0]['content']['parts'][0] ?? null;
 
         if (isset($part['functionCall'])) {
+            $fc = $part['functionCall'];
+            // Normalize args to object immediately: prevents [] -> JSON list bug on next turn
+            $fc['args'] = (object)($fc['args'] ?? []);
             return [
                 'type' => 'function_call',
-                'call' => $part['functionCall']
+                'call' => $fc
             ];
         }
 
