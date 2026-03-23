@@ -1018,32 +1018,165 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             </div>
 
             <!-- PDF TEMPLATES TAB -->
+            <!-- PDF TEMPLATES TAB -->
             <div id="pdf-templates-tab" class="tab-content">
+                <style>
+                    .tpl-grid {
+                        display: grid;
+                        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+                        gap: 18px;
+                        margin-top: 20px;
+                    }
+                    .tpl-card {
+                        background: var(--glass-bg);
+                        border: 1px solid var(--glass-border);
+                        border-radius: 14px;
+                        padding: 20px;
+                        display: flex;
+                        flex-direction: column;
+                        gap: 12px;
+                        transition: border-color 0.2s, transform 0.2s;
+                        position: relative;
+                    }
+                    .tpl-card:hover {
+                        border-color: var(--primary);
+                        transform: translateY(-2px);
+                    }
+                    .tpl-card-header {
+                        display: flex;
+                        align-items: flex-start;
+                        gap: 14px;
+                    }
+                    .tpl-icon {
+                        width: 44px;
+                        height: 44px;
+                        border-radius: 10px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 20px;
+                        flex-shrink: 0;
+                    }
+                    .tpl-icon.pdf  { background: rgba(239,68,68,0.15);  color:#f87171; }
+                    .tpl-icon.txt  { background: rgba(59,130,246,0.15);  color:#60a5fa; }
+                    .tpl-icon.html { background: rgba(245,158,11,0.15);  color:#fbbf24; }
+                    .tpl-icon.sys  { background: rgba(99,102,241,0.15);  color:#818cf8; }
+                    .tpl-meta { flex: 1; min-width: 0; }
+                    .tpl-meta h4 {
+                        font-size: 15px;
+                        font-weight: 600;
+                        white-space: nowrap;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        margin-bottom: 4px;
+                    }
+                    .tpl-meta .tpl-desc {
+                        font-size: 12px;
+                        color: var(--text-muted);
+                        display: -webkit-box;
+                        -webkit-line-clamp: 2;
+                        -webkit-box-orient: vertical;
+                        overflow: hidden;
+                    }
+                    .tpl-fields {
+                        display: flex;
+                        flex-wrap: wrap;
+                        gap: 6px;
+                    }
+                    .tpl-field-tag {
+                        background: rgba(139,92,246,0.12);
+                        border: 1px solid rgba(139,92,246,0.3);
+                        color: #c4b5fd;
+                        font-size: 11px;
+                        padding: 3px 8px;
+                        border-radius: 20px;
+                        font-family: monospace;
+                    }
+                    .tpl-field-tag.more {
+                        background: rgba(255,255,255,0.05);
+                        border-color: rgba(255,255,255,0.1);
+                        color: var(--text-muted);
+                    }
+                    .tpl-actions {
+                        display: flex;
+                        gap: 8px;
+                        margin-top: auto;
+                        padding-top: 8px;
+                        border-top: 1px solid var(--glass-border);
+                    }
+                    .tpl-actions .btn { padding: 7px 12px; font-size: 12px; }
+                    .tpl-empty {
+                        grid-column: 1 / -1;
+                        text-align: center;
+                        padding: 60px 20px;
+                        color: var(--text-muted);
+                    }
+                    .tpl-empty i { font-size: 48px; margin-bottom: 16px; opacity: 0.3; display: block; }
+                    .templates-toolbar {
+                        display: flex;
+                        gap: 12px;
+                        align-items: center;
+                        flex-wrap: wrap;
+                    }
+                    .templates-toolbar input, .templates-toolbar select {
+                        background: var(--input-bg);
+                        border: 1px solid var(--glass-border);
+                        color: white;
+                        padding: 9px 14px;
+                        border-radius: 8px;
+                        outline: none;
+                        font-size: 13px;
+                        transition: border-color 0.2s;
+                    }
+                    .templates-toolbar input:focus, .templates-toolbar select:focus {
+                        border-color: var(--primary);
+                    }
+                    .tpl-source-badge {
+                        position: absolute;
+                        top: 12px;
+                        right: 12px;
+                        font-size: 10px;
+                        padding: 2px 8px;
+                        border-radius: 12px;
+                    }
+                    @media(max-width:600px) {
+                        .tpl-grid { grid-template-columns: 1fr; }
+                        .templates-toolbar { flex-direction: column; align-items: stretch; }
+                    }
+                </style>
+
                 <div class="panel-header">
-                    <h2>Gestión de Plantillas PDF</h2>
-                    <button class="btn" onclick="openPDFTemplateModal()"><i class="fa-solid fa-plus"></i> Nueva
-                        Plantilla</button>
+                    <h2><i class="fa-solid fa-file-pdf" style="color:var(--primary);"></i> Plantillas PDF</h2>
+                    <button class="btn" onclick="openPDFTemplateModal()"><i class="fa-solid fa-plus"></i> Nueva Plantilla</button>
                 </div>
-                <div class="panel">
-                    <div style="overflow-x: auto;">
-                        <table id="pdf-templates-table">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Nombre</th>
-                                    <th>Origen</th>
-                                    <th>Marcadores ({{...}})</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
+
+                <!-- Toolbar -->
+                <div class="panel" style="padding:16px 20px; margin-bottom:0;">
+                    <div class="templates-toolbar">
+                        <input type="text" id="tpl-search" placeholder="&#xf002; Buscar plantilla..." oninput="filterTemplates()" style="flex:1; min-width:180px;">
+                        <select id="tpl-filter-type" onchange="filterTemplates()">
+                            <option value="">Todos los tipos</option>
+                            <option value="pdf">PDF</option>
+                            <option value="txt">Texto (.txt)</option>
+                            <option value="html">HTML</option>
+                        </select>
+                        <select id="tpl-filter-source" onchange="filterTemplates()">
+                            <option value="">Todas las fuentes</option>
+                            <option value="db">Personalizadas</option>
+                            <option value="static">Sistema</option>
+                        </select>
+                        <button class="btn btn-outline" onclick="loadPDFTemplates()" title="Actualizar"><i class="fa-solid fa-rotate"></i></button>
                     </div>
-                    <div style="margin-top: 20px; font-size: 13px; color: var(--text-muted);">
-                        <p><i class="fa-solid fa-circle-info"></i> Sube archivos <b>.txt</b> con marcadores como
-                            <code>{{nombre}}</code> para que el asistente pueda completarlos.
-                        </p>
-                    </div>
+                </div>
+
+                <!-- Grid -->
+                <div class="tpl-grid" id="tpl-grid"></div>
+
+                <!-- Info footer -->
+                <div style="margin-top:16px; font-size:12px; color:var(--text-muted);">
+                    <i class="fa-solid fa-circle-info"></i>
+                    Sube archivos <b>.pdf</b> para que Gemini los complete con IA, o <b>.txt/.html</b> con marcadores <code>{{campo}}</code> para sustitución directa.
+                    <span id="tpl-count" style="float:right;"></span>
                 </div>
             </div>
             <!-- GENERATED DOCUMENTS TAB -->
@@ -1518,6 +1651,30 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                     <button type="submit" class="btn">Guardar</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Edit Template Modal -->
+    <div class="modal-overlay" id="tpl-edit-modal">
+        <div class="modal" style="max-width:480px;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-pen"></i> Editar Plantilla</h3>
+                <button class="close-modal" onclick="closeModal('tpl-edit-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Nombre de la plantilla <span style="color:var(--primary)">*</span></label>
+                    <input type="text" id="edit-tpl-name" class="form-control" placeholder="Ej: Contrato de Arriendo" maxlength="120">
+                </div>
+                <div class="form-group">
+                    <label>Descripci&oacute;n <span style="color:var(--text-muted);font-size:12px;">(opcional)</span></label>
+                    <textarea id="edit-tpl-desc" class="form-control" rows="3" placeholder="Describe para qu&eacute; sirve esta plantilla..."></textarea>
+                </div>
+                <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">
+                    <button class="btn btn-outline" onclick="closeModal('tpl-edit-modal')">Cancelar</button>
+                    <button class="btn" id="btn-save-tpl-edit" onclick="submitEditTemplate()"><i class="fa-solid fa-floppy-disk"></i> Guardar Cambios</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -2627,25 +2784,150 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
         }
 
         // --- PDF Templates ---
+        let _tplData = []; // cache for client-side filtering
+
         function loadPDFTemplates() {
+            const grid = $('#tpl-grid');
+            grid.html('<div class="tpl-empty"><i class="fa-solid fa-spinner fa-spin"></i><p>Cargando plantillas...</p></div>');
             let u = 'api.php?action=pdf_templates_list';
             const selClient = IS_SUPERADMIN ? '' : '&client_id=' + (id_client_sesion || '');
             $.get(u + selClient, function (res) {
                 if (res.status === 'success') {
-                    let html = '';
-                    res.data.forEach(t => {
-                        let placeholders = (t.placeholders || []).map(p => `<code style="background:rgba(255,255,255,0.1);padding:2px 4px;border-radius:4px;margin-right:4px;">${p}</code>`).join(' ');
-                        let sourceBadge = t.source === 'db' ? '<span class="badge success">Personalizada</span>' : '<span class="badge">Sistema</span>';
-                        let desc = t.description ? `<br><small style="color:var(--text-muted);">${t.description}</small>` : '';
-                        let actions = t.source === 'db' ? `
-                            <button class="btn btn-sm" onclick="deletePDFTemplate(${t.db_id})" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
-                        ` : '<small>Protegida</small>';
+                    _tplData = res.data || [];
+                    renderTplGrid(_tplData);
+                } else {
+                    grid.html('<div class="tpl-empty"><i class="fa-solid fa-circle-exclamation"></i><p>Error al cargar las plantillas.</p></div>');
+                }
+            }, 'json').fail(() => {
+                grid.html('<div class="tpl-empty"><i class="fa-solid fa-wifi"></i><p>Error de conexión.</p></div>');
+            });
+        }
 
-                        html += `<tr><td>${t.id}</td><td><b>${t.name}</b>${desc}</td><td>${sourceBadge}</td><td>${placeholders}</td><td>${actions}</td></tr>`;
-                    });
-                    $('#pdf-templates-table tbody').html(html || '<tr><td colspan="5" style="text-align:center;">No hay plantillas disponibles.</td></tr>');
+        function tplFileIcon(id) {
+            const ext = String(id).toLowerCase().split('.').pop();
+            if (ext === 'pdf')  return '<div class="tpl-icon pdf"><i class="fa-solid fa-file-pdf"></i></div>';
+            if (ext === 'html') return '<div class="tpl-icon html"><i class="fa-solid fa-code"></i></div>';
+            if (ext === 'txt')  return '<div class="tpl-icon txt"><i class="fa-solid fa-file-lines"></i></div>';
+            return '<div class="tpl-icon sys"><i class="fa-solid fa-file"></i></div>';
+        }
+
+        function renderTplGrid(data) {
+            const grid = $('#tpl-grid');
+            if (!data.length) {
+                grid.html('<div class="tpl-empty"><i class="fa-solid fa-folder-open"></i><p>No hay plantillas disponibles.<br><small>Crea tu primera plantilla con el botón "+ Nueva Plantilla".</small></p></div>');
+                $('#tpl-count').text('');
+                return;
+            }
+            let html = '';
+            data.forEach(t => {
+                const isCustom  = t.source === 'db';
+                const srcBadge  = isCustom
+                    ? '<span class="badge success tpl-source-badge">Personalizada</span>'
+                    : '<span class="badge tpl-source-badge">Sistema</span>';
+
+                // Field tags — show max 5 then +N
+                const fields = (t.placeholders || []);
+                const visFields = fields.slice(0, 5);
+                const extraCount = fields.length - visFields.length;
+                let tagsHtml = visFields.map(p => `<span class="tpl-field-tag">{{${p}}}</span>`).join('');
+                if (extraCount > 0) tagsHtml += `<span class="tpl-field-tag more">+${extraCount} más</span>`;
+                if (!fields.length) tagsHtml = '<small style="color:var(--text-muted);font-size:11px;">Sin campos detectados</small>';
+
+                // Detect icon type from file path or id
+                const iconHtml = tplFileIcon(t.id);
+
+                // File ext label
+                const ext = String(t.id).toLowerCase().split('.').pop().toUpperCase();
+
+                // Actions
+                let actions = '';
+                if (isCustom) {
+                    actions = `
+                        <button class="btn btn-outline" onclick="editPDFTemplate(${t.db_id},'${escHtml(t.name)}','${escHtml(t.description||'')}')" title="Editar"><i class="fa-solid fa-pen"></i> Editar</button>
+                        <button class="btn btn-outline" onclick="downloadTemplate('${escHtml(t.id)}')" title="Descargar"><i class="fa-solid fa-download"></i></button>
+                        <button class="btn btn-danger" onclick="deletePDFTemplate(${t.db_id},'${escHtml(t.name)}')" title="Eliminar"><i class="fa-solid fa-trash"></i></button>`;
+                } else {
+                    actions = '<span style="color:var(--text-muted);font-size:12px;"><i class="fa-solid fa-shield"></i> Plantilla del sistema</span>';
+                }
+
+                html += `
+                <div class="tpl-card" data-name="${escHtml(t.name.toLowerCase())}" data-ext="${ext.toLowerCase()}" data-source="${t.source}">
+                    ${srcBadge}
+                    <div class="tpl-card-header">
+                        ${iconHtml}
+                        <div class="tpl-meta">
+                            <h4 title="${escHtml(t.name)}">${escHtml(t.name)}</h4>
+                            <div class="tpl-desc">${t.description ? escHtml(t.description) : '<em style="opacity:.4">Sin descripción</em>'}</div>
+                        </div>
+                    </div>
+                    <div class="tpl-fields">${tagsHtml}</div>
+                    <div class="tpl-actions">${actions}</div>
+                </div>`;
+            });
+            grid.html(html);
+            $('#tpl-count').text(data.length + ' plantilla' + (data.length !== 1 ? 's' : ''));
+        }
+
+        function filterTemplates() {
+            const search = $('#tpl-search').val().toLowerCase().trim();
+            const type   = $('#tpl-filter-type').val().toLowerCase();
+            const source = $('#tpl-filter-source').val();
+            const filtered = _tplData.filter(t => {
+                const name  = (t.name || '').toLowerCase();
+                const ext   = String(t.id).split('.').pop().toLowerCase();
+                const matchName   = !search || name.includes(search);
+                const matchType   = !type   || ext === type;
+                const matchSource = !source || t.source === source;
+                return matchName && matchType && matchSource;
+            });
+            renderTplGrid(filtered);
+        }
+
+        function escHtml(s) {
+            return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+        }
+
+        function downloadTemplate(tplId) {
+            window.open('api.php?action=pdf_templates_download&id=' + encodeURIComponent(tplId), '_blank');
+        }
+
+        // Edit modal
+        let _editingTplId = null;
+        function editPDFTemplate(id, name, desc) {
+            _editingTplId = id;
+            $('#edit-tpl-name').val(name);
+            $('#edit-tpl-desc').val(desc);
+            $('#tpl-edit-modal').addClass('active');
+        }
+
+        function submitEditTemplate() {
+            const name = $('#edit-tpl-name').val().trim();
+            if (!name) { alert('El nombre es obligatorio'); return; }
+            const desc = $('#edit-tpl-desc').val().trim();
+            $('#btn-save-tpl-edit').prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Guardando...');
+            $.post('api.php?action=pdf_templates_rename', { id: _editingTplId, name, description: desc }, res => {
+                $('#btn-save-tpl-edit').prop('disabled', false).html('Guardar Cambios');
+                if (res.status === 'success') {
+                    closeModal('tpl-edit-modal');
+                    loadPDFTemplates();
+                } else {
+                    alert(res.message || 'Error al guardar');
                 }
             }, 'json');
+        }
+
+        function deletePDFTemplate(id, name) {
+            if (confirm(`¿Eliminar la plantilla "${name}"?\nEsta acción no se puede deshacer.`)) {
+                $.post('api.php?action=pdf_templates_delete', { id }, res => {
+                    if (res.status === 'success') loadPDFTemplates();
+                    else alert(res.message || 'Error');
+                }, 'json');
+            }
+        }
+
+        function renamePDFTemplate(id, currentName) {
+            // Legacy — now replaced by editPDFTemplate
+            editPDFTemplate(id, currentName, '');
         }
 
         function openPDFTemplateModal() {
@@ -2665,7 +2947,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             const name = $('#pdf-tpl-name').val();
             const file = $('#pdf-tpl-file')[0].files[0];
             if (!name || !file) {
-                alert('Por favor ingress name and file.');
+                alert('Por favor ingresa el nombre y selecciona un archivo.');
                 return;
             }
 

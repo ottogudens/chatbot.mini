@@ -967,21 +967,23 @@ switch ($action) {
         break;
 
     case 'pdf_templates_delete':
-        $id = $_POST['id'] ?? 0;
-        // Check ownership
-        $q = mysqli_query($conn, "SELECT client_id, file_path FROM pdf_templates WHERE id = " . intval($id));
-        if ($row = mysqli_fetch_assoc($q)) {
+        $id = intval($_POST['id'] ?? 0);
+        $chk = mysqli_prepare($conn, "SELECT client_id, file_path FROM pdf_templates WHERE id = ?");
+        mysqli_stmt_bind_param($chk, "i", $id);
+        mysqli_stmt_execute($chk);
+        $chk_res = mysqli_stmt_get_result($chk);
+        if ($row = mysqli_fetch_assoc($chk_res)) {
             if (!$is_superadmin && $row['client_id'] != $session_client_id) {
                 echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
                 exit;
             }
-            // Delete file
             $fpath = __DIR__ . '/' . $row['file_path'];
             if (file_exists($fpath)) {
                 unlink($fpath);
             }
-            // Delete DB record
-            mysqli_query($conn, "DELETE FROM pdf_templates WHERE id = " . intval($id));
+            $del = mysqli_prepare($conn, "DELETE FROM pdf_templates WHERE id = ?");
+            mysqli_stmt_bind_param($del, "i", $id);
+            mysqli_stmt_execute($del);
             echo json_encode(['status' => 'success']);
         } else {
             echo json_encode(['status' => 'error', 'message' => 'Plantilla no encontrada']);
@@ -989,25 +991,28 @@ switch ($action) {
         break;
 
     case 'pdf_templates_rename':
-        $id = $_POST['id'] ?? 0;
-        $new_name = $_POST['name'] ?? '';
+        $id       = intval($_POST['id'] ?? 0);
+        $new_name = trim($_POST['name'] ?? '');
+        $new_desc = trim($_POST['description'] ?? '');
         if (empty($new_name)) {
             echo json_encode(['status' => 'error', 'message' => 'El nombre es requerido']);
             exit;
         }
-        // Check ownership
-        $q = mysqli_query($conn, "SELECT client_id FROM pdf_templates WHERE id = " . intval($id));
-        if ($row = mysqli_fetch_assoc($q)) {
+        $chk = mysqli_prepare($conn, "SELECT client_id FROM pdf_templates WHERE id = ?");
+        mysqli_stmt_bind_param($chk, "i", $id);
+        mysqli_stmt_execute($chk);
+        $chk_res = mysqli_stmt_get_result($chk);
+        if ($row = mysqli_fetch_assoc($chk_res)) {
             if (!$is_superadmin && $row['client_id'] != $session_client_id) {
                 echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
                 exit;
             }
-            $stmt = mysqli_prepare($conn, "UPDATE pdf_templates SET name = ? WHERE id = ?");
-            mysqli_stmt_bind_param($stmt, "si", $new_name, $id);
+            $stmt = mysqli_prepare($conn, "UPDATE pdf_templates SET name = ?, description = ? WHERE id = ?");
+            mysqli_stmt_bind_param($stmt, "ssi", $new_name, $new_desc, $id);
             if (mysqli_stmt_execute($stmt)) {
                 echo json_encode(['status' => 'success']);
             } else {
-                echo json_encode(['status' => 'error', 'message' => 'Error al renombrar: ' . mysqli_error($conn)]);
+                echo json_encode(['status' => 'error', 'message' => 'Error al actualizar: ' . mysqli_error($conn)]);
             }
         } else {
             echo json_encode(['status' => 'error', 'message' => 'Plantilla no encontrada']);
