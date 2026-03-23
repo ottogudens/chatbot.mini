@@ -37,15 +37,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
-            --bg-color: #0f172a;
-            --glass-bg: rgba(30, 41, 59, 0.7);
-            --glass-border: rgba(255, 255, 255, 0.1);
-            --primary: #8b5cf6;
-            --primary-hover: #7c3aed;
+            --bg-color: #080f1e;
+            --glass-bg: rgba(12, 26, 48, 0.8);
+            --glass-border: rgba(0, 212, 255, 0.15);
+            --primary: #00d4ff;
+            --primary-hover: #00b8e6;
             --danger: #ef4444;
-            --text-main: #f8fafc;
-            --text-muted: #cbd5e1;
-            --input-bg: rgba(15, 23, 42, 0.6);
+            --text-main: #e8f4ff;
+            --text-muted: #8ab3cc;
+            --input-bg: rgba(8, 15, 30, 0.7);
         }
 
         * {
@@ -73,8 +73,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             width: 100%;
             height: 100%;
             z-index: -1;
-            background: radial-gradient(circle at 15% 50%, rgba(139, 92, 246, 0.15), transparent 25%),
-                radial-gradient(circle at 85% 30%, rgba(56, 189, 248, 0.15), transparent 25%);
+            background: radial-gradient(circle at 15% 50%, rgba(0, 212, 255, 0.1), transparent 30%),
+                radial-gradient(circle at 85% 30%, rgba(30, 74, 122, 0.15), transparent 35%);
         }
 
         .login-card {
@@ -159,7 +159,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         .form-group input:focus {
             border-color: var(--primary);
-            box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+            box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.2);
         }
 
         .btn {
@@ -212,8 +212,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <div class="login-card">
         <div class="header">
-            <div class="icon"><i class="fa-solid fa-robot"></i></div>
-            <h1>SkaleBot Admin</h1>
+            <div class="icon">
+                <img src="icons/logo-skale.png" alt="Skale" style="width:56px;height:56px;object-fit:contain;filter:drop-shadow(0 0 12px rgba(0,212,255,0.6));">
+            </div>
+            <h1>Skale Admin</h1>
             <p>Ingresa tus credenciales para continuar</p>
         </div>
 

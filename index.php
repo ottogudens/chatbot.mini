@@ -28,7 +28,7 @@ if ($assistant_id) {
     </title>
     <!-- PWA Manifest & Theme -->
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#8b5cf6">
+    <meta name="theme-color" content="#00d4ff">
     <meta name="mobile-web-app-capable" content="yes">
     <!-- iOS PWA Support -->
     <meta name="apple-mobile-web-app-capable" content="yes">

@@ -29,18 +29,18 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <style>
         :root {
-            --bg-color: #0f172a;
-            --sidebar-bg: #1e293b;
-            --glass-bg: rgba(30, 41, 59, 0.7);
-            --glass-border: rgba(255, 255, 255, 0.1);
-            --primary: #8b5cf6;
-            --primary-hover: #7c3aed;
+            --bg-color: #080f1e;
+            --sidebar-bg: #0c1a30;
+            --glass-bg: rgba(12, 26, 48, 0.75);
+            --glass-border: rgba(0, 212, 255, 0.12);
+            --primary: #00d4ff;
+            --primary-hover: #00b8e6;
             --danger: #ef4444;
             --success: #10b981;
-            --text-main: #f8fafc;
-            --text-muted: #cbd5e1;
-            --td-border: rgba(255, 255, 255, 0.05);
-            --input-bg: rgba(15, 23, 42, 0.6);
+            --text-main: #e8f4ff;
+            --text-muted: #8ab3cc;
+            --td-border: rgba(0, 212, 255, 0.06);
+            --input-bg: rgba(8, 15, 30, 0.7);
             --sidebar-width: 260px;
         }
 
@@ -65,8 +65,9 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             width: 100%;
             height: 100%;
             z-index: -1;
-            background: radial-gradient(circle at 15% 50%, rgba(139, 92, 246, 0.1), transparent 25%),
-                radial-gradient(circle at 85% 30%, rgba(56, 189, 248, 0.1), transparent 25%);
+            background: radial-gradient(circle at 10% 40%, rgba(0, 212, 255, 0.08), transparent 30%),
+                radial-gradient(circle at 85% 20%, rgba(30, 74, 122, 0.15), transparent 35%),
+                radial-gradient(circle at 50% 90%, rgba(0, 100, 180, 0.06), transparent 40%);
         }
 
         /* ----- Sidebar ----- */
@@ -85,17 +86,28 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
         }
 
         .sidebar-logo {
-            padding: 24px;
-            font-size: 22px;
-            font-weight: 700;
+            padding: 18px 20px;
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
             border-bottom: 1px solid var(--glass-border);
         }
 
-        .sidebar-logo i {
-            color: var(--primary);
+        .sidebar-logo img {
+            width: 36px;
+            height: 36px;
+            object-fit: contain;
+            filter: drop-shadow(0 0 8px rgba(0, 212, 255, 0.5));
+        }
+
+        .sidebar-logo span {
+            font-size: 18px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #00d4ff, #38bdf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.3px;
         }
 
         .sidebar-nav {
@@ -563,8 +575,8 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
     <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-logo">
-            <i class="fa-solid fa-robot"></i>
-            <span>SkaleBot Admin</span>
+            <img src="icons/logo-skale.png" alt="Skale" onerror="this.style.display='none'">
+            <span>Skale Admin</span>
         </div>
 
         <nav class="sidebar-nav">
