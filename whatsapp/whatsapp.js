@@ -96,7 +96,23 @@ async function startSession(assistantId) {
 
                     // Log the structure to see what's coming
                     const msgType = Object.keys(msg.message)[0];
-                    const isAudio = msgType === 'audioMessage' || (msgType === 'ephemeralMessage' && msg.message.ephemeralMessage.message?.audioMessage);
+
+                    // M4: Detect audio in all its forms:
+                    // - Direct: audioMessage
+                    // - Ephemeral (disappearing): ephemeralMessage wrapping audioMessage
+                    // - View-once voice: viewOnceMessage wrapping audioMessage
+                    // - Forwarded: contextInfo.quotedMessage is not audio, but forwarded body may be
+                    const innerMsg =
+                        msg.message?.ephemeralMessage?.message ||
+                        msg.message?.viewOnceMessage?.message ||
+                        msg.message?.viewOnceMessageV2?.message ||
+                        msg.message?.documentWithCaptionMessage?.message ||
+                        msg.message;
+
+                    const isAudio =
+                        msgType === 'audioMessage' ||
+                        msgType === 'pttMessage' ||
+                        (innerMsg && (innerMsg.audioMessage || innerMsg.pttMessage)) !== undefined && (innerMsg?.audioMessage || innerMsg?.pttMessage) != null;
 
                     // Broad text extraction
                     let text = msg.message.conversation ||

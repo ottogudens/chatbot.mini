@@ -92,16 +92,22 @@ if ($assistant_id) {
 }
 
 // 2. Fetch specific and global rules
-$rules_query = "SELECT queries, replies, category FROM chatbot WHERE assistant_id IS NULL";
-if ($assistant_id) {
-    $rules_query .= " OR assistant_id = $assistant_id";
+$rules_stmt = mysqli_prepare($conn,
+    $assistant_id
+        ? "SELECT queries, replies, category FROM chatbot WHERE assistant_id IS NULL OR assistant_id = ?"
+        : "SELECT queries, replies, category FROM chatbot WHERE assistant_id IS NULL"
+);
+if ($rules_stmt && $assistant_id) {
+    mysqli_stmt_bind_param($rules_stmt, "i", $assistant_id);
 }
-$result = mysqli_query($conn, $rules_query);
-
 $rules = [];
-if ($result) {
-    while ($row = mysqli_fetch_assoc($result)) {
-        $rules[] = $row;
+if ($rules_stmt) {
+    mysqli_stmt_execute($rules_stmt);
+    $result = mysqli_stmt_get_result($rules_stmt);
+    if ($result) {
+        while ($row = mysqli_fetch_assoc($result)) {
+            $rules[] = $row;
+        }
     }
 }
 
@@ -293,11 +299,14 @@ if ($matched === 0 && (!empty($clean_msg) || $has_audio)) {
     }
     } // end if (!$cache_hit)
 
-    // Clean up any expired Gemini file URIs from the DB so future requests don't fail
+    // Clean up any expired Gemini file URIs from the DB — use prepared statement
     if (!empty($gemini->expired_file_uris)) {
+        $del_stmt = mysqli_prepare($conn, "UPDATE information_sources SET gemini_file_uri = NULL WHERE gemini_file_uri = ?");
         foreach ($gemini->expired_file_uris as $expired_uri) {
-            $safe_uri = mysqli_real_escape_string($conn, $expired_uri);
-            mysqli_query($conn, "UPDATE information_sources SET gemini_file_uri = NULL WHERE gemini_file_uri = '$safe_uri'");
+            if ($del_stmt) {
+                mysqli_stmt_bind_param($del_stmt, "s", $expired_uri);
+                mysqli_stmt_execute($del_stmt);
+            }
             error_log("Cleared expired Gemini file URI from DB: $expired_uri");
         }
     }
@@ -309,17 +318,23 @@ if ($matched === 0) {
         $reply = "Por favor, escribe algo para poder ayudarte.";
     } else {
         $reply = "¡Lo siento! Aún no entiendo eso. Todavía estoy aprendiendo.\n\n¿Tal vez podrías preguntarme alguna de estas cosas?";
-        // Get 3 random queries for suggestions (from rules applying to this assistant)
-        $sugg_query = "SELECT queries FROM chatbot WHERE assistant_id IS NULL";
-        if ($assistant_id)
-            $sugg_query .= " OR assistant_id = $assistant_id";
-        $sugg_query .= " ORDER BY RAND() LIMIT 3";
-
-        $sugg_res = mysqli_query($conn, $sugg_query);
-        if ($sugg_res) {
-            while ($row = mysqli_fetch_assoc($sugg_res)) {
-                $opt = explode('|', $row['queries'])[0]; // Show only the first variation
-                $suggestions[] = ucfirst($opt);
+        // Get 3 random queries for suggestions (prepared)
+        $sugg_stmt = mysqli_prepare($conn,
+            $assistant_id
+                ? "SELECT queries FROM chatbot WHERE (assistant_id IS NULL OR assistant_id = ?) ORDER BY RAND() LIMIT 3"
+                : "SELECT queries FROM chatbot WHERE assistant_id IS NULL ORDER BY RAND() LIMIT 3"
+        );
+        if ($sugg_stmt && $assistant_id) {
+            mysqli_stmt_bind_param($sugg_stmt, "i", $assistant_id);
+        }
+        if ($sugg_stmt) {
+            mysqli_stmt_execute($sugg_stmt);
+            $sugg_res = mysqli_stmt_get_result($sugg_stmt);
+            if ($sugg_res) {
+                while ($row = mysqli_fetch_assoc($sugg_res)) {
+                    $opt = explode('|', $row['queries'])[0];
+                    $suggestions[] = ucfirst($opt);
+                }
             }
         }
     }

@@ -142,25 +142,47 @@ if ($assistant_id) {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
             }
 
+            // L5: XSS-safe helper: escapes HTML special chars for text content
+            function escapeHtml(str) {
+                return String(str)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            }
+
+            // Safe nl2br: only converts newlines, no raw HTML allowed
+            function safenl2br(str) {
+                return escapeHtml(str).replace(/\n/g, '<br>');
+            }
+
             function appendMessage(type, text, time, save = true) {
                 let msgHtml = '';
                 if (type === 'user') {
+                    // User text: always escape — no HTML allowed from user input
+                    const safeText = escapeHtml(text);
                     msgHtml = `
                         <div class="user-inbox inbox msg-anim">
                             <div class="msg-header">
-                                <p>${text}</p>
-                                <span class="timestamp">${time}</span>
+                                <p>${safeText}</p>
+                                <span class="timestamp">${escapeHtml(time)}</span>
                             </div>
                         </div>`;
                 } else { // type === 'bot'
+                    // Bot replies from Gemini may contain <br> tags added by nl2br server-side.
+                    // We allow only <br> tags for line breaks, everything else is escaped.
+                    const safeText = text.replace(/&lt;br\s*\/?&gt;/gi, '<br>')
+                                        .replace(/<br\s*\/?>/gi, '\n') // normalize first
+                                        .split('\n').map(line => escapeHtml(line)).join('<br>');
                     msgHtml = `
                         <div class="bot-inbox inbox msg-anim">
                             <div class="icon">
                                 <i class="fa-solid fa-robot"></i>
                             </div>
                             <div class="msg-header">
-                                <p>${text}</p>
-                                <span class="timestamp">${time}</span>
+                                <p>${safeText}</p>
+                                <span class="timestamp">${escapeHtml(time)}</span>
                             </div>
                         </div>`;
                 }
