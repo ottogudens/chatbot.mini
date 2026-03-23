@@ -34,6 +34,27 @@ if (in_array($action, $secure_actions)) {
     }
 }
 
+// OPT-2: CSRF protection for all state-mutating POST actions
+$csrf_protected_actions = [
+    'create', 'update', 'delete',
+    'clients_create', 'clients_update', 'clients_delete',
+    'assistants_create', 'assistants_update', 'assistants_delete',
+    'info_create', 'info_update', 'info_delete',
+    'leads_create', 'leads_update', 'leads_delete',
+    'calendar_settings_update',
+    'pdf_templates_save', 'users_create', 'users_update', 'users_delete',
+    'whatsapp_disconnect'
+];
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, $csrf_protected_actions, true)) {
+    $csrf_post  = $_POST['csrf_token'] ?? '';
+    $csrf_sess  = $_SESSION['csrf_token'] ?? '';
+    if (empty($csrf_post) || empty($csrf_sess) || !hash_equals($csrf_sess, $csrf_post)) {
+        http_response_code(403);
+        echo json_encode(['status' => 'error', 'message' => 'Token CSRF inválido. Recarga la página e intenta de nuevo.']);
+        exit;
+    }
+}
+
 $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
 $session_client_id = $_SESSION['client_id'] ?? null;
 define('WHATSAPP_API_URL', 'http://localhost:3001'); // URL of the Node.js bridge
@@ -51,6 +72,11 @@ function check_ast_owner($conn, $ast_id)
 function check_item_owner($conn, $table, $id)
 {
     global $is_superadmin, $session_client_id;
+    // Whitelist allowed tables to prevent SQL injection via table name
+    $allowed_tables = ['chatbot', 'information_sources'];
+    if (!in_array($table, $allowed_tables, true)) {
+        return false;
+    }
     if ($is_superadmin)
         return true;
     if (!$id || !$session_client_id)
@@ -114,14 +140,14 @@ switch ($action) {
         if (mysqli_stmt_execute($stmt)) {
             $new_client_id = mysqli_insert_id($conn);
 
-            // Create user automatically
-            $password = "admin123!";
+            // Create user automatically with a secure random password
+            $password = bin2hex(random_bytes(8)); // 16-char hex random password
             $hash = password_hash($password, PASSWORD_DEFAULT);
             $user_stmt = mysqli_prepare($conn, "INSERT INTO users (username, password_hash, role, client_id) VALUES (?, ?, 'client', ?)");
             mysqli_stmt_bind_param($user_stmt, "ssi", $email, $hash, $new_client_id);
             mysqli_stmt_execute($user_stmt);
 
-            echo json_encode(['status' => 'success', 'client_id' => $new_client_id]);
+            echo json_encode(['status' => 'success', 'client_id' => $new_client_id, 'temp_password' => $password, 'note' => 'Contraseña temporal. El cliente debe cambiarla al primer acceso.']);
         } else {
             echo json_encode(['status' => 'error', 'message' => mysqli_error($conn)]);
         }
@@ -429,8 +455,34 @@ switch ($action) {
         if ($type === 'link') {
             $url = trim($content);
             if (filter_var($url, FILTER_VALIDATE_URL)) {
-                // Basic scraper
-                $ctx = stream_context_create(['http' => ['timeout' => 5]]);
+                // SSRF Protection: block private/internal IPs and non-http schemes
+                $parsed = parse_url($url);
+                $scheme = strtolower($parsed['scheme'] ?? '');
+                if (!in_array($scheme, ['http', 'https'], true)) {
+                    echo json_encode(['status' => 'error', 'message' => 'Solo se permiten URLs http y https.']);
+                    exit;
+                }
+                $host = $parsed['host'] ?? '';
+                // Resolve hostname to IP for SSRF check
+                $ip = gethostbyname($host);
+                if (
+                    $ip === '127.0.0.1' ||
+                    substr($ip, 0, 4) === '10.' ||
+                    substr($ip, 0, 8) === '192.168.' ||
+                    preg_match('/^172\.(1[6-9]|2[0-9]|3[01])\./', $ip) ||
+                    $ip === '::1' ||
+                    strtolower($host) === 'localhost'
+                ) {
+                    echo json_encode(['status' => 'error', 'message' => 'No se puede acceder a recursos internos de red.']);
+                    exit;
+                }
+
+                // Fetch with timeout and size limit
+                $ctx = stream_context_create(['http' => [
+                    'timeout' => 8,
+                    'max_redirects' => 3,
+                    'header' => 'User-Agent: SkaleBot-Scraper/1.0'
+                ]]);
                 $html = @file_get_contents($url, false, $ctx);
                 if ($html !== false) {
                     // Extract body content roughly
@@ -643,7 +695,11 @@ switch ($action) {
         } else {
             $query .= " WHERE assistant_id IS NULL";
         }
-        $query .= " ORDER BY id DESC LIMIT 100";
+        $page   = max(1, intval($_GET['page'] ?? 1));
+        $limit  = 50;
+        $offset = ($page - 1) * $limit;
+
+        $query .= " ORDER BY id DESC LIMIT $limit OFFSET $offset";
         $result = mysqli_query($conn, $query);
         $data = [];
         if ($result) {
@@ -651,7 +707,12 @@ switch ($action) {
                 $data[] = $row;
             }
         }
-        echo json_encode(['status' => 'success', 'data' => $data]);
+
+        // Total count for pagination UI
+        $where_total = $assistant_id ? "WHERE assistant_id = " . intval($assistant_id) : "WHERE assistant_id IS NULL";
+        $total_count = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as c FROM conversation_logs $where_total"))['c'] ?? 0;
+
+        echo json_encode(['status' => 'success', 'data' => $data, 'total' => (int) $total_count, 'page' => $page, 'per_page' => $limit]);
         break;
 
     case 'stats':

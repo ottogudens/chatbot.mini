@@ -10,11 +10,21 @@ $user_msg = $_POST['text'] ?? '';
 $assistant_id = isset($_POST['assistant_id']) && is_numeric($_POST['assistant_id']) ? intval($_POST['assistant_id']) : null;
 $internal_token = $_POST['internal_token'] ?? '';
 
-// Security: Verify request is from local bridge
+// Security: Dual-mode authentication
+// Mode 1 (WhatsApp bridge / internal): validate secret token
+// Mode 2 (Browser): validate same-origin CSRF token
 $expected_token = getenv('INTERNAL_TOKEN') ?: 'local_secret_123';
-if ($internal_token !== $expected_token) {
+$has_valid_internal_token = ($internal_token === $expected_token && !empty($expected_token));
+
+// Same-origin browser check: Referer or session CSRF token
+if (session_status() === PHP_SESSION_NONE) session_start();
+$csrf_from_session = isset($_SESSION['csrf_token']) && !empty($_SESSION['csrf_token']);
+$csrf_from_post    = isset($_POST['csrf_token']) && !empty($_POST['csrf_token']);
+$has_valid_csrf    = $csrf_from_session && $csrf_from_post && hash_equals($_SESSION['csrf_token'], $_POST['csrf_token']);
+
+if (!$has_valid_internal_token && !$has_valid_csrf) {
     http_response_code(403);
-    echo json_encode(['status' => 'error', 'message' => 'Forbidden: Invalid internal token.']);
+    echo json_encode(['status' => 'error', 'message' => 'Forbidden: Invalid or missing auth token.']);
     exit;
 }
 
@@ -38,9 +48,11 @@ $info_sources_files = [];
 // 1. Fetch Assistant Config (if any)
 $ai_config = [];
 if ($assistant_id) {
-    // Get assistant + AI config
-    $ast_query = "SELECT client_id, system_prompt, gemini_model, temperature, max_output_tokens, response_style, voice_enabled FROM assistants WHERE id = $assistant_id";
-    $ast_res = mysqli_query($conn, $ast_query);
+    // Get assistant + AI config — use prepared statement to prevent SQLi
+    $ast_stmt = mysqli_prepare($conn, "SELECT client_id, system_prompt, gemini_model, temperature, max_output_tokens, response_style, voice_enabled FROM assistants WHERE id = ?");
+    mysqli_stmt_bind_param($ast_stmt, "i", $assistant_id);
+    mysqli_stmt_execute($ast_stmt);
+    $ast_res = mysqli_stmt_get_result($ast_stmt);
     if ($ast_res && $ast_row = mysqli_fetch_assoc($ast_res)) {
         $client_id = $ast_row['client_id'];
         $custom_system_prompt = $ast_row['system_prompt'] ?? '';
@@ -53,9 +65,11 @@ if ($assistant_id) {
         ];
     }
 
-    // Get info sources
-    $info_query = "SELECT type, content_text, gemini_file_uri, file_type FROM information_sources WHERE assistant_id = $assistant_id";
-    $info_res = mysqli_query($conn, $info_query);
+    // Get info sources — use prepared statement
+    $info_stmt = mysqli_prepare($conn, "SELECT type, content_text, gemini_file_uri, file_type FROM information_sources WHERE assistant_id = ?");
+    mysqli_stmt_bind_param($info_stmt, "i", $assistant_id);
+    mysqli_stmt_execute($info_stmt);
+    $info_res = mysqli_stmt_get_result($info_stmt);
 
     $info_sources_text = "";
     $info_sources_files = [];
@@ -96,6 +110,13 @@ foreach ($rules as $rule) {
     $keywords = explode('|', $rule['queries']);
     foreach ($keywords as $keyword) {
         $clean_kw = strtolower(trim($keyword));
+        // Normalize accents in keyword too for fair comparison
+        $clean_kw = preg_replace('/[áàäâ]/u', 'a', $clean_kw);
+        $clean_kw = preg_replace('/[éèëê]/u', 'e', $clean_kw);
+        $clean_kw = preg_replace('/[íìïî]/u', 'i', $clean_kw);
+        $clean_kw = preg_replace('/[óòöô]/u', 'o', $clean_kw);
+        $clean_kw = preg_replace('/[úùüû]/u', 'u', $clean_kw);
+        $clean_kw = preg_replace('/[^a-z0-9\s]/i', '', $clean_kw);
         if ($clean_msg === $clean_kw) {
             $reply = $rule['replies'];
             $matched = 1;
@@ -104,11 +125,16 @@ foreach ($rules as $rule) {
     }
 }
 
-// 4. Fuzzy/Regex Match Check (If no exact match)
+// 4. Fuzzy/Regex Match Check (If no exact match) — FIX-6: safe regex escaping
 if ($matched === 0) {
     foreach ($rules as $rule) {
-        $pattern = '/\b(' . str_replace(' ', '\s+', $rule['queries']) . ')\b/i';
-        if (preg_match($pattern, $clean_msg)) {
+        // Split by | to handle multiple keywords, escape each one safely
+        $keywords = array_map('trim', explode('|', $rule['queries']));
+        $escaped = array_map(function ($kw) {
+            return preg_quote($kw, '/');
+        }, $keywords);
+        $pattern = '/\b(' . implode('|', $escaped) . ')\b/iu';
+        if (@preg_match($pattern, $clean_msg)) {
             $reply = $rule['replies'];
             $matched = 1;
             break;

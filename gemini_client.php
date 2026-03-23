@@ -51,7 +51,7 @@ class GeminiClient
         $check_url = "https://generativelanguage.googleapis.com/v1beta/files/{$file_id}?key=" . $this->api_key;
         $ch = curl_init($check_url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
         curl_exec($ch);
         $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         // curl_close is unnecessary in PHP 8.4+ and deprecated in 8.5
@@ -91,7 +91,7 @@ class GeminiClient
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $init_data);
         curl_setopt($ch, CURLOPT_HEADER, true); // Need headers to get upload URI
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
 
         $response = curl_exec($ch);
         $header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
@@ -122,7 +122,7 @@ class GeminiClient
         curl_setopt($ch2, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch2, CURLOPT_HTTPHEADER, $upload_headers);
         curl_setopt($ch2, CURLOPT_POST, true);
-        curl_setopt($ch2, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch2, CURLOPT_SSL_VERIFYPEER, true);
         // Using CURLFile for direct streaming would be better for 500MB, but file_get_contents is simpler for now
         // A robust solution for 500MB would stream the file from disk using CURLOPT_INFILE
         $file_handle = fopen($file_path, 'r');
@@ -352,7 +352,8 @@ class GeminiClient
         curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // For some environments without local certs
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 60);
 
         $response = curl_exec($ch);
         $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -385,7 +386,8 @@ class GeminiClient
                 curl_setopt($ch2, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
                 curl_setopt($ch2, CURLOPT_POST, true);
                 curl_setopt($ch2, CURLOPT_POSTFIELDS, json_encode($data));
-                curl_setopt($ch2, CURLOPT_SSL_VERIFYPEER, false);
+                curl_setopt($ch2, CURLOPT_SSL_VERIFYPEER, true);
+                curl_setopt($ch2, CURLOPT_TIMEOUT, 60);
 
                 $response = curl_exec($ch2);
                 $http_code = curl_getinfo($ch2, CURLINFO_HTTP_CODE);

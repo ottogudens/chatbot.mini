@@ -1639,9 +1639,26 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
         // Global State
         const IS_SUPERADMIN = <?php echo $is_superadmin ? 'true' : 'false'; ?>;
         const id_client_sesion = <?php echo json_encode($_SESSION['client_id'] ?? null); ?>;
+        // OPT-2: CSRF token for all mutating API calls
+        const CSRF_TOKEN = "<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES); ?>";
         let currentAssistantId = null;
         let clientsCache = [];
         let assistantsCache = [];
+
+        // Configure jQuery to automatically include CSRF token in all POST requests
+        $.ajaxSetup({
+            beforeSend: function(xhr, settings) {
+                if (settings.type === 'POST' || settings.type === 'post') {
+                    if (typeof settings.data === 'string') {
+                        settings.data += '&csrf_token=' + encodeURIComponent(CSRF_TOKEN);
+                    } else if (settings.data instanceof FormData) {
+                        settings.data.append('csrf_token', CSRF_TOKEN);
+                    } else if (typeof settings.data === 'object' && settings.data !== null) {
+                        settings.data.csrf_token = CSRF_TOKEN;
+                    }
+                }
+            }
+        });
 
         $(document).ready(function () {
             // Setup Tabs

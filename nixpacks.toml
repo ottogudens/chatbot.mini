@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["php83", "nginx", "nodejs"]
+nixPkgs = ["php83", "nginx", "nodejs_20"]
 
 [phases.install]
 cmds = [

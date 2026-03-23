@@ -1,4 +1,4 @@
-const CACHE_NAME = 'skale-chat-v1';
+const CACHE_NAME = 'skale-chat-v2';
 const SHELL_ASSETS = [
     '/',
     '/index.php',

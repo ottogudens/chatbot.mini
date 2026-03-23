@@ -13,9 +13,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user = $_POST['username'] ?? '';
     $pass = $_POST['password'] ?? '';
 
-    if (attempt_login($user, $pass, $conn)) {
+    $login_result = attempt_login($user, $pass, $conn);
+    if ($login_result === true) {
         header("Location: admin.php");
         exit;
+    } elseif (is_array($login_result) && ($login_result['error'] ?? '') === 'rate_limited') {
+        $error = "Demasiados intentos fallidos. Intenta nuevamente en {$login_result['remaining']} minuto(s).";
     } else {
         $error = "Usuario o contraseña incorrectos.";
     }

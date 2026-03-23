@@ -1,5 +1,11 @@
 <?php
 require_once 'db.php';
+// Start session to access CSRF token (generated on login)
+if (session_status() === PHP_SESSION_NONE) session_start();
+// Generate a CSRF token if it doesn't exist yet (for non-logged-in chat users)
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
 
 $assistant_id = isset($_GET['assistant']) && is_numeric($_GET['assistant']) ? intval($_GET['assistant']) : null;
 $bot_name = "SkaleBot";
@@ -111,7 +117,8 @@ if ($assistant_id) {
             // Assistant Context
             const assistantId = <?php echo $assistant_id ? $assistant_id : 'null'; ?>;
             const botName = "<?php echo $bot_name; ?>";
-            const internalToken = "<?php echo getenv('INTERNAL_TOKEN') ?: 'local_secret_123'; ?>";
+            // CSRF token from server-side session (never exposes the internal bridge token)
+            const csrfToken = "<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES); ?>";
 
             // --- History Persistence Logic ---
             const STORAGE_KEY = 'skalebot_history_' + (assistantId || 'global');
@@ -173,8 +180,13 @@ if ($assistant_id) {
                 }
             });
 
-            // Theme Toggle Logic
+            // Theme Toggle Logic — OPT-4: persist theme in localStorage
             const themeToggleBtn = $('#theme-toggle');
+            // Restore saved theme on load
+            const savedTheme = localStorage.getItem('skale_theme') || 'dark';
+            $('html').attr('data-theme', savedTheme);
+            themeToggleBtn.html(savedTheme === 'dark' ? '<i class="fa-solid fa-moon"></i>' : '<i class="fa-solid fa-sun"></i>');
+
             themeToggleBtn.on('click', function () {
                 const htmlTag = $('html');
                 const isDark = htmlTag.attr('data-theme') === 'dark';
@@ -182,9 +194,11 @@ if ($assistant_id) {
                 if (isDark) {
                     htmlTag.attr('data-theme', 'light');
                     themeToggleBtn.html('<i class="fa-solid fa-sun"></i>');
+                    localStorage.setItem('skale_theme', 'light');
                 } else {
                     htmlTag.attr('data-theme', 'dark');
                     themeToggleBtn.html('<i class="fa-solid fa-moon"></i>');
+                    localStorage.setItem('skale_theme', 'dark');
                 }
             });
 
@@ -229,40 +243,38 @@ if ($assistant_id) {
                 $("#typing-indicator").removeClass('hidden');
                 scrollToBottom();
 
-                // 3. AJAX Request
-                setTimeout(() => {
-                    $.ajax({
-                        url: 'message.php',
-                        type: 'POST',
-                        dataType: 'json',
-                        data: { text: textValue, assistant_id: assistantId, internal_token: internalToken },
-                        success: function (result) {
-                            // Hide typing indicator
-                            $("#typing-indicator").addClass('hidden');
+                // 3. AJAX Request — UX-1: removed artificial 800ms delay
+                $.ajax({
+                    url: 'message.php',
+                    type: 'POST',
+                    dataType: 'json',
+                    data: { text: textValue, assistant_id: assistantId, csrf_token: csrfToken },
+                    success: function (result) {
+                        // Hide typing indicator
+                        $("#typing-indicator").addClass('hidden');
 
-                            // Append and Save Bot Reply
-                            const botTime = result.timestamp || timeString;
-                            appendMessage('bot', result.reply, botTime, true);
+                        // Append and Save Bot Reply
+                        const botTime = result.timestamp || timeString;
+                        appendMessage('bot', result.reply, botTime, true);
 
-                            // Add suggestions if available
-                            if (result.suggestions && result.suggestions.length > 0) {
-                                let suggHtml = '';
-                                result.suggestions.forEach(sugg => {
-                                    suggHtml += `<button class="sugg-btn">${sugg}</button>`;
-                                });
-                                $("#suggestions-area").html(suggHtml);
-                            }
-
-                            scrollToBottom();
-                        },
-                        error: function () {
-                            // Fallback on error
-                            $("#typing-indicator").addClass('hidden');
-                            appendMessage('bot', '<span style="color:var(--danger)">Error de conexión con el servidor.</span>', timeString, false); // Don't save errors
-                            scrollToBottom();
+                        // Add suggestions if available
+                        if (result.suggestions && result.suggestions.length > 0) {
+                            let suggHtml = '';
+                            result.suggestions.forEach(sugg => {
+                                suggHtml += `<button class="sugg-btn">${sugg}</button>`;
+                            });
+                            $("#suggestions-area").html(suggHtml);
                         }
-                    });
-                }, 800);
+
+                        scrollToBottom();
+                    },
+                    error: function () {
+                        // Fallback on error
+                        $("#typing-indicator").addClass('hidden');
+                        appendMessage('bot', '<span style="color:var(--danger)">Error de conexión con el servidor.</span>', timeString, false); // Don't save errors
+                        scrollToBottom();
+                    }
+                });
             });
 
             // ==========================================

@@ -21,6 +21,7 @@ function get_calendar_token($conn, $client_id)
         $ch = curl_init('https://oauth2.googleapis.com/token');
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([
             'client_id' => $google_client_id,
             'client_secret' => $google_client_secret,
@@ -29,7 +30,7 @@ function get_calendar_token($conn, $client_id)
         ]));
 
         $response = curl_exec($ch);
-        curl_close($ch);
+        // curl_close unnecessary in PHP 8.4+ (deprecated in 8.5)
 
         $json = json_decode($response, true);
         if (isset($json['access_token'])) {
@@ -96,6 +97,7 @@ function check_calendar_availability($conn, $assistant_id, $args)
 
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         "Authorization: Bearer $token",
         "Accept: application/json"
@@ -103,7 +105,7 @@ function check_calendar_availability($conn, $assistant_id, $args)
 
     $response = curl_exec($ch);
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
+    // curl_close unnecessary in PHP 8.4+
 
     if ($http_code !== 200)
         return ["error" => "Error consultando Google Calendar: $response"];
@@ -189,6 +191,7 @@ function book_calendar_appointment($conn, $assistant_id, $args)
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($event));
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         "Authorization: Bearer $token",
@@ -197,7 +200,7 @@ function book_calendar_appointment($conn, $assistant_id, $args)
 
     $response = curl_exec($ch);
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
+    // curl_close unnecessary in PHP 8.4+
 
     if ($http_code === 200 || $http_code === 201) {
         $event_data = json_decode($response, true);

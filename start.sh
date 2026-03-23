@@ -5,8 +5,10 @@ echo "Date: $(date)"
 echo "User: $(whoami)"
 echo "Environment: PORT=${PORT}"
 
-# Enable debug mode
-set -x
+# Enable debug mode only when DEBUG_MODE env var is explicitly set to '1'
+if [ "$DEBUG_MODE" = "1" ]; then
+    set -x
+fi
 
 # 1. Binary Discovery
 PHP_FPM_BIN=""
