@@ -40,6 +40,7 @@ function refresh_google_token($conn, $client_id_db, $refresh_token, $google_clie
     curl_setopt($ch, CURLOPT_URL, "https://oauth2.googleapis.com/token");
     curl_setopt($ch, CURLOPT_POST, TRUE);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([
         'client_id' => $google_client_id,
         'client_secret' => $google_client_secret,
@@ -47,7 +48,7 @@ function refresh_google_token($conn, $client_id_db, $refresh_token, $google_clie
         'grant_type' => 'refresh_token'
     ]));
     $response = curl_exec($ch);
-    curl_close($ch);
+    // curl_close deprecated in PHP 8.4+, removed in 8.5
     $data = json_decode($response, true);
 
     if (isset($data['access_token'])) {
@@ -61,6 +62,7 @@ function refresh_google_token($conn, $client_id_db, $refresh_token, $google_clie
     }
     return false;
 }
+
 
 function get_valid_token($conn, $client_id_db, $google_client_id, $google_client_secret)
 {
@@ -116,6 +118,7 @@ switch ($action) {
         curl_setopt($ch, CURLOPT_URL, "https://oauth2.googleapis.com/token");
         curl_setopt($ch, CURLOPT_POST, TRUE);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([
             'client_id' => $google_client_id,
             'client_secret' => $google_client_secret,
@@ -124,7 +127,7 @@ switch ($action) {
             'grant_type' => 'authorization_code'
         ]));
         $response = curl_exec($ch);
-        curl_close($ch);
+        // curl_close deprecated in PHP 8.4+
 
         $data = json_decode($response, true);
         if (isset($data['access_token'])) {
@@ -132,8 +135,11 @@ switch ($action) {
             $refresh_token = $data['refresh_token'] ?? null;
             $expires_at = date('Y-m-d H:i:s', time() + $data['expires_in']);
 
-            // Upsert
-            $check = mysqli_query($conn, "SELECT id FROM client_integrations WHERE client_id=" . intval($state_client_id) . " AND provider='google_drive'");
+            // Upsert — use prepared statement to avoid SQL injection
+            $check_stmt = mysqli_prepare($conn, "SELECT id FROM client_integrations WHERE client_id=? AND provider='google_drive'");
+            mysqli_stmt_bind_param($check_stmt, "i", $state_client_id);
+            mysqli_stmt_execute($check_stmt);
+            $check = mysqli_stmt_get_result($check_stmt);
             if (mysqli_num_rows($check) > 0) {
                 if ($refresh_token) {
                     $stmt = mysqli_prepare($conn, "UPDATE client_integrations SET access_token=?, refresh_token=?, expires_at=? WHERE client_id=? AND provider='google_drive'");
@@ -176,11 +182,12 @@ switch ($action) {
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             "Authorization: Bearer $token"
         ]);
         $response = curl_exec($ch);
-        curl_close($ch);
+        // curl_close deprecated in PHP 8.4+
 
         echo $response; // Return raw google response
         break;
@@ -196,9 +203,10 @@ switch ($action) {
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
         curl_setopt($ch, CURLOPT_HTTPHEADER, ["Authorization: Bearer $token"]);
         $response = curl_exec($ch);
-        curl_close($ch);
+        // curl_close deprecated in PHP 8.4+
         echo $response;
         break;
 
@@ -215,13 +223,14 @@ switch ($action) {
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_POST, TRUE);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             "Authorization: Bearer $token",
             "Content-Type: application/json"
         ]);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['summary' => $summary]));
         $response = curl_exec($ch);
-        curl_close($ch);
+        // curl_close deprecated in PHP 8.4+
         echo $response;
         break;
 
@@ -285,10 +294,11 @@ switch ($action) {
         curl_setopt($ch, CURLOPT_URL, $downloadUrl);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, TRUE);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
         curl_setopt($ch, CURLOPT_HTTPHEADER, ["Authorization: Bearer $token"]);
         $file_content = curl_exec($ch);
         $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
+        // curl_close deprecated in PHP 8.4+
 
         if ($http_code != 200 || !$file_content) {
             echo json_encode(['status' => 'error', 'message' => "Error de descarga desde Google Drive (HTTP $http_code). ¿Es un archivo válido y no vacío?"]);

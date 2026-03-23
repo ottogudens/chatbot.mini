@@ -175,23 +175,57 @@ if ($audio_file && $audio_file['error'] === UPLOAD_ERR_OK) {
 
 // 6. AI Fallback (Gemini)
 if ($matched === 0 && (!empty($clean_msg) || $has_audio)) {
+
+    // OPT-3: Gemini Response Cache
+    // Only cache plain text-only queries (no audio, no file uploads in context) — TTL 2h
+    $use_cache = !$has_audio && empty($info_sources_files) && !empty($clean_msg) && $assistant_id;
+    $cache_key  = null;
+    $cache_hit  = false;
+
+    if ($use_cache) {
+        $cache_key = md5($assistant_id . '::' . mb_strtolower(trim($user_msg)));
+        $cache_stmt = mysqli_prepare($conn, "SELECT cached_reply, id FROM gemini_response_cache WHERE cache_key = ? AND expires_at > NOW() LIMIT 1");
+        if ($cache_stmt) {
+            mysqli_stmt_bind_param($cache_stmt, "s", $cache_key);
+            mysqli_stmt_execute($cache_stmt);
+            $cache_res = mysqli_stmt_get_result($cache_stmt);
+            if ($cache_row = mysqli_fetch_assoc($cache_res)) {
+                $reply      = $cache_row['cached_reply'];
+                $matched    = 1;
+                $cache_hit  = true;
+                // Update hit counter
+                $upd = mysqli_prepare($conn, "UPDATE gemini_response_cache SET hit_count = hit_count + 1, last_hit_at = NOW() WHERE id = ?");
+                mysqli_stmt_bind_param($upd, "i", $cache_row['id']);
+                mysqli_stmt_execute($upd);
+            }
+        }
+    }
+
+    if (!$cache_hit) {
     // Fetch last 5 messages for context
     $history = [];
-    $hist_query = "SELECT user_message, bot_reply FROM conversation_logs ";
-    $hist_query .= $assistant_id ? "WHERE assistant_id = $assistant_id " : "WHERE assistant_id IS NULL ";
-    $hist_query .= "ORDER BY id DESC LIMIT 5";
-
-    $hist_result = mysqli_query($conn, $hist_query);
-    if ($hist_result) {
-        while ($row = mysqli_fetch_assoc($hist_result)) {
-            array_unshift($history, $row);
+    $hist_stmt = mysqli_prepare($conn, "SELECT user_message, bot_reply FROM conversation_logs " .
+        ($assistant_id ? "WHERE assistant_id = ? " : "WHERE assistant_id IS NULL ") .
+        "ORDER BY id DESC LIMIT 5");
+    if ($hist_stmt && $assistant_id) {
+        mysqli_stmt_bind_param($hist_stmt, "i", $assistant_id);
+    }
+    if ($hist_stmt) {
+        mysqli_stmt_execute($hist_stmt);
+        $hist_result = mysqli_stmt_get_result($hist_stmt);
+        if ($hist_result) {
+            while ($row = mysqli_fetch_assoc($hist_result)) {
+                array_unshift($history, $row);
+            }
         }
     }
 
     $ai_reply = $gemini->get_response($user_msg, $history, $custom_system_prompt, $info_sources_text, $info_sources_files, null, $ai_config);
 
     // Handle function calling
+    $had_function_call = false;
     if (is_array($ai_reply) && $ai_reply['type'] === 'function_call') {
+        $had_function_call = true;
         require_once 'calendar_functions.php';
         $func_name = $ai_reply['call']['name'];
         $func_args = $ai_reply['call']['args'] ?? [];
@@ -212,7 +246,7 @@ if ($matched === 0 && (!empty($clean_msg) || $has_audio)) {
             $data = $func_args['data'] ?? [];
             $func_result = $pdf_helper->generate_from_template($template_id, $data, $client_id ?? null, $assistant_id ?? null);
         } else if ($func_name === 'register_lead') {
-            $name = $func_args['name'] ?? 'S/N';
+            $name  = $func_args['name'] ?? 'S/N';
             $phone = $func_args['phone'] ?? '';
             $email = $func_args['email'] ?? '';
             $notes = $func_args['notes'] ?? '';
@@ -231,7 +265,7 @@ if ($matched === 0 && (!empty($clean_msg) || $has_audio)) {
 
         // Pass result back to Gemini for final response
         $function_state = [
-            'call' => $ai_reply['call'],
+            'call'   => $ai_reply['call'],
             'result' => is_array($func_result) ? $func_result : ["message" => $func_result]
         ];
 
@@ -239,9 +273,25 @@ if ($matched === 0 && (!empty($clean_msg) || $has_audio)) {
     }
 
     if (is_string($ai_reply) && !empty($ai_reply)) {
-        $reply = $ai_reply;
+        $reply   = $ai_reply;
         $matched = 1; // Mark as matched via AI
+
+        // OPT-3: Store in cache only if: plain text, no function call results (time-sensitive), not expired
+        if ($use_cache && $cache_key && !$had_function_call) {
+            $cache_ttl    = 7200; // 2 hours
+            $expires_at   = date('Y-m-d H:i:s', time() + $cache_ttl);
+            $cache_ins = mysqli_prepare($conn,
+                "INSERT INTO gemini_response_cache (cache_key, assistant_id, user_message, cached_reply, expires_at)
+                 VALUES (?, ?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE cached_reply=VALUES(cached_reply), expires_at=VALUES(expires_at), hit_count=1"
+            );
+            if ($cache_ins) {
+                mysqli_stmt_bind_param($cache_ins, "sisss", $cache_key, $assistant_id, $user_msg, $reply, $expires_at);
+                mysqli_stmt_execute($cache_ins);
+            }
+        }
     }
+    } // end if (!$cache_hit)
 
     // Clean up any expired Gemini file URIs from the DB so future requests don't fail
     if (!empty($gemini->expired_file_uris)) {
