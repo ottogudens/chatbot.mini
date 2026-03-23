@@ -857,6 +857,10 @@ switch ($action) {
         $temp_filename = "analyze_" . time() . "_" . uniqid() . "." . $ext;
         $temp_path = $temp_dir . $temp_filename;
 
+        $log_dir = __DIR__ . '/persistent';
+        if (!is_dir($log_dir)) @mkdir($log_dir, 0777, true);
+        $log_file = $log_dir . '/pdf_analysis.log';
+
         if (move_uploaded_file($file['tmp_name'], $temp_path)) {
             $placeholders = [];
             if ($ext === 'pdf') {
@@ -866,21 +870,21 @@ switch ($action) {
                 if ($uri) {
                     $placeholders = $gemini->analyze_pdf_placeholders($uri, 'application/pdf');
                 } else {
-                    error_log("PDF Analyze Error: Failed to upload example PDF to Gemini.");
+                    file_put_contents($log_file, date('[Y-m-d H:i:s]') . " PDF Analyze Error: Failed to upload example PDF to Gemini.\n", FILE_APPEND);
                 }
             } else {
                 $content = file_get_contents($temp_path);
                 preg_match_all('/\{\{(.*?)\}\}/', $content, $matches);
                 $placeholders = isset($matches[1]) ? array_unique($matches[1]) : [];
             }
-            error_log("PDF Analyze Success: Found " . count($placeholders) . " fields for file " . $file['name']);
+            file_put_contents($log_file, date('[Y-m-d H:i:s]') . " PDF Analyze Success: Found " . count($placeholders) . " fields for file " . $file['name'] . "\n", FILE_APPEND);
             echo json_encode([
                 'status' => 'success', 
                 'detected_fields' => array_values($placeholders),
                 'temp_file' => "uploads/temp/" . $temp_filename
             ]);
         } else {
-            error_log("PDF Analyze Error: Failed to move uploaded file to $temp_path");
+            file_put_contents($log_file, date('[Y-m-d H:i:s]') . " PDF Analyze Error: Failed to move uploaded file to $temp_path\n", FILE_APPEND);
             echo json_encode(['status' => 'error', 'message' => 'Error al procesar archivo temporal']);
         }
         break;
