@@ -286,7 +286,8 @@ class GeminiClient
                                 "type" => "OBJECT",
                                 "properties" => [
                                     "target_date" => ["type" => "STRING", "description" => "Fecha específica a consultar (YYYY-MM-DD). Si el usuario no dio fecha concreta, déjalo vacío o usa palabras como 'hoy', 'mañana' si quieres."],
-                                ]
+                                ],
+                                "required" => ["target_date"]
                             ]
                         ],
                         [
@@ -309,7 +310,7 @@ class GeminiClient
                             "description" => "Obtiene la lista de plantillas de PDF disponibles y los campos requeridos para cada una.",
                             "parameters" => [
                                 "type" => "OBJECT",
-                                "properties" => (object) []
+                                "properties" => new \stdClass()
                             ]
                         ],
                         [
