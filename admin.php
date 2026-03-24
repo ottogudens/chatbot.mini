@@ -1813,6 +1813,39 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
         let currentAssistantId = null;
         let clientsCache = [];
         let assistantsCache = [];
+ 
+        // Auto-refresh Manager for Dashboard
+        const DashboardAutoRefresh = {
+            interval: null,
+            activeTab: null,
+            init: function(tabId) {
+                this.stop();
+                this.activeTab = tabId;
+                let delay = 0;
+                let func = null;
+
+                if (tabId === 'logs-tab') { delay = 10000; func = loadLogs; }
+                else if (tabId === 'leads-tab') { delay = 30000; func = loadLeads; }
+                else if (tabId === 'appointments-tab') { delay = 60000; func = loadAppointments; }
+                else if (tabId === 'pdf-generated-tab') { delay = 20000; func = loadGeneratedDocs; }
+                else if (tabId === 'dashboard-tab') { delay = 300000; func = () => { loadStats(); initChart(); }; }
+
+                if (func && delay > 0) {
+                    this.interval = setInterval(() => {
+                        // Only refresh if an assistant is selected and tab is visible
+                        if (currentAssistantId && document.visibilityState === 'visible') {
+                            func();
+                        }
+                    }, delay);
+                }
+            },
+            stop: function() {
+                if (this.interval) {
+                    clearInterval(this.interval);
+                    this.interval = null;
+                }
+            }
+        };
 
         // Configure jQuery to automatically include CSRF token in all POST requests
         $.ajaxSetup({
@@ -1835,22 +1868,26 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 $('.nav-tab').removeClass('active'); $(this).addClass('active');
                 const target = $(this).data('target');
                 $('.tab-content').removeClass('active'); $('#' + target).addClass('active');
-                if (target === 'pdf-templates-tab') loadPDFTemplates();
-                if (target === 'pdf-generated-tab') loadGeneratedDocs();
-                if (target === 'leads-tab') loadLeads();
-                if (target === 'integrations-tab') {
-                    loadDriveStatus();
-                    reloadWhatsAppIntegration();
-                }
-            });
+                 if (target === 'pdf-templates-tab') loadPDFTemplates();
+                 if (target === 'pdf-generated-tab') loadGeneratedDocs();
+                 if (target === 'leads-tab') loadLeads();
+                 if (target === 'integrations-tab') {
+                     loadDriveStatus();
+                     reloadWhatsAppIntegration();
+                 }
+                 // Start/Stop automated refresh based on tab
+                 DashboardAutoRefresh.init(target);
+             });
 
             // Handle Global Assistant Change
             $('#global-assistant-select').on('change', function () {
                 currentAssistantId = $(this).val();
-                let url = currentAssistantId ? 'index.php?assistant=' + currentAssistantId : 'index.php';
-                $('#btn-chat-link').attr('href', url);
-                reloadAssistantDependantViews();
-            });
+                 let url = currentAssistantId ? 'index.php?assistant=' + currentAssistantId : 'index.php';
+                 $('#btn-chat-link').attr('href', url);
+                 reloadAssistantDependantViews();
+                 // Re-init refresh for the current tab if needed
+                 if (DashboardAutoRefresh.activeTab) DashboardAutoRefresh.init(DashboardAutoRefresh.activeTab);
+             });
 
             // Initial Loads
             loadClients();
@@ -1859,6 +1896,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             }
             loadPDFTemplates();
             loadAssistants(true); // true = also reload select
+            DashboardAutoRefresh.init('dashboard-tab');
 
             // Sidebar Toggle for Mobile
             $('#mobile-toggle, #sidebar-overlay').on('click', function () {
