@@ -2060,6 +2060,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
 
         // --- WhatsApp Management ---
         let whatsappPollInterval = null;
+        let whatsappConnecting = false; // Flag: true while waiting for QR/connection after clicking connect
 
         function updateWhatsAppUI() {
             if (!currentAssistantId) {
@@ -2073,11 +2074,13 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 let statusHtml = '';
 
                 if (status === 'connected') {
+                    whatsappConnecting = false;
                     statusHtml = '<span class="badge success"><i class="fa-solid fa-check"></i> Conectado</span>';
                     $('#btn-whatsapp-connect').hide();
                     $('#btn-whatsapp-disconnect').show();
                     $('#whatsapp-qr-container').hide();
-                    if (whatsappPollInterval) clearInterval(whatsappPollInterval);
+                    // Stop polling once connected
+                    if (whatsappPollInterval) { clearInterval(whatsappPollInterval); whatsappPollInterval = null; }
                 } else if (status === 'connecting') {
                     statusHtml = '<span class="badge" style="background:rgba(245,158,11,0.15); color:#f59e0b;"><i class="fa-solid fa-spinner fa-spin"></i> Esperando escaneo de QR...</span>';
                     $('#btn-whatsapp-connect').hide();
@@ -2085,16 +2088,28 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                     $('#whatsapp-qr-container').show();
                     loadWhatsAppQR();
                 } else if (status === 'offline') {
+                    whatsappConnecting = false;
                     statusHtml = '<span class="badge failed"><i class="fa-solid fa-circle-exclamation"></i> Servicio Offline</span>';
                     $('#btn-whatsapp-connect').hide();
                     $('#btn-whatsapp-disconnect').hide();
                     $('#whatsapp-qr-container').hide();
                 } else {
-                    statusHtml = '<span class="badge failed">Desconectado</span>';
-                    $('#btn-whatsapp-connect').show();
-                    $('#btn-whatsapp-disconnect').hide();
-                    $('#whatsapp-qr-container').hide();
-                    if (whatsappPollInterval) clearInterval(whatsappPollInterval);
+                    // status === 'disconnected'
+                    if (whatsappConnecting) {
+                        // Still waiting for the WhatsApp service to initialize and generate the QR
+                        // Keep polling — do not stop the interval
+                        statusHtml = '<span class="badge" style="background:rgba(245,158,11,0.15); color:#f59e0b;"><i class="fa-solid fa-spinner fa-spin"></i> Iniciando sesión...</span>';
+                        $('#btn-whatsapp-connect').hide();
+                        $('#btn-whatsapp-disconnect').show();
+                        $('#whatsapp-qr-container').hide();
+                    } else {
+                        statusHtml = '<span class="badge failed">Desconectado</span>';
+                        $('#btn-whatsapp-connect').show();
+                        $('#btn-whatsapp-disconnect').hide();
+                        $('#whatsapp-qr-container').hide();
+                        // Only stop polling when truly disconnected and not waiting for init
+                        if (whatsappPollInterval) { clearInterval(whatsappPollInterval); whatsappPollInterval = null; }
+                    }
                 }
 
                 $('#whatsapp-status-display').html('Estado: ' + statusHtml);
@@ -2116,17 +2131,27 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             const btn = $(this);
             btn.prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Iniciando...');
 
+            // Mark as connecting and start polling IMMEDIATELY, before API response
+            whatsappConnecting = true;
+            if (whatsappPollInterval) clearInterval(whatsappPollInterval);
+            whatsappPollInterval = setInterval(updateWhatsAppUI, 3000);
+
             $.post('api.php?action=whatsapp_connect', { assistant_id: currentAssistantId }, function (res) {
                 btn.prop('disabled', false).html('<i class="fa-solid fa-link"></i> Vincular WhatsApp');
                 if (res.status === 'initializing' || res.status === 'connecting') {
                     updateWhatsAppUI();
-                    // Start polling
-                    if (whatsappPollInterval) clearInterval(whatsappPollInterval);
-                    whatsappPollInterval = setInterval(updateWhatsAppUI, 3000);
                 } else {
+                    // Connection failed to start
+                    whatsappConnecting = false;
+                    if (whatsappPollInterval) { clearInterval(whatsappPollInterval); whatsappPollInterval = null; }
                     alert(res.message || 'Error al iniciar conexión');
                 }
-            }, 'json');
+            }, 'json').fail(function () {
+                btn.prop('disabled', false).html('<i class="fa-solid fa-link"></i> Vincular WhatsApp');
+                whatsappConnecting = false;
+                if (whatsappPollInterval) { clearInterval(whatsappPollInterval); whatsappPollInterval = null; }
+                alert('Error de red al intentar conectar.');
+            });
         });
 
         $('#btn-whatsapp-disconnect').on('click', function () {
@@ -2137,13 +2162,14 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
 
             $.post('api.php?action=whatsapp_disconnect', { assistant_id: currentAssistantId }, function (res) {
                 btn.prop('disabled', false).html('<i class="fa-solid fa-link-slash"></i> Desvincular');
+                whatsappConnecting = false;
                 updateWhatsAppUI();
             }, 'json');
         });
 
-        // Add this to reloadAssistantDependantViews
         function reloadWhatsAppIntegration() {
-            if (whatsappPollInterval) clearInterval(whatsappPollInterval);
+            whatsappConnecting = false;
+            if (whatsappPollInterval) { clearInterval(whatsappPollInterval); whatsappPollInterval = null; }
             updateWhatsAppUI();
         }
 
