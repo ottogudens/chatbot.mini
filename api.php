@@ -816,23 +816,13 @@ switch ($action) {
 
     // ---- PDF Templates ----
     case 'pdf_templates_list':
-        $req_client_id = $_GET['client_id'] ?? $session_client_id;
-        if (!$is_superadmin && $req_client_id != $session_client_id) {
-            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
-            exit;
+        $req_client_id = $_GET['client_id'] ?? null;
+        if (!$is_superadmin) {
+            $req_client_id = $session_client_id;
         }
-        $q = mysqli_query($conn, "SELECT id, name, description, file_path, placeholders FROM pdf_templates WHERE client_id = " . intval($req_client_id));
-        $templates = [];
-        while($row = mysqli_fetch_assoc($q)){
-            $templates[] = [
-                'id' => $row['id'],
-                'db_id' => $row['id'],
-                'name' => $row['name'],
-                'description' => $row['description'],
-                'placeholders' => json_decode($row['placeholders'], true) ?: [],
-                'source' => 'db'
-            ];
-        }
+        require_once 'pdf_helper.php';
+        $helper = new PDFHelper($conn);
+        $templates = $helper->list_templates($req_client_id);
         echo json_encode(['status' => 'success', 'data' => $templates]);
         break;
 

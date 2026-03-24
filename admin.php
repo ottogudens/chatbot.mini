@@ -3142,24 +3142,6 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             }
         }
 
-        function deletePDFTemplate(id) {
-            if (confirm('¿Eliminar esta plantilla de PDF?')) {
-                $.post('api.php?action=pdf_templates_delete', { id }, res => {
-                    if (res.status === 'success') loadPDFTemplates();
-                    else alert(res.message || 'Error');
-                }, 'json');
-            }
-        }
-
-        function renamePDFTemplate(id, currentName) {
-            const newName = prompt('Nuevo nombre para la plantilla:', currentName);
-            if (newName && newName !== currentName) {
-                $.post('api.php?action=pdf_templates_rename', { id, name: newName }, res => {
-                    if (res.status === 'success') loadPDFTemplates();
-                    else alert(res.message || 'Error');
-                }, 'json');
-            }
-        }
 
         // --- Utilities ---
         function closeModal(id) { $('#' + id).removeClass('active'); }

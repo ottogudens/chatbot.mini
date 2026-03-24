@@ -46,15 +46,17 @@ class PDFHelper
         }
 
         // 2. Dynamic templates (from DB)
-        if ($this->conn && $client_id) {
-            $stmt = mysqli_prepare($this->conn, "SELECT id, name, file_path, placeholders FROM pdf_templates WHERE client_id = ?");
-            mysqli_stmt_bind_param($stmt, "i", $client_id);
-            mysqli_stmt_execute($stmt);
-            $result = mysqli_stmt_get_result($stmt);
+        if ($this->conn) {
+            $query = "SELECT id, name, description, file_path, placeholders FROM pdf_templates";
+            if ($client_id) {
+                $query .= " WHERE client_id = " . intval($client_id);
+            }
+            $result = mysqli_query($this->conn, $query);
             while ($row = mysqli_fetch_assoc($result)) {
                 $templates[] = [
                     'id' => (string) $row['id'], // Use ID as string to distinguish
                     'name' => $row['name'],
+                    'description' => $row['description'] ?? '',
                     'placeholders' => json_decode($row['placeholders'], true) ?: [],
                     'source' => 'db',
                     'db_id' => $row['id']
