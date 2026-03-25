@@ -324,8 +324,8 @@ class GeminiClient
                                 "properties" => [
                                     "template_id" => ["type" => "STRING", "description" => "ID de la plantilla a usar (ej: basic_info.txt)"],
                                     "data" => [
-                                        "type" => "STRING",
-                                        "description" => "Objeto JSON con los pares clave-valor para los placeholders de la plantilla (ej: '{\"nombre\": \"Juan\", \"fecha\": \"2023-10-01\"}'). Asegúrate de enviar un JSON válido escapado."
+                                        "type" => "OBJECT",
+                                        "description" => "Objeto con los pares clave-valor para los placeholders de la plantilla (ej: {nombre: 'Juan', fecha: '2023-10-01'})."
                                     ]
                                 ],
                                 "required" => ["template_id", "data"]
@@ -341,7 +341,7 @@ class GeminiClient
                                     "phone" => ["type" => "STRING", "description" => "Teléfono de contacto"],
                                     "email" => ["type" => "STRING", "description" => "Correo electrónico"],
                                     "notes" => ["type" => "STRING", "description" => "Notas sobre el interés del cliente o resumen de la necesidad"],
-                                    "extra_info" => ["type" => "STRING", "description" => "JSON opcional con información adicional capturada (ej: '{\"presupuesto\": 5000, \"cursa\": \"IA\"}')"]
+                                    "extra_info" => ["type" => "OBJECT", "description" => "Objeto opcional con información adicional capturada (ej: {presupuesto: 5000, cursa: 'IA'})"]
                                 ],
                                 "required" => ["name"]
                             ]

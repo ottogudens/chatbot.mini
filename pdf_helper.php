@@ -71,12 +71,21 @@ class PDFHelper
     {
         $content = "";
 
-        // Ensure data is an array
+        // Ensure data is an array (TOKEN-FIX / 500-FIX)
         if (is_string($data)) {
             $decoded = json_decode($data, true);
             if (is_array($decoded)) {
                 $data = $decoded;
+            } else {
+                // If it's still a string, it might be Gemini sending plain text or malformed JSON
+                error_log("PDFHelper Warning: Expected array for 'data', got string: " . substr($data, 0, 100));
+                $data = []; 
             }
+        }
+
+        if (!is_array($data)) {
+            error_log("PDFHelper Error: Data is not an array (Type: " . gettype($data) . ")");
+            $data = [];
         }
 
         // Check if it's a DB template (numeric ID)
@@ -125,8 +134,15 @@ class PDFHelper
             $content = $filled_content;
         } else {
             $content = file_get_contents($template_path);
+            if ($content === false) {
+                return ["error" => "Could not read template file: $template_path"];
+            }
             // Replace placeholders
             foreach ($data as $key => $value) {
+                // Ensure value is stringable
+                if (is_array($value) || is_object($value)) {
+                    $value = json_encode($value, JSON_UNESCAPED_UNICODE);
+                }
                 $content = str_replace('{{' . $key . '}}', (string) $value, $content);
             }
             // Clean up any remaining placeholders
@@ -139,8 +155,14 @@ class PDFHelper
         $pdf->SetFont('Arial', '', 12);
 
         // Handle line breaks and UTF-8 to ISO-8859-1 conversion for FPDF
-        $content = utf8_decode($content);
-        $lines = explode("\n", $content);
+        // utf8_decode is deprecated in PHP 8.2+
+        if (function_exists('mb_convert_encoding')) {
+            $content = mb_convert_encoding((string)$content, 'ISO-8859-1', 'UTF-8');
+        } else {
+            $content = @utf8_decode((string)$content);
+        }
+
+        $lines = explode("\n", (string)$content);
         foreach ($lines as $line) {
             $pdf->MultiCell(0, 10, $line);
         }
