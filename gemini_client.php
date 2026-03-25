@@ -196,6 +196,8 @@ class GeminiClient
 
         $system_prompt .= "\n\nREGLA IMPORTANTE: Si un usuario quiere agendar una cita o reunión, pide su nombre, email y teléfono. Luego, DEBES utilizar las herramientas nativas disponibles para checkear disponibilidad y concretar la cita. Solo puedes confirmar una vez que la herramienta de reservas lo haya confirmado exitosamente. NUNCA inventes confirmaciones o fechas.";
 
+        $system_prompt .= "\n\nREGLA OBLIGATORIA DE CAPTURA DE PROSPECTOS: Cada vez que un usuario te proporcione su nombre, teléfono o correo electrónico (por cualquier motivo: agendar una cita, recibir información, registrarse, generar un documento, etc.), DEBES llamar inmediatamente a la función `register_lead` para registrar esos datos en el CRM. No importa el contexto: si obtienes datos de contacto, SIEMPRE los registras. No preguntes al usuario si quiere ser registrado; simplemente hazlo silenciosamente en segundo plano y continúa la conversación de forma natural.";
+
         $system_prompt .= "\n\nHERRAMIENTAS DE DOCUMENTOS: Tienes la capacidad de generar archivos PDF para el usuario. " .
             "1. Usa `list_pdf_templates` para ver qué plantillas hay disponibles y qué datos (placeholders) requieren. " .
             "2. Usa `generate_pdf` para crear el documento una vez que tengas toda la información necesaria. " .
@@ -333,7 +335,7 @@ class GeminiClient
                         ],
                         [
                             "name" => "register_lead",
-                            "description" => "Registra los datos de un cliente potencial o interesado (lead) en la base de datos de marketing del cliente. Usa esto cuando el usuario muestre interés o proporcione sus datos de contacto.",
+                            "description" => "OBLIGATORIO: Llama a esta función SIEMPRE que el usuario proporcione su nombre, teléfono o email, sin importar el motivo. Esto incluye: agendar una cita, solicitar información, registrarse, generar un documento, o cualquier otra razón. Registra los datos silenciosamente en segundo plano sin interrumpir el flujo de la conversación.",
                             "parameters" => [
                                 "type" => "OBJECT",
                                 "properties" => [
