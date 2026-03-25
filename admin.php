@@ -1541,15 +1541,27 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 if (!file) return;
                 const fd = new FormData();
                 fd.append('logo', file);
-                fd.append('csrf_token', '<?= $_SESSION["csrf_token"] ?? "" ?>');
-                fetch('api.php?action=pdf_templates_logo_upload', { method: 'POST', body: fd })
-                  .then(r => r.json()).then(res => {
+                // Note: no CSRF needed for logo_upload (not in csrf_protected_actions)
+                $.ajax({
+                  url: 'api.php?action=pdf_templates_logo_upload',
+                  type: 'POST',
+                  data: fd,
+                  processData: false,
+                  contentType: false,
+                  dataType: 'json',
+                  success: function(res) {
                     if (res.status === 'success') {
                       document.getElementById('ce-logo-url').value = res.url;
                       const prev = document.getElementById('ce-logo-preview');
                       prev.src = res.url; prev.style.display = 'block';
-                    } else alert('Error: ' + res.message);
-                  });
+                    } else {
+                      alert('Error al subir logo: ' + (res.message || 'desconocido'));
+                    }
+                  },
+                  error: function(xhr) {
+                    alert('Error de conexión al subir logo: ' + xhr.status);
+                  }
+                });
               };
 
               window.ceBuildConfig = function() {
@@ -1578,41 +1590,68 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 const config = ceBuildConfig();
                 const cont = document.getElementById('ce-preview-container');
                 cont.innerHTML = '<div style="text-align:center;padding:40px;color:rgba(255,255,255,0.5);"><i class="fa-solid fa-spinner fa-spin" style="font-size:32px;"></i><p>Generando PDF de ejemplo...</p></div>';
-                const fd = new FormData();
-                fd.append('template_config', JSON.stringify(config));
-                fd.append('csrf_token', '<?= $_SESSION["csrf_token"] ?? "" ?>');
-                fetch('api.php?action=pdf_templates_preview', { method: 'POST', body: fd })
-                  .then(r => r.json()).then(res => {
+                const csrfToken = '<?= $_SESSION["csrf_token"] ?? "" ?>';
+                $.ajax({
+                  url: 'api.php?action=pdf_templates_preview',
+                  type: 'POST',
+                  data: { template_config: JSON.stringify(config), csrf_token: csrfToken },
+                  dataType: 'json',
+                  success: function(res) {
                     if (res.status === 'success' && res.url) {
                       cont.innerHTML = `<iframe class="preview-frame" src="${res.url}#toolbar=0"></iframe>`;
                     } else {
-                      cont.innerHTML = '<div style="text-align:center;padding:40px;color:#ef4444;"><i class="fa-solid fa-triangle-exclamation"></i> Error al generar preview: ' + (res.message||'desconocido') + '</div>';
+                      cont.innerHTML = '<div style="text-align:center;padding:40px;color:#ef4444;"><i class="fa-solid fa-triangle-exclamation"></i> Error: ' + (res.message||'desconocido') + '</div>';
                     }
-                  });
+                  },
+                  error: function(xhr) {
+                    cont.innerHTML = '<div style="text-align:center;padding:40px;color:#ef4444;"><i class="fa-solid fa-triangle-exclamation"></i> Error de conexión: HTTP ' + xhr.status + '. Revisa los logs del servidor.</div>';
+                  }
+                });
               };
 
               window.ceSave = function() {
                 const name = document.getElementById('ce-name').value.trim();
                 if (!name) { alert('Ingresa un nombre para la plantilla.'); ceSwitchTab(0); return; }
                 const config = ceBuildConfig();
-                document.getElementById('ce-status').textContent = 'Guardando...';
-                const fd = new FormData();
-                fd.append('name', name);
-                fd.append('description', document.getElementById('ce-desc').value);
-                fd.append('doc_type', document.getElementById('ce-doctype').value);
-                fd.append('template_config', JSON.stringify(config));
-                fd.append('csrf_token', '<?= $_SESSION["csrf_token"] ?? "" ?>');
-                if (_ceState.id) fd.append('id', _ceState.id);
-                fetch('api.php?action=pdf_templates_save_config', { method: 'POST', body: fd })
-                  .then(r => r.json()).then(res => {
+                const statusEl = document.getElementById('ce-status');
+                statusEl.textContent = 'Guardando...';
+                statusEl.style.color = 'rgba(255,255,255,0.5)';
+                const csrfToken = '<?= $_SESSION["csrf_token"] ?? "" ?>';
+                const postData = {
+                  name: name,
+                  description: document.getElementById('ce-desc').value,
+                  doc_type: document.getElementById('ce-doctype').value,
+                  template_config: JSON.stringify(config),
+                  csrf_token: csrfToken
+                };
+                if (_ceState.id) postData.id = _ceState.id;
+                $.ajax({
+                  url: 'api.php?action=pdf_templates_save_config',
+                  type: 'POST',
+                  data: postData,
+                  dataType: 'json',
+                  success: function(res) {
                     if (res.status === 'success') {
                       _ceState.id = res.id;
-                      document.getElementById('ce-status').textContent = '✓ Guardado exitosamente (ID: ' + res.id + ')';
+                      statusEl.style.color = '#10b981';
+                      statusEl.textContent = '✓ Guardado exitosamente (ID: ' + res.id + ')';
                       if (typeof loadPDFTemplates === 'function') loadPDFTemplates();
                     } else {
-                      document.getElementById('ce-status').textContent = 'Error: ' + (res.message||'desconocido');
+                      statusEl.style.color = '#ef4444';
+                      statusEl.textContent = 'Error: ' + (res.message || 'desconocido');
                     }
-                  });
+                  },
+                  error: function(xhr) {
+                    statusEl.style.color = '#ef4444';
+                    let msg = 'Error de conexión HTTP ' + xhr.status;
+                    try {
+                      const r = JSON.parse(xhr.responseText);
+                      msg = 'Error: ' + (r.message || msg);
+                    } catch(e) { /* server returned non-JSON (PHP error etc.) */ }
+                    statusEl.textContent = msg;
+                    console.error('ceSave error:', xhr.status, xhr.responseText);
+                  }
+                });
               };
 
               // Allow editing existing canvas template from the card
