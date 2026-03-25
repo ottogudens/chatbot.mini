@@ -130,7 +130,10 @@ class AIHandler
     private function dispatchFunctionCall(array $call): mixed
     {
         $name = $call['name'];
-        $args = $call['args'] ?? [];
+        // Normalize args: GeminiClient casts args to stdClass (object), but we need array access.
+        $args_raw = $call['args'] ?? [];
+        // Recursively convert objects to arrays
+        $args = json_decode(json_encode($args_raw), true) ?? [];
 
         switch ($name) {
             case 'check_availability':
@@ -160,7 +163,11 @@ class AIHandler
                 $phone_v = $args['phone']      ?? '';
                 $email_v = $args['email']      ?? '';
                 $notes_v = $args['notes']      ?? '';
-                $extra_v = $args['extra_info'] ?? null;
+                // extra_info is now an object from Gemini tool call, convert to JSON string
+                $extra_raw = $args['extra_info'] ?? null;
+                $extra_v = is_array($extra_raw) || is_object($extra_raw)
+                    ? json_encode($extra_raw, JSON_UNESCAPED_UNICODE)
+                    : $extra_raw;
 
                 if ($stmt_lead) {
                     mysqli_stmt_bind_param($stmt_lead, "iisssss",
