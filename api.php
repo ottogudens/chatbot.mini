@@ -24,7 +24,8 @@ $secure_actions = [
     'leads_create',
     'leads_update',
     'leads_delete',
-    'leads_export'
+    'leads_export',
+    'pdf_templates_download'
 ];
 if (in_array($action, $secure_actions)) {
     if (!check_auth(false)) {
@@ -1167,6 +1168,78 @@ switch ($action) {
                 ? 'Reserva cancelada en el sistema y en Google Calendar.'
                 : 'Reserva cancelada en el sistema (no se pudo eliminar de Google Calendar).'
         ]);
+        break;
+
+    case 'pdf_templates_download':
+        $id = $_GET['id'] ?? '';
+        if (empty($id)) {
+            echo json_encode(['status' => 'error', 'message' => 'ID de plantilla no proporcionado']);
+            exit;
+        }
+
+        $file_path = '';
+        $display_name = '';
+
+        if (is_numeric($id)) {
+            // Custom template from DB
+            $stmt = mysqli_prepare($conn, "SELECT name, file_path, client_id FROM pdf_templates WHERE id = ?");
+            mysqli_stmt_bind_param($stmt, "i", $id);
+            mysqli_stmt_execute($stmt);
+            $res = mysqli_stmt_get_result($stmt);
+            if ($row = mysqli_fetch_assoc($res)) {
+                if (!$is_superadmin && $row['client_id'] != $session_client_id) {
+                    echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
+                    exit;
+                }
+                $file_path = __DIR__ . '/' . $row['file_path'];
+                $display_name = $row['name'];
+                // Ensure display name has the correct extension
+                $ext = pathinfo($row['file_path'], PATHINFO_EXTENSION);
+                if (strtolower(pathinfo($display_name, PATHINFO_EXTENSION)) !== strtolower($ext)) {
+                    $display_name .= '.' . $ext;
+                }
+            } else {
+                echo json_encode(['status' => 'error', 'message' => 'Plantilla no encontrada']);
+                exit;
+            }
+        } else {
+            // Static template from folder
+            // Sanitize filename
+            $safe_id = basename($id);
+            $file_path = __DIR__ . '/pdf_templates/' . $safe_id;
+            $display_name = $safe_id;
+
+            if (!file_exists($file_path) || !is_file($file_path)) {
+                echo json_encode(['status' => 'error', 'message' => 'Archivo de plantilla no encontrado']);
+                exit;
+            }
+        }
+
+        if (file_exists($file_path)) {
+            // Overwrite the JSON header set at the top
+            $mime = 'application/octet-stream';
+            $ext = strtolower(pathinfo($file_path, PATHINFO_EXTENSION));
+            if ($ext === 'pdf') $mime = 'application/pdf';
+            else if ($ext === 'html') $mime = 'text/html';
+            else if ($ext === 'txt') $mime = 'text/plain';
+
+            header('Content-Description: File Transfer');
+            header('Content-Type: ' . $mime);
+            header('Content-Disposition: attachment; filename="' . $display_name . '"');
+            header('Expires: 0');
+            header('Cache-Control: must-revalidate');
+            header('Pragma: public');
+            header('Content-Length: ' . filesize($file_path));
+            
+            // Clear any previously buffered output
+            if (ob_get_level()) ob_end_clean();
+            
+            readfile($file_path);
+            exit;
+        } else {
+            echo json_encode(['status' => 'error', 'message' => 'El archivo físico no existe']);
+            exit;
+        }
         break;
 
     default:
