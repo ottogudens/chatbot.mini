@@ -1644,10 +1644,19 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                   error: function(xhr) {
                     statusEl.style.color = '#ef4444';
                     let msg = 'Error de conexión HTTP ' + xhr.status;
-                    try {
-                      const r = JSON.parse(xhr.responseText);
-                      msg = 'Error: ' + (r.message || msg);
-                    } catch(e) { /* server returned non-JSON (PHP error etc.) */ }
+                    if (xhr.status === 200) {
+                      msg = 'Error de respuesta (No JSON). Posible error PHP internamente.';
+                      console.error('Respuesta malformada:', xhr.responseText);
+                      // If it looks like HTML/PHP error, show first bit
+                      if (xhr.responseText && xhr.responseText.length > 5) {
+                         msg = 'Error PHP: ' + xhr.responseText.substring(0, 100).replace(/<[^>]*>/g, '') + '...';
+                      }
+                    } else {
+                      try {
+                        const r = JSON.parse(xhr.responseText);
+                        msg = 'Error: ' + (r.message || msg);
+                      } catch(e) { /* ignore parse error on non-200 */ }
+                    }
                     statusEl.textContent = msg;
                     console.error('ceSave error:', xhr.status, xhr.responseText);
                   }

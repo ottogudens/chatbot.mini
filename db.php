@@ -30,7 +30,9 @@ try {
 } catch (Exception $e) {
     // Return JSON error if it's an API/AJAX call or HTML if it's a direct page
     $msg = "Error de conexión: " . $e->getMessage();
-    if (strpos($_SERVER['REQUEST_URI'], '.php') !== false && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') === false) {
+    $req_uri = $_SERVER['REQUEST_URI'] ?? '';
+    $http_accept = $_SERVER['HTTP_ACCEPT'] ?? '';
+    if (strpos($req_uri, '.php') !== false && strpos($http_accept, 'application/json') === false) {
         die("<div style='color:red; font-family:sans-serif; padding:20px; border:1px solid red; background:#fff5f5;'>
                 <h3>⚠️ Error de Base de Datos</h3>
                 <p>$msg</p>

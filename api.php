@@ -966,7 +966,7 @@ switch ($action) {
 
         // Extract placeholders from config fields for backward compat
         $fields = $decoded['fields'] ?? [];
-        $ph_list = array_map(fn($f) => $f['name'] ?? '', $fields);
+        $ph_list = array_map(function($f) { return $f['name'] ?? ''; }, $fields);
         $ph_json = json_encode(array_values(array_filter($ph_list)));
 
         $client_id_int = intval($req_client_id);
@@ -979,10 +979,12 @@ switch ($action) {
                 echo json_encode(['status' => 'error', 'message' => 'No autorizado']); exit;
             }
             $stmt = mysqli_prepare($conn, 'UPDATE pdf_templates SET name=?, description=?, doc_type=?, template_config=?, placeholders=? WHERE id=?');
+            if (!$stmt) { echo json_encode(['status' => 'error', 'message' => 'Error al preparar reporte (UPDATE): ' . mysqli_error($conn)]); exit; }
             mysqli_stmt_bind_param($stmt, 'sssssi', $name, $desc, $dtype, $config, $ph_json, $id);
         } else {
             // Insert new
             $stmt = mysqli_prepare($conn, 'INSERT INTO pdf_templates (client_id, name, description, doc_type, template_config, placeholders, file_path) VALUES (?, ?, ?, ?, ?, ?, ?)');
+            if (!$stmt) { echo json_encode(['status' => 'error', 'message' => 'Error al preparar reporte (INSERT): ' . mysqli_error($conn)]); exit; }
             $fp = '';
             mysqli_stmt_bind_param($stmt, 'issssss', $client_id_int, $name, $desc, $dtype, $config, $ph_json, $fp);
         }
