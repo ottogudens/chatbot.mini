@@ -132,10 +132,12 @@ async function startSession(assistantId) {
                         console.log(`[Assistant ${assistantId}] Mensaje de ${from}: ${isAudio ? "[AUDIO]" : `"${text}"`}`);
 
                         try {
-                            // Dynamically resolve backend URL with current port
-                            const rawBackendUrl = process.env.BACKEND_URL || 'http://localhost/message.php';
-                            const envPort = process.env.PORT || '80';
-                            const backendUrl = rawBackendUrl.replace('${PORT}', envPort);
+                            // Resolve backend URL:
+                            // - APP_PORT = the Railway PORT (Nginx/PHP port, e.g. 8080)
+                            // - BACKEND_URL can include ${PORT} as a placeholder, or use APP_PORT directly
+                            const rawBackendUrl = process.env.BACKEND_URL || 'http://localhost:${PORT}/message.php';
+                            const appPort = process.env.APP_PORT || process.env.PORT || '80';
+                            const backendUrl = rawBackendUrl.replace('${PORT}', appPort);
 
                             const formData = new FormData();
                             formData.append('text', text);

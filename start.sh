@@ -95,6 +95,9 @@ php migrate10.php || echo "Migration 10 failed, check logs."
 # 5. Start Services
 echo "---------------------------------------"
 echo "Starting WhatsApp bridge..."
+# APP_PORT tells the bridge which port Nginx (and PHP) is listening on.
+# The bridge itself uses port 3001 internally, so must not use $PORT for itself.
+export APP_PORT=${PORT:-8080}
 cd /app/whatsapp
 if command -v pm2 >/dev/null 2>&1; then
     pm2 start whatsapp.js --name "whatsapp-bridge" --time
