@@ -1594,7 +1594,11 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                 $.ajax({
                   url: 'api.php?action=pdf_templates_preview',
                   type: 'POST',
-                  data: { template_config: JSON.stringify(config), csrf_token: csrfToken },
+                  data: { 
+                    template_config: JSON.stringify(config), 
+                    csrf_token: csrfToken,
+                    client_id: getClientIdForAPI()
+                  },
                   dataType: 'json',
                   success: function(res) {
                     if (res.status === 'success' && res.url) {
@@ -1622,7 +1626,8 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                   description: document.getElementById('ce-desc').value,
                   doc_type: document.getElementById('ce-doctype').value,
                   template_config: JSON.stringify(config),
-                  csrf_token: csrfToken
+                  csrf_token: csrfToken,
+                  client_id: getClientIdForAPI()
                 };
                 if (_ceState.id) postData.id = _ceState.id;
                 $.ajax({
