@@ -25,7 +25,10 @@ $secure_actions = [
     'leads_update',
     'leads_delete',
     'leads_export',
-    'pdf_templates_download'
+    'pdf_templates_download',
+    'pdf_templates_save_config',
+    'pdf_templates_preview',
+    'pdf_templates_logo_upload'
 ];
 if (in_array($action, $secure_actions)) {
     if (!check_auth(false)) {
@@ -43,7 +46,7 @@ $csrf_protected_actions = [
     'info_create', 'info_update', 'info_delete',
     'leads_create', 'leads_update', 'leads_delete',
     'calendar_settings_update',
-    'pdf_templates_save', 'users_create', 'users_update', 'users_delete',
+    'pdf_templates_save', 'pdf_templates_save_config', 'users_create', 'users_update', 'users_delete',
     'whatsapp_disconnect'
 ];
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, $csrf_protected_actions, true)) {
@@ -918,6 +921,105 @@ switch ($action) {
             else echo json_encode(['status' => 'error', 'message' => mysqli_error($conn)]);
         } else {
             echo json_encode(['status' => 'error', 'message' => 'Error al mover archivo final']);
+        }
+        break;
+
+    case 'pdf_templates_save_config':
+        // Save a canvas-designed template's JSON config to the DB
+        $req_client_id = $_POST['client_id'] ?? $session_client_id;
+        if (!$is_superadmin && $req_client_id != $session_client_id) {
+            echo json_encode(['status' => 'error', 'message' => 'No autorizado']); exit;
+        }
+        $name   = trim($_POST['name'] ?? '');
+        $desc   = trim($_POST['description'] ?? '');
+        $dtype  = trim($_POST['doc_type'] ?? 'generic');
+        $config = $_POST['template_config'] ?? '';
+        $id     = intval($_POST['id'] ?? 0);
+
+        if (empty($name) || empty($config)) {
+            echo json_encode(['status' => 'error', 'message' => 'Faltan datos (nombre o config)']); exit;
+        }
+
+        // Validate that config is valid JSON
+        $decoded = json_decode($config, true);
+        if (!$decoded) {
+            echo json_encode(['status' => 'error', 'message' => 'La configuracion no es JSON valido']); exit;
+        }
+
+        // Extract placeholders from config fields for backward compat
+        $fields = $decoded['fields'] ?? [];
+        $ph_list = array_map(fn($f) => $f['name'] ?? '', $fields);
+        $ph_json = json_encode(array_values(array_filter($ph_list)));
+
+        $client_id_int = intval($req_client_id);
+        if ($id > 0) {
+            // Update existing
+            $chk = mysqli_prepare($conn, 'SELECT client_id FROM pdf_templates WHERE id = ?');
+            mysqli_stmt_bind_param($chk, 'i', $id); mysqli_stmt_execute($chk);
+            $row = mysqli_fetch_assoc(mysqli_stmt_get_result($chk));
+            if (!$row || (!$is_superadmin && $row['client_id'] != $session_client_id)) {
+                echo json_encode(['status' => 'error', 'message' => 'No autorizado']); exit;
+            }
+            $stmt = mysqli_prepare($conn, 'UPDATE pdf_templates SET name=?, description=?, doc_type=?, template_config=?, placeholders=? WHERE id=?');
+            mysqli_stmt_bind_param($stmt, 'sssssi', $name, $desc, $dtype, $config, $ph_json, $id);
+        } else {
+            // Insert new
+            $stmt = mysqli_prepare($conn, 'INSERT INTO pdf_templates (client_id, name, description, doc_type, template_config, placeholders, file_path) VALUES (?, ?, ?, ?, ?, ?, ?)');
+            $fp = '';
+            mysqli_stmt_bind_param($stmt, 'issssss', $client_id_int, $name, $desc, $dtype, $config, $ph_json, $fp);
+        }
+        if (mysqli_stmt_execute($stmt)) {
+            $new_id = $id ?: mysqli_insert_id($conn);
+            echo json_encode(['status' => 'success', 'id' => $new_id]);
+        } else {
+            echo json_encode(['status' => 'error', 'message' => mysqli_error($conn)]);
+        }
+        break;
+
+    case 'pdf_templates_preview':
+        // Generate a preview PDF from canvas config (no DB recording)
+        $req_client_id = $_GET['client_id'] ?? $_POST['client_id'] ?? $session_client_id;
+        if (!$is_superadmin && $req_client_id != $session_client_id) {
+            echo json_encode(['status' => 'error', 'message' => 'No autorizado']); exit;
+        }
+        $config_raw = $_POST['template_config'] ?? '';
+        $config = json_decode($config_raw, true);
+        if (!$config) {
+            echo json_encode(['status' => 'error', 'message' => 'Config invalida']); exit;
+        }
+        require_once __DIR__ . '/pdf_helper.php';
+        $helper = new PDFHelper($conn);
+        // Use sample data from config fields
+        $sample_data = [];
+        foreach ($config['fields'] ?? [] as $f) {
+            $sample_data[$f['name']] = $f['label'] ?? $f['name'];
+        }
+        $result = $helper->generate_from_config($config, $sample_data, null, null, null, true);
+        echo json_encode(['status' => 'success', 'url' => $result['url'] ?? '']);
+        break;
+
+    case 'pdf_templates_logo_upload':
+        // Upload a logo for a canvas template
+        $req_client_id = $_POST['client_id'] ?? $session_client_id;
+        if (!$is_superadmin && $req_client_id != $session_client_id) {
+            echo json_encode(['status' => 'error', 'message' => 'No autorizado']); exit;
+        }
+        if (!isset($_FILES['logo']) || $_FILES['logo']['error'] !== UPLOAD_ERR_OK) {
+            echo json_encode(['status' => 'error', 'message' => 'Sin archivo o error de subida']); exit;
+        }
+        $allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+        if (!in_array($_FILES['logo']['type'], $allowed)) {
+            echo json_encode(['status' => 'error', 'message' => 'Tipo de archivo no permitido']); exit;
+        }
+        $dir = __DIR__ . '/uploads/clients/' . intval($req_client_id) . '/logos/';
+        if (!is_dir($dir)) @mkdir($dir, 0777, true);
+        $ext  = pathinfo($_FILES['logo']['name'], PATHINFO_EXTENSION);
+        $fname = 'logo_' . time() . '.' . strtolower($ext);
+        if (move_uploaded_file($_FILES['logo']['tmp_name'], $dir . $fname)) {
+            $url_path = 'uploads/clients/' . intval($req_client_id) . '/logos/' . $fname;
+            echo json_encode(['status' => 'success', 'url' => $url_path]);
+        } else {
+            echo json_encode(['status' => 'error', 'message' => 'Error al guardar']);
         }
         break;
 

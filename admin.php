@@ -1159,7 +1159,12 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
 
                 <div class="panel-header">
                     <h2><i class="fa-solid fa-file-pdf" style="color:var(--primary);"></i> Plantillas PDF</h2>
-                    <button class="btn" onclick="openPDFTemplateModal()"><i class="fa-solid fa-plus"></i> Nueva Plantilla</button>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button class="btn" style="background:linear-gradient(135deg,var(--primary),#7c3aed);" onclick="openCanvasEditor(null)">
+                            <i class="fa-solid fa-pen-ruler"></i> Diseñar en Canvas
+                        </button>
+                        <button class="btn btn-outline" onclick="openPDFTemplateModal()"><i class="fa-solid fa-upload"></i> Subir Plantilla</button>
+                    </div>
                 </div>
 
                 <!-- Toolbar -->
@@ -1174,6 +1179,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                         </select>
                         <select id="tpl-filter-source" onchange="filterTemplates()">
                             <option value="">Todas las fuentes</option>
+                            <option value="canvas">Canvas (diseñadas)</option>
                             <option value="db">Personalizadas</option>
                             <option value="static">Sistema</option>
                         </select>
@@ -1191,6 +1197,435 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                     <span id="tpl-count" style="float:right;"></span>
                 </div>
             </div>
+
+            <!-- CANVAS TEMPLATE EDITOR MODAL -->
+            <div id="canvas-editor-modal" class="modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);overflow-y:auto;">
+              <style>
+                #canvas-editor-modal .ce-wrap{max-width:940px;margin:30px auto;background:var(--bg-secondary,#1e1e2e);border-radius:18px;overflow:hidden;display:flex;flex-direction:column;min-height:85vh;}
+                #canvas-editor-modal .ce-topbar{background:var(--primary,#6366f1);padding:18px 28px;display:flex;align-items:center;justify-content:space-between;}
+                #canvas-editor-modal .ce-topbar h2{color:#fff;font-size:18px;margin:0;}
+                #canvas-editor-modal .ce-tabs{display:flex;border-bottom:1px solid rgba(255,255,255,0.1);background:rgba(0,0,0,0.2);}
+                #canvas-editor-modal .ce-tab{padding:12px 20px;cursor:pointer;font-size:13px;color:rgba(255,255,255,0.6);border-bottom:3px solid transparent;transition:all .2s;}
+                #canvas-editor-modal .ce-tab.active{color:#fff;border-bottom-color:var(--primary,#6366f1);font-weight:600;}
+                #canvas-editor-modal .ce-body{flex:1;padding:24px 28px;overflow-y:auto;}
+                #canvas-editor-modal .ce-section{display:none;} #canvas-editor-modal .ce-section.active{display:block;}
+                #canvas-editor-modal .ce-label{font-size:12px;color:rgba(255,255,255,0.6);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.05em;}
+                #canvas-editor-modal .ce-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+                #canvas-editor-modal .ce-row.full{grid-template-columns:1fr;}
+                #canvas-editor-modal .ce-field{display:flex;flex-direction:column;gap:5px;}
+                #canvas-editor-modal .ce-field input,#canvas-editor-modal .ce-field select,#canvas-editor-modal .ce-field textarea{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;padding:9px 13px;font-size:13px;width:100%;}
+                #canvas-editor-modal .ce-field textarea{resize:vertical;min-height:80px;}
+                #canvas-editor-modal .section-block{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:16px;margin-bottom:12px;cursor:grab;position:relative;}
+                #canvas-editor-modal .section-block .sb-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+                #canvas-editor-modal .section-block .sb-title{font-size:14px;font-weight:600;color:#fff;}
+                #canvas-editor-modal .section-block .sb-icon{font-size:18px;margin-right:10px;color:var(--primary,#6366f1);}
+                #canvas-editor-modal .section-adder{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+                #canvas-editor-modal .sa-pill{background:rgba(99,102,241,0.15);border:1px dashed rgba(99,102,241,0.4);padding:7px 14px;border-radius:20px;cursor:pointer;font-size:12px;color:rgba(255,255,255,0.7);transition:all .2s;}
+                #canvas-editor-modal .sa-pill:hover{background:rgba(99,102,241,0.35);color:#fff;}
+                #canvas-editor-modal .field-row{display:flex;gap:8px;align-items:center;background:rgba(255,255,255,0.05);border-radius:8px;padding:10px 14px;margin-bottom:8px;}
+                #canvas-editor-modal .field-row input{flex:1;background:transparent;border:none;color:#fff;font-size:13px;outline:none;}
+                #canvas-editor-modal .field-row select{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:6px;color:#fff;padding:4px 8px;font-size:12px;}
+                #canvas-editor-modal .ce-footer{padding:16px 28px;border-top:1px solid rgba(255,255,255,0.1);display:flex;justify-content:space-between;align-items:center;background:rgba(0,0,0,0.2);}
+                #canvas-editor-modal .color-row{display:flex;gap:12px;align-items:center;}
+                #canvas-editor-modal .color-swatch{display:flex;flex-direction:column;gap:5px;}
+                #canvas-editor-modal .color-swatch input[type=color]{width:60px;height:40px;border:none;border-radius:8px;cursor:pointer;background:none;padding:2px;}
+                #canvas-editor-modal .logo-preview{width:80px;height:80px;object-fit:contain;border-radius:8px;border:1px solid rgba(255,255,255,0.15);margin-top:8px;display:none;}
+                #canvas-editor-modal .checklist-item{display:flex;gap:8px;align-items:center;background:rgba(255,255,255,0.05);border-radius:8px;padding:8px 12px;margin-bottom:6px;}
+                #canvas-editor-modal .checklist-item input{flex:1;background:transparent;border:none;color:#fff;outline:none;font-size:13px;}
+                #canvas-editor-modal .preview-frame{width:100%;height:520px;border:none;border-radius:12px;background:#fff;}
+              </style>
+              <div class="ce-wrap">
+                <!-- Topbar -->
+                <div class="ce-topbar">
+                  <h2><i class="fa-solid fa-pen-ruler"></i> Editor de Plantilla Canvas</h2>
+                  <button onclick="closeCanvasEditor()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;padding:8px 18px;border-radius:8px;cursor:pointer;"><i class="fa-solid fa-xmark"></i> Cerrar</button>
+                </div>
+                <!-- Tabs -->
+                <div class="ce-tabs">
+                  <div class="ce-tab active" onclick="ceSwitchTab(0)"><i class="fa-solid fa-sliders"></i> Configuración</div>
+                  <div class="ce-tab" onclick="ceSwitchTab(1)"><i class="fa-solid fa-palette"></i> Diseño</div>
+                  <div class="ce-tab" onclick="ceSwitchTab(2)"><i class="fa-solid fa-building"></i> Empresa</div>
+                  <div class="ce-tab" onclick="ceSwitchTab(3)"><i class="fa-solid fa-layer-group"></i> Secciones</div>
+                  <div class="ce-tab" onclick="ceSwitchTab(4)"><i class="fa-solid fa-tags"></i> Campos</div>
+                  <div class="ce-tab" onclick="ceSwitchTab(5)"><i class="fa-solid fa-eye"></i> Vista Previa</div>
+                </div>
+                <!-- Body -->
+                <div class="ce-body">
+                  <!-- TAB 0: Config -->
+                  <div class="ce-section active" id="ce-s0">
+                    <h3 style="color:var(--primary);margin-bottom:20px;">Configuración Básica</h3>
+                    <div class="ce-row">
+                      <div class="ce-field"><div class="ce-label">Nombre de la plantilla *</div><input id="ce-name" type="text" placeholder="Ej: Presupuesto Taller XYZ"></div>
+                      <div class="ce-field"><div class="ce-label">Tipo de documento</div>
+                        <select id="ce-doctype">
+                          <option value="budget">Presupuesto</option>
+                          <option value="receipt">Recibo / Factura</option>
+                          <option value="vehicle_inspection">Inspección Vehicular</option>
+                          <option value="vehicle_diagnostic">Diagnóstico Vehicular</option>
+                          <option value="generic">Genérico</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="ce-row full">
+                      <div class="ce-field"><div class="ce-label">Descripción (guía para la IA)</div><textarea id="ce-desc" placeholder="Describe cuándo y cómo el asistente debe usar esta plantilla..."></textarea></div>
+                    </div>
+                    <div style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);border-radius:10px;padding:14px;margin-top:8px;font-size:13px;color:rgba(255,255,255,0.7);">
+                      <i class="fa-solid fa-robot" style="color:var(--primary);"></i>
+                      <strong style="color:#fff;"> Tip para la IA:</strong> La descripción y los campos definidos son la instrucción que recibe el asistente. Cuanto más específica sea, mejor sabrá cuándo generar este documento.
+                    </div>
+                  </div>
+                  <!-- TAB 1: Design -->
+                  <div class="ce-section" id="ce-s1">
+                    <h3 style="color:var(--primary);margin-bottom:20px;">Diseño Visual</h3>
+                    <div class="color-row" style="flex-wrap:wrap;gap:20px;">
+                      <div class="color-swatch"><div class="ce-label">Color Principal</div><input type="color" id="ce-color-primary" value="#1a3a5c"></div>
+                      <div class="color-swatch"><div class="ce-label">Color de Acento</div><input type="color" id="ce-color-accent" value="#f0a500"></div>
+                    </div>
+                    <div class="ce-row" style="margin-top:20px;">
+                      <div class="ce-field"><div class="ce-label">Fuente</div>
+                        <select id="ce-font">
+                          <option value="Arial">Arial (moderna)</option>
+                          <option value="Helvetica">Helvetica (limpia)</option>
+                          <option value="Times">Times New Roman (clásica)</option>
+                          <option value="Courier">Courier (técnica)</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div style="margin-top:20px;">
+                      <div class="ce-label">Vista previa de colores</div>
+                      <div id="ce-color-preview" style="margin-top:10px;border-radius:10px;overflow:hidden;background:#fff;">
+                        <div id="ce-color-bar" style="height:40px;display:flex;align-items:center;padding:0 20px;"><span id="ce-color-title" style="color:#fff;font-weight:bold;font-size:14px;">DOCUMENTO EJEMPLO</span></div>
+                        <div style="padding:12px 20px;display:flex;gap:12px;">
+                          <div id="ce-accent-pill" style="padding:5px 14px;border-radius:20px;font-size:12px;color:#fff;">Acento</div>
+                          <span style="color:#333;font-size:13px;">Texto del documento de ejemplo</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- TAB 2: Empresa -->
+                  <div class="ce-section" id="ce-s2">
+                    <h3 style="color:var(--primary);margin-bottom:20px;">Datos de Empresa / Encabezado</h3>
+                    <div class="ce-row">
+                      <div class="ce-field"><div class="ce-label">Nombre de la empresa</div><input id="ce-company" type="text" placeholder="Ej: Taller Mecánico La Estrella"></div>
+                      <div class="ce-field"><div class="ce-label">RUT / ID Fiscal</div><input id="ce-rut" type="text" placeholder="Ej: 76.123.456-7"></div>
+                    </div>
+                    <div class="ce-row">
+                      <div class="ce-field"><div class="ce-label">Dirección</div><input id="ce-address" type="text" placeholder="Ej: Av. Principal 123, Santiago"></div>
+                      <div class="ce-field"><div class="ce-label">Teléfono</div><input id="ce-phone" type="text" placeholder="Ej: +56 9 1234 5678"></div>
+                    </div>
+                    <div class="ce-row">
+                      <div class="ce-field"><div class="ce-label">Email</div><input id="ce-email" type="text" placeholder="Ej: contacto@empresa.cl"></div>
+                    </div>
+                    <div style="margin-top:16px;">
+                      <div class="ce-label">Logo de empresa</div>
+                      <input type="file" id="ce-logo-file" accept="image/*" onchange="ceUploadLogo()" style="margin-top:8px;">
+                      <img id="ce-logo-preview" class="logo-preview" src="" alt="Logo">
+                      <input type="hidden" id="ce-logo-url" value="">
+                    </div>
+                  </div>
+                  <!-- TAB 3: Sections -->
+                  <div class="ce-section" id="ce-s3">
+                    <h3 style="color:var(--primary);margin-bottom:6px;">Secciones del Documento</h3>
+                    <p style="font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:16px;">Arrastra para reordenar. Haz clic en <i class="fa-solid fa-trash"></i> para eliminar.</p>
+                    <div id="ce-sections-list" style="min-height:80px;"></div>
+                    <div class="section-adder" style="margin-top:16px;">
+                      <div class="ce-label" style="width:100%;margin-bottom:6px;">Agregar sección:</div>
+                      <span class="sa-pill" onclick="ceAddSection('client_info')"><i class="fa-solid fa-user"></i> Datos del Cliente</span>
+                      <span class="sa-pill" onclick="ceAddSection('vehicle_info')"><i class="fa-solid fa-car"></i> Datos del Vehículo</span>
+                      <span class="sa-pill" onclick="ceAddSection('general_info')"><i class="fa-solid fa-circle-info"></i> Info General</span>
+                      <span class="sa-pill" onclick="ceAddSection('items_table')"><i class="fa-solid fa-table-list"></i> Tabla de Ítems</span>
+                      <span class="sa-pill" onclick="ceAddSection('checklist')"><i class="fa-solid fa-list-check"></i> Lista de Verificación</span>
+                      <span class="sa-pill" onclick="ceAddSection('notes')"><i class="fa-solid fa-note-sticky"></i> Observaciones</span>
+                      <span class="sa-pill" onclick="ceAddSection('signature')"><i class="fa-solid fa-signature"></i> Firma</span>
+                      <span class="sa-pill" onclick="ceAddSection('footer')"><i class="fa-solid fa-align-center"></i> Pie de página</span>
+                    </div>
+                  </div>
+                  <!-- TAB 4: Fields -->
+                  <div class="ce-section" id="ce-s4">
+                    <h3 style="color:var(--primary);margin-bottom:6px;">Campos (Datos que solicita la IA)</h3>
+                    <p style="font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:16px;">Estos son los datos que el asistente solicitará al usuario antes de generar el documento.</p>
+                    <div id="ce-fields-list"></div>
+                    <button class="btn btn-outline" style="margin-top:12px;" onclick="ceAddField()"><i class="fa-solid fa-plus"></i> Agregar campo</button>
+                  </div>
+                  <!-- TAB 5: Preview -->
+                  <div class="ce-section" id="ce-s5">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                      <h3 style="color:var(--primary);margin:0;">Vista Previa del PDF</h3>
+                      <button class="btn" onclick="ceGeneratePreview()"><i class="fa-solid fa-eye"></i> Generar Preview</button>
+                    </div>
+                    <p style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:12px;">Se generará con datos de ejemplo basados en tus campos definidos.</p>
+                    <div id="ce-preview-container" style="border-radius:12px;overflow:hidden;">
+                      <div style="text-align:center;padding:60px;color:rgba(255,255,255,0.4);">
+                        <i class="fa-solid fa-file-pdf" style="font-size:48px;margin-bottom:16px;"></i>
+                        <p>Haz clic en "Generar Preview" para ver cómo quedará tu plantilla.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <!-- Footer -->
+                <div class="ce-footer">
+                  <div id="ce-status" style="font-size:13px;color:rgba(255,255,255,0.5);"></div>
+                  <div style="display:flex;gap:8px;">
+                    <button class="btn btn-outline" onclick="closeCanvasEditor()">Cancelar</button>
+                    <button class="btn" onclick="ceSave()"><i class="fa-solid fa-floppy-disk"></i> Guardar Plantilla</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- CANVAS EDITOR JS -->
+            <script>
+            (function(){
+              let _ceState = { id: null, sections: [], fields: [] };
+              const sectionMeta = {
+                client_info:  { icon: 'fa-user',         label: 'Datos del Cliente',          color: '#6366f1' },
+                vehicle_info: { icon: 'fa-car',          label: 'Datos del Vehículo',         color: '#0ea5e9' },
+                general_info: { icon: 'fa-circle-info',  label: 'Información General',        color: '#8b5cf6' },
+                items_table:  { icon: 'fa-table-list',   label: 'Tabla de Ítems',             color: '#f59e0b' },
+                checklist:    { icon: 'fa-list-check',   label: 'Lista de Verificación',      color: '#10b981' },
+                notes:        { icon: 'fa-note-sticky',  label: 'Observaciones / Notas',      color: '#f97316' },
+                signature:    { icon: 'fa-signature',    label: 'Firmas',                     color: '#64748b' },
+                footer:       { icon: 'fa-align-center', label: 'Pie de Página',              color: '#94a3b8' },
+              };
+
+              window.openCanvasEditor = function(templateData) {
+                _ceState = { id: null, sections: [], fields: [] };
+                // Reset form
+                ['ce-name','ce-desc','ce-company','ce-rut','ce-address','ce-phone','ce-email'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+                document.getElementById('ce-doctype').value = 'budget';
+                document.getElementById('ce-font').value = 'Arial';
+                document.getElementById('ce-color-primary').value = '#1a3a5c';
+                document.getElementById('ce-color-accent').value = '#f0a500';
+                document.getElementById('ce-logo-url').value = '';
+                document.getElementById('ce-logo-preview').style.display = 'none';
+                document.getElementById('ce-status').textContent = '';
+
+                if (templateData && templateData.template_config) {
+                  const c = JSON.parse(templateData.template_config);
+                  _ceState.id = templateData.id;
+                  _ceState.sections = c.sections || [];
+                  _ceState.fields = c.fields || [];
+                  document.getElementById('ce-name').value = templateData.name || '';
+                  document.getElementById('ce-desc').value = templateData.description || '';
+                  document.getElementById('ce-doctype').value = c.doc_type || 'generic';
+                  document.getElementById('ce-font').value = (c.design||{}).font || 'Arial';
+                  document.getElementById('ce-color-primary').value = (c.design||{}).primary_color || '#1a3a5c';
+                  document.getElementById('ce-color-accent').value = (c.design||{}).accent_color || '#f0a500';
+                  const h = c.header || {};
+                  ['company','rut','address','phone','email'].forEach(f => {
+                    const el = document.getElementById('ce-'+f);
+                    if (el) el.value = h['company_'+f] || h[f] || '';
+                  });
+                  if (h.logo_url) {
+                    document.getElementById('ce-logo-url').value = h.logo_url;
+                    const prev = document.getElementById('ce-logo-preview');
+                    prev.src = h.logo_url; prev.style.display = 'block';
+                  }
+                }
+
+                ceSwitchTab(0);
+                ceRenderSections();
+                ceRenderFields();
+                ceUpdateColorPreview();
+                document.getElementById('canvas-editor-modal').style.display = 'block';
+                document.body.style.overflow = 'hidden';
+              };
+
+              window.closeCanvasEditor = function() {
+                document.getElementById('canvas-editor-modal').style.display = 'none';
+                document.body.style.overflow = '';
+              };
+
+              window.ceSwitchTab = function(idx) {
+                document.querySelectorAll('#canvas-editor-modal .ce-tab').forEach((t,i) => t.classList.toggle('active', i===idx));
+                document.querySelectorAll('#canvas-editor-modal .ce-section').forEach((s,i) => s.classList.toggle('active', i===idx));
+              };
+
+              window.ceAddSection = function(type) {
+                const extra = {};
+                if (type === 'items_table') { extra.show_totals = true; extra.tax_rate = 0; extra.columns = [{key:'descripcion',label:'Descripción',w:80},{key:'cantidad',label:'Cant.',w:20},{key:'precio',label:'Precio',w:40},{key:'total',label:'Total',w:40}]; }
+                if (type === 'checklist') { extra.items = [{key:'motor',label:'Motor'},{key:'frenos',label:'Frenos'},{key:'suspension',label:'Suspensión'},{key:'neumaticos',label:'Neumáticos'}]; }
+                if (type === 'notes') { extra.field = 'observaciones'; }
+                if (type === 'footer') { extra.text = 'Gracias por su preferencia.'; }
+                _ceState.sections.push({ type, ...extra });
+                ceRenderSections();
+              };
+
+              window.ceRenderSections = function() {
+                const el = document.getElementById('ce-sections-list');
+                el.innerHTML = '';
+                _ceState.sections.forEach((sec, idx) => {
+                  const meta = sectionMeta[sec.type] || { icon: 'fa-file', label: sec.type, color: '#888' };
+                  const div = document.createElement('div');
+                  div.className = 'section-block';
+                  div.draggable = true;
+                  div.dataset.idx = idx;
+                  let extraHtml = '';
+                  if (sec.type === 'footer' || sec.type === 'notes') {
+                    extraHtml = `<input type="text" value="${(sec.text||sec.label||'')}" placeholder="Texto..." oninput="_ceState.sections[${idx}].${sec.type==='footer'?'text':'label'}=this.value" style="width:100%;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#fff;padding:6px 10px;font-size:12px;margin-top:8px;">`;
+                  }
+                  if (sec.type === 'items_table') {
+                    extraHtml = `<label style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:8px;display:flex;align-items:center;gap:8px;"><input type="checkbox" ${sec.show_totals?'checked':''} onchange="_ceState.sections[${idx}].show_totals=this.checked"> Mostrar totales</label><label style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:6px;display:flex;align-items:center;gap:8px;">IVA% <input type="number" value="${sec.tax_rate||0}" min="0" max="100" oninput="_ceState.sections[${idx}].tax_rate=parseFloat(this.value)" style="width:60px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#fff;padding:4px 8px;"></label>`;
+                  }
+                  if (sec.type === 'checklist') {
+                    const items = (sec.items||[]).map((it,ii) => `<div class="checklist-item"><input value="${it.label}" placeholder="Ítem a verificar" oninput="_ceState.sections[${idx}].items[${ii}].label=this.value;_ceState.sections[${idx}].items[${ii}].key=this.value.toLowerCase().replace(/\\s+/g,'_')" ><button onclick="_ceState.sections[${idx}].items.splice(${ii},1);ceRenderSections()" style="background:none;border:none;color:#ef4444;cursor:pointer;"><i class="fa-solid fa-times"></i></button></div>`).join('');
+                    extraHtml = `<div style="margin-top:8px;">${items}</div><button onclick="_ceState.sections[${idx}].items=(_ceState.sections[${idx}].items||[]);_ceState.sections[${idx}].items.push({key:'nuevo',label:'Nuevo ítem'});ceRenderSections()" style="background:none;border:1px dashed rgba(255,255,255,0.3);color:rgba(255,255,255,0.6);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;margin-top:6px;"><i class="fa-solid fa-plus"></i> Agregar ítem</button>`;
+                  }
+                  if (sec.type === 'client_info' || sec.type === 'vehicle_info' || sec.type === 'general_info') {
+                    const currFields = (sec.fields||[]);
+                    extraHtml = `<div style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:8px;">Campos vinculados: ${currFields.length > 0 ? currFields.join(', ') : '<em>Se vinculan automáticamente desde la pestaña Campos</em>'}</div>`;
+                  }
+                  div.innerHTML = `<div class="sb-header"><div><i class="fa-solid ${meta.icon} sb-icon" style="color:${meta.color};"></i><span class="sb-title">${meta.label}</span></div><div style="display:flex;gap:6px;"><button onclick="_ceState.sections.splice(${idx},1);ceRenderSections()" style="background:none;border:none;color:#ef4444;cursor:pointer;"><i class="fa-solid fa-trash"></i></button></div></div>${extraHtml}`;
+                  el.appendChild(div);
+                });
+                ceLinkSectionFields();
+              };
+
+              function ceLinkSectionFields() {
+                // Automatically link defined fields to the first client_info / vehicle_info / general_info section
+                const clientFields = _ceState.fields.filter(f => f.section === 'client_info' || !f.section).map(f => f.name);
+                const vehicleFields = _ceState.fields.filter(f => f.section === 'vehicle_info').map(f => f.name);
+                _ceState.sections.forEach((sec, idx) => {
+                  if (sec.type === 'client_info') _ceState.sections[idx].fields = clientFields;
+                  if (sec.type === 'vehicle_info') _ceState.sections[idx].fields = vehicleFields;
+                  if (sec.type === 'general_info') _ceState.sections[idx].fields = _ceState.fields.map(f => f.name);
+                });
+              }
+
+              window.ceAddField = function() {
+                _ceState.fields.push({ name: 'campo_' + (_ceState.fields.length+1), label: 'Nuevo campo', type: 'text', required: true, section: 'client_info' });
+                ceRenderFields();
+              };
+
+              window.ceRenderFields = function() {
+                const el = document.getElementById('ce-fields-list');
+                el.innerHTML = '';
+                if (_ceState.fields.length === 0) {
+                  el.innerHTML = '<div style="color:rgba(255,255,255,0.4);font-size:13px;padding:20px;">Sin campos definidos. Agrega campos para que la IA sepa qué datos solicitar.</div>';
+                  return;
+                }
+                _ceState.fields.forEach((f, idx) => {
+                  const row = document.createElement('div');
+                  row.className = 'field-row';
+                  row.innerHTML = `
+                    <div style="display:grid;grid-template-columns:1fr 1.2fr auto auto auto;gap:8px;width:100%;align-items:center;">
+                      <input value="${f.name}" placeholder="nombre_campo" oninput="_ceState.fields[${idx}].name=this.value.toLowerCase().replace(/\\s+/g,'_')" title="Nombre (key interno)">
+                      <input value="${f.label}" placeholder="Pregunta para el usuario" oninput="_ceState.fields[${idx}].label=this.value" title="Etiqueta / pregunta">
+                      <select onchange="_ceState.fields[${idx}].type=this.value">
+                        <option value="text" ${f.type==='text'?'selected':''}>Texto</option>
+                        <option value="number" ${f.type==='number'?'selected':''}>Número</option>
+                        <option value="date" ${f.type==='date'?'selected':''}>Fecha</option>
+                      </select>
+                      <select onchange="_ceState.fields[${idx}].section=this.value" title="Sección">
+                        <option value="client_info" ${(f.section||'client_info')==='client_info'?'selected':''}>Cliente</option>
+                        <option value="vehicle_info" ${f.section==='vehicle_info'?'selected':''}>Vehículo</option>
+                        <option value="general_info" ${f.section==='general_info'?'selected':''}>General</option>
+                      </select>
+                      <button onclick="_ceState.fields.splice(${idx},1);ceRenderFields()" style="background:none;border:none;color:#ef4444;cursor:pointer;"><i class="fa-solid fa-trash"></i></button>
+                    </div>`;
+                  el.appendChild(row);
+                });
+              };
+
+              window.ceUpdateColorPreview = function() {
+                const c = document.getElementById('ce-color-primary').value;
+                const a = document.getElementById('ce-color-accent').value;
+                document.getElementById('ce-color-bar').style.background = c;
+                document.getElementById('ce-accent-pill').style.background = a;
+              };
+              document.getElementById('ce-color-primary').addEventListener('input', ceUpdateColorPreview);
+              document.getElementById('ce-color-accent').addEventListener('input', ceUpdateColorPreview);
+
+              window.ceUploadLogo = function() {
+                const file = document.getElementById('ce-logo-file').files[0];
+                if (!file) return;
+                const fd = new FormData();
+                fd.append('logo', file);
+                fd.append('csrf_token', '<?= $_SESSION["csrf_token"] ?? "" ?>');
+                fetch('api.php?action=pdf_templates_logo_upload', { method: 'POST', body: fd })
+                  .then(r => r.json()).then(res => {
+                    if (res.status === 'success') {
+                      document.getElementById('ce-logo-url').value = res.url;
+                      const prev = document.getElementById('ce-logo-preview');
+                      prev.src = res.url; prev.style.display = 'block';
+                    } else alert('Error: ' + res.message);
+                  });
+              };
+
+              window.ceBuildConfig = function() {
+                ceLinkSectionFields();
+                return {
+                  doc_type: document.getElementById('ce-doctype').value,
+                  design: {
+                    primary_color: document.getElementById('ce-color-primary').value,
+                    accent_color: document.getElementById('ce-color-accent').value,
+                    font: document.getElementById('ce-font').value,
+                  },
+                  header: {
+                    company_name: document.getElementById('ce-company').value,
+                    company_rut: document.getElementById('ce-rut').value,
+                    company_address: document.getElementById('ce-address').value,
+                    company_phone: document.getElementById('ce-phone').value,
+                    company_email: document.getElementById('ce-email').value,
+                    logo_url: document.getElementById('ce-logo-url').value,
+                  },
+                  sections: _ceState.sections,
+                  fields: _ceState.fields,
+                };
+              };
+
+              window.ceGeneratePreview = function() {
+                const config = ceBuildConfig();
+                const cont = document.getElementById('ce-preview-container');
+                cont.innerHTML = '<div style="text-align:center;padding:40px;color:rgba(255,255,255,0.5);"><i class="fa-solid fa-spinner fa-spin" style="font-size:32px;"></i><p>Generando PDF de ejemplo...</p></div>';
+                const fd = new FormData();
+                fd.append('template_config', JSON.stringify(config));
+                fd.append('csrf_token', '<?= $_SESSION["csrf_token"] ?? "" ?>');
+                fetch('api.php?action=pdf_templates_preview', { method: 'POST', body: fd })
+                  .then(r => r.json()).then(res => {
+                    if (res.status === 'success' && res.url) {
+                      cont.innerHTML = `<iframe class="preview-frame" src="${res.url}#toolbar=0"></iframe>`;
+                    } else {
+                      cont.innerHTML = '<div style="text-align:center;padding:40px;color:#ef4444;"><i class="fa-solid fa-triangle-exclamation"></i> Error al generar preview: ' + (res.message||'desconocido') + '</div>';
+                    }
+                  });
+              };
+
+              window.ceSave = function() {
+                const name = document.getElementById('ce-name').value.trim();
+                if (!name) { alert('Ingresa un nombre para la plantilla.'); ceSwitchTab(0); return; }
+                const config = ceBuildConfig();
+                document.getElementById('ce-status').textContent = 'Guardando...';
+                const fd = new FormData();
+                fd.append('name', name);
+                fd.append('description', document.getElementById('ce-desc').value);
+                fd.append('doc_type', document.getElementById('ce-doctype').value);
+                fd.append('template_config', JSON.stringify(config));
+                fd.append('csrf_token', '<?= $_SESSION["csrf_token"] ?? "" ?>');
+                if (_ceState.id) fd.append('id', _ceState.id);
+                fetch('api.php?action=pdf_templates_save_config', { method: 'POST', body: fd })
+                  .then(r => r.json()).then(res => {
+                    if (res.status === 'success') {
+                      _ceState.id = res.id;
+                      document.getElementById('ce-status').textContent = '✓ Guardado exitosamente (ID: ' + res.id + ')';
+                      if (typeof loadPDFTemplates === 'function') loadPDFTemplates();
+                    } else {
+                      document.getElementById('ce-status').textContent = 'Error: ' + (res.message||'desconocido');
+                    }
+                  });
+              };
+
+              // Allow editing existing canvas template from the card
+              window.openCanvasEditorTemplate = function(tplId) {
+                $.get('api.php?action=pdf_templates_list', function(res) {
+                  const tpl = (res.data||[]).find(t => String(t.id) === String(tplId));
+                  if (tpl) openCanvasEditor(tpl);
+                }, 'json');
+              };
+
+            })();
+            </script>
+
             <!-- GENERATED DOCUMENTS TAB -->
             <div id="pdf-generated-tab" class="tab-content">
                 <div class="panel-header">
@@ -2896,10 +3331,13 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             }
             let html = '';
             data.forEach(t => {
-                const isCustom  = t.source === 'db';
-                const srcBadge  = isCustom
-                    ? '<span class="badge success tpl-source-badge">Personalizada</span>'
-                    : '<span class="badge tpl-source-badge">Sistema</span>';
+                const isCustom  = t.source === 'db' || t.source === 'canvas';
+                const isCanvas  = t.source === 'canvas';
+                const srcBadge  = isCanvas
+                    ? '<span class="badge success tpl-source-badge" style="background:linear-gradient(135deg,#6366f1,#7c3aed);"><i class="fa-solid fa-pen-ruler" style="margin-right:4px;"></i>Canvas</span>'
+                    : isCustom
+                        ? '<span class="badge success tpl-source-badge">Personalizada</span>'
+                        : '<span class="badge tpl-source-badge">Sistema</span>';
 
                 // Field tags — show max 5 then +N
                 const fields = (t.placeholders || []);
@@ -2917,7 +3355,11 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
 
                 // Actions
                 let actions = '';
-                if (isCustom) {
+                if (isCanvas) {
+                    actions = `
+                        <button class="btn" style="background:linear-gradient(135deg,var(--primary),#7c3aed);font-size:12px;" onclick="openCanvasEditorTemplate('${t.db_id}')" title="Editar en Canvas"><i class="fa-solid fa-pen-ruler"></i> Editar Canvas</button>
+                        <button class="btn btn-danger" onclick="deletePDFTemplate(${t.db_id},'${escHtml(t.name)}')" title="Eliminar"><i class="fa-solid fa-trash"></i></button>`;
+                } else if (isCustom) {
                     actions = `
                         <button class="btn btn-outline" onclick="editPDFTemplate(${t.db_id},'${escHtml(t.name)}','${escHtml(t.description||'')}')" title="Editar"><i class="fa-solid fa-pen"></i> Editar</button>
                         <button class="btn btn-outline" onclick="downloadTemplate('${escHtml(t.id)}')" title="Descargar"><i class="fa-solid fa-download"></i></button>
