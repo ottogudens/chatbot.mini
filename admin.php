@@ -1266,6 +1266,15 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                         </select>
                       </div>
                     </div>
+                    <?php if ($is_superadmin): ?>
+                    <div class="ce-row" id="ce-client-row">
+                      <div class="ce-field"><div class="ce-label">Cliente asignado *</div>
+                        <select id="ce-client-id">
+                          <option value="">Selecciona un cliente...</option>
+                        </select>
+                      </div>
+                    </div>
+                    <?php endif; ?>
                     <div class="ce-row full">
                       <div class="ce-field"><div class="ce-label">Descripción (guía para la IA)</div><textarea id="ce-desc" placeholder="Describe cuándo y cómo el asistente debe usar esta plantilla..."></textarea></div>
                     </div>
@@ -1376,7 +1385,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             <!-- CANVAS EDITOR JS -->
             <script>
             (function(){
-              let _ceState = { id: null, sections: [], fields: [] };
+              window._ceState = { id: null, client_id: null, sections: [], fields: [] };
               const sectionMeta = {
                 client_info:  { icon: 'fa-user',         label: 'Datos del Cliente',          color: '#6366f1' },
                 vehicle_info: { icon: 'fa-car',          label: 'Datos del Vehículo',         color: '#0ea5e9' },
@@ -1389,7 +1398,7 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
               };
 
               window.openCanvasEditor = function(templateData) {
-                _ceState = { id: null, sections: [], fields: [] };
+                window._ceState = { id: null, client_id: null, sections: [], fields: [] };
                 // Reset form
                 ['ce-name','ce-desc','ce-company','ce-rut','ce-address','ce-phone','ce-email'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
                 document.getElementById('ce-doctype').value = 'budget';
@@ -1402,9 +1411,10 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
 
                 if (templateData && templateData.template_config) {
                   const c = JSON.parse(templateData.template_config);
-                  _ceState.id = templateData.id;
-                  _ceState.sections = c.sections || [];
-                  _ceState.fields = c.fields || [];
+                  window._ceState.id = templateData.id;
+                  window._ceState.client_id = templateData.client_id;
+                  window._ceState.sections = c.sections || [];
+                  window._ceState.fields = c.fields || [];
                   document.getElementById('ce-name').value = templateData.name || '';
                   document.getElementById('ce-desc').value = templateData.description || '';
                   document.getElementById('ce-doctype').value = c.doc_type || 'generic';
@@ -1420,6 +1430,18 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                     document.getElementById('ce-logo-url').value = h.logo_url;
                     const prev = document.getElementById('ce-logo-preview');
                     prev.src = h.logo_url; prev.style.display = 'block';
+                  }
+                }
+
+                // Populate clients for superadmin
+                if (window.IS_SUPERADMIN) {
+                  const clientSelect = document.getElementById('ce-client-id');
+                  if (clientSelect && window.clientsCache) {
+                    let opts = '<option value="">Selecciona un cliente...</option>';
+                    window.clientsCache.forEach(c => {
+                      opts += `<option value="${c.id}" ${window._ceState.client_id == c.id ? 'selected' : ''}>${c.name}</option>`;
+                    });
+                    clientSelect.innerHTML = opts;
                   }
                 }
 
@@ -1627,9 +1649,10 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
                   doc_type: document.getElementById('ce-doctype').value,
                   template_config: JSON.stringify(config),
                   csrf_token: csrfToken,
-                  client_id: getClientIdForAPI()
+                  client_id: (window.IS_SUPERADMIN ? document.getElementById('ce-client-id').value : getClientIdForAPI()) || window._ceState.client_id
                 };
-                if (_ceState.id) postData.id = _ceState.id;
+                if (!postData.client_id) { alert('Debes seleccionar un cliente.'); return; }
+                if (window._ceState.id) postData.id = window._ceState.id;
                 $.ajax({
                   url: 'api.php?action=pdf_templates_save_config',
                   type: 'POST',
