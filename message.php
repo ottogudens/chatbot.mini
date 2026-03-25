@@ -92,6 +92,19 @@ if ($assistant_id) {
             ];
         }
     }
+
+    // --- Safety Limits (TOKEN-FIX) ---
+    $max_text_chars = 100000; // ~25k tokens
+    if (mb_strlen($info_sources_text) > $max_text_chars) {
+        $info_sources_text = mb_substr($info_sources_text, 0, $max_text_chars) . "\n... [Contenido truncado por longitud]";
+        error_log("Assistant $assistant_id: Info sources text truncated (> $max_text_chars chars)");
+    }
+
+    $max_files = 10;
+    if (count($info_sources_files) > $max_files) {
+        $info_sources_files = array_slice($info_sources_files, 0, $max_files);
+        error_log("Assistant $assistant_id: Info sources files limited (> $max_files files)");
+    }
 }
 
 // ─── 4. Rule-based matching (ChatbotRouter) ───────────────────────────────────

@@ -208,6 +208,12 @@ class AIHandler
             }
         }
 
+        // Pre-flight context check (logging only)
+        $total_context_chars = mb_strlen($system_prompt) + mb_strlen($info_text) + mb_strlen($user_msg);
+        if ($total_context_chars > 200000) {
+            error_log("AIHandler Assistant {$this->assistant_id}: Large context detected (~$total_context_chars chars). Max Gemini limit is ~4M chars (1M tokens).");
+        }
+
         $history  = $this->loadHistory();
         $ai_reply = $this->gemini->get_response($user_msg, $history, $system_prompt, $info_text, $info_files, null, $ai_config);
 
