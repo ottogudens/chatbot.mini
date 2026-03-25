@@ -3193,7 +3193,9 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
 
         // --- Leads ---
         function loadLeads() {
+            let cid = getClientIdForAPI();
             let u = `api.php?action=leads_list`;
+            if (cid) u += '&client_id=' + cid;
             if (currentAssistantId) u += '&assistant_id=' + currentAssistantId;
             $.get(u, function (res) {
                 if (res.status === 'success') {

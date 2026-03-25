@@ -257,11 +257,29 @@ switch ($action) {
     // ---- Leads (Marketing) ----
     case 'leads_list':
         $req_client_id = $_GET['client_id'] ?? $session_client_id;
+        $filter_assistant = isset($_GET['assistant_id']) && is_numeric($_GET['assistant_id'])
+            ? intval($_GET['assistant_id']) : null;
+
+        // Non-superadmins can only see their own client's leads
         if (!$is_superadmin && $req_client_id != $session_client_id) {
             echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
             exit;
         }
-        $query = "SELECT l.*, a.name as assistant_name FROM leads l LEFT JOIN assistants a ON l.assistant_id = a.id WHERE l.client_id = " . intval($req_client_id) . " ORDER BY l.id DESC";
+
+        $where_parts = [];
+        if ($req_client_id !== null) {
+            $where_parts[] = "l.client_id = " . intval($req_client_id);
+        } elseif (!$is_superadmin) {
+            // Shouldn't happen, but block just in case
+            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
+            exit;
+        }
+        if ($filter_assistant) {
+            $where_parts[] = "l.assistant_id = " . $filter_assistant;
+        }
+        $where_sql = empty($where_parts) ? '1=1' : implode(' AND ', $where_parts);
+
+        $query = "SELECT l.*, a.name as assistant_name FROM leads l LEFT JOIN assistants a ON l.assistant_id = a.id WHERE $where_sql ORDER BY l.id DESC";
         $result = mysqli_query($conn, $query);
         $data = [];
         if ($result) {
