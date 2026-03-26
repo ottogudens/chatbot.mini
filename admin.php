@@ -124,8 +124,18 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
 
         .sidebar-nav {
             flex: 1;
-            padding: 20px 12px;
+            padding: 10px 0;
             overflow-y: auto;
+        }
+
+        .sidebar-category {
+            padding: 20px 24px 8px;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            opacity: 0.6;
         }
 
         .nav-tab {
@@ -136,9 +146,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
             background: none;
             border: none;
             color: var(--text-muted);
-            padding: 12px 16px;
-            margin-bottom: 4px;
-            border-radius: 8px;
+            padding: 12px 24px;
             cursor: pointer;
             font-size: 15px;
             font-weight: 500;
@@ -592,6 +600,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
         </div>
 
         <nav class="sidebar-nav">
+            <div class="sidebar-category">Gestión</div>
             <button class="nav-tab active" data-target="dashboard-tab"><i class="fa-solid fa-chart-line"></i>
                 Resumen</button>
             <?php if ($is_superadmin): ?>
@@ -599,22 +608,25 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                 <button class="nav-tab" data-target="users-tab"><i class="fa-solid fa-users"></i> Usuarios</button>
             <?php endif; ?>
             <button class="nav-tab" data-target="assistants-tab"><i class="fa-solid fa-robot"></i> Asistentes</button>
-            <button class="nav-tab" data-target="info-tab"><i class="fa-solid fa-database"></i> Fuentes de Info</button>
-            <button class="nav-tab" data-target="integrations-tab"><i class="fa-brands fa-google-drive"></i>
-                Integraciones</button>
+
+            <div class="sidebar-category">Inteligencia</div>
+            <button class="nav-tab" data-target="info-tab"><i class="fa-solid fa-database"></i> Conocimiento</button>
             <button class="nav-tab" data-target="rules-tab"><i class="fa-solid fa-book"></i> Reglas Q&A</button>
+            <button class="nav-tab" data-target="pdf-templates-tab"><i class="fa-solid fa-file-pdf"></i> Plantillas Canvas</button>
+
+            <div class="sidebar-category">Marketing</div>
             <button class="nav-tab" data-target="leads-tab"><i class="fa-solid fa-address-book"></i> Prospectos</button>
-            <button class="nav-tab" data-target="pdf-templates-tab"><i class="fa-solid fa-file-pdf"></i> Plantillas
-                PDF</button>
-            <button class="nav-tab" data-target="pdf-generated-tab"><i class="fa-solid fa-file-invoice"></i> Documentos
-                Generados</button>
-            <button class="nav-tab" data-target="logs-tab"><i class="fa-solid fa-list"></i> Logs</button>
-            <button class="nav-tab" data-target="appointments-tab"><i class="fa-regular fa-calendar-check"></i>
-                Reservas</button>
-            <hr style="opacity:0.05; margin:10px 0;">
-            <button class="nav-tab" data-target="help-tab" style="color:#60a5fa;"><i class="fa-solid fa-circle-info"></i>
-                Centro de Ayuda</button>
-            <button class="nav-tab" onclick="openSupportChat()" style="color:#10b981; border-top: 1px solid rgba(16,185,129,0.05); margin-top:5px; padding-top:10px;">
+            <button class="nav-tab" data-target="campaigns-tab"><i class="fa-solid fa-bullhorn"></i> Campañas <span class="badge" style="background:var(--primary); color:#000; font-size:9px; padding:2px 5px; margin-left:5px;">NUEVO</span></button>
+
+            <div class="sidebar-category">Operaciones</div>
+            <button class="nav-tab" data-target="integrations-tab"><i class="fa-brands fa-google-drive"></i> Integraciones</button>
+            <button class="nav-tab" data-target="appointments-tab"><i class="fa-regular fa-calendar-check"></i> Reservas</button>
+            <button class="nav-tab" data-target="logs-tab"><i class="fa-solid fa-list"></i> Historial Chats</button>
+            <button class="nav-tab" data-target="pdf-generated-tab"><i class="fa-solid fa-file-invoice"></i> Documentos Gen.</button>
+
+            <div class="sidebar-category">Soporte</div>
+            <button class="nav-tab" data-target="help-tab" style="color:#60a5fa;"><i class="fa-solid fa-circle-info"></i> Centro de Ayuda</button>
+            <button class="nav-tab" onclick="openSupportChat()" style="color:#10b981; margin-top:5px;">
                 <i class="fa-solid fa-robot"></i> <b>Manual Virtual</b>
             </button>
         </nav>
@@ -823,6 +835,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                         <table id="leads-table">
                             <thead>
                                 <tr>
+                                    <th style="width:40px;"><input type="checkbox" id="select-all-leads" onclick="toggleSelectAllLeads(this.checked)"></th>
                                     <th>ID</th>
                                     <th>Asistente</th>
                                     <th>Nombre</th>
@@ -830,6 +843,31 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                                     <th>Estado</th>
                                     <th>Notas</th>
                                     <th>Fecha</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CAMPAIGNS TAB -->
+            <div id="campaigns-tab" class="tab-content">
+                <div class="panel-header">
+                    <h2>Campañas de Marketing</h2>
+                    <button class="btn" onclick="openCampaignModal()"><i class="fa-solid fa-bullhorn"></i> Nueva Campaña</button>
+                </div>
+                <div class="panel">
+                    <div style="overflow-x: auto;">
+                        <table id="campaigns-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Nombre de Campaña</th>
+                                    <th>Público Objetivo</th>
+                                    <th>Estado</th>
+                                    <th>Fecha Envío</th>
                                     <th>Acciones</th>
                                 </tr>
                             </thead>
@@ -1742,6 +1780,43 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                 </div>
             </div>
 
+            <!-- CAMPAIGN MODAL -->
+            <div class="modal" id="campaign-modal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.7); overflow-y:auto; padding:30px;">
+                <div class="panel" style="max-width:600px; margin:40px auto; position:relative;">
+                    <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                        <h2 style="margin:0;">Campaña de Marketing</h2>
+                        <button class="close-btn" onclick="closeModal('campaign-modal')" style="background:none; border:none; color:white; font-size:24px; cursor:pointer;">&times;</button>
+                    </div>
+                    <form id="campaign-form" onsubmit="submitCampaign(event)">
+                        <input type="hidden" name="id" id="campaign-id">
+                        <div class="form-group" style="margin-bottom:15px;">
+                            <label style="display:block; margin-bottom:5px;">Nombre de la Campaña</label>
+                            <input type="text" name="name" id="campaign-name" required placeholder="Ej: Oferta de Verano 2026" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white;">
+                        </div>
+                        <div class="form-group" style="margin-bottom:15px;">
+                            <label style="display:block; margin-bottom:5px;">Mensaje (WhatsApp)</label>
+                            <textarea name="message" id="campaign-message" required rows="6" placeholder="Escribe el mensaje que recibirán tus clientes..." style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white;"></textarea>
+                            <small style="color:var(--text-muted); font-size:11px;">Escribe el mensaje que se enviará. Recuerda que no será procesado por la IA.</small>
+                        </div>
+                        <div class="form-group" style="margin-bottom:15px;">
+                            <label style="display:block; margin-bottom:5px;">Público Objetivo</label>
+                            <select name="target_type" id="campaign-target-type" onchange="toggleCampaignLeadSelection()" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white;">
+                                <option value="all">Todos los Prospectos</option>
+                                <option value="selected">Solo Prospectos Seleccionados</option>
+                            </select>
+                        </div>
+                        <div id="campaign-lead-notice" style="display:none; padding:12px; background:rgba(0,212,255,0.1); border-radius:8px; font-size:12px; margin-bottom:15px; border:1px solid var(--glass-border); color:var(--primary);">
+                            <i class="fa-solid fa-circle-info"></i> Selecciona los prospectos en la pestaña <b>Prospectos</b> usando las casillas de verificación antes de proceder.
+                        </div>
+
+                        <div style="text-align:right; margin-top:20px;">
+                            <button type="button" class="btn btn-outline" onclick="closeModal('campaign-modal')">Cancelar</button>
+                            <button type="submit" class="btn">Guardar Campaña</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
             <!-- HELP & TUTORIALS TAB -->
             <div id="help-tab" class="tab-content">
                 <style>
@@ -2460,6 +2535,133 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
             }
         };
 
+        // --- Marketing Campaigns Logic ---
+        function openCampaignModal(id = null) {
+            const form = document.getElementById('campaign-form');
+            form.reset();
+            document.getElementById('campaign-id').value = id || '';
+            document.getElementById('campaign-lead-notice').style.display = 'none';
+            
+            if (id) {
+                // Load for edit (not implemented in API yet, but good for future)
+            }
+            
+            $('#campaign-modal').fadeIn(200);
+        }
+
+        function toggleCampaignLeadSelection() {
+            const type = document.getElementById('campaign-target-type').value;
+            document.getElementById('campaign-lead-notice').style.display = (type === 'selected') ? 'block' : 'none';
+            if (type === 'selected') {
+                showTab('leads-tab'); // Show leads tab to let them select
+            }
+        }
+
+        function submitCampaign(e) {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            fd.append('csrf_token', CSRF_TOKEN);
+            fd.append('client_id', currentClientId);
+
+            $.ajax({
+                url: 'api.php?action=campaigns_create',
+                type: 'POST',
+                data: fd,
+                processData: false,
+                contentType: false,
+                dataType: 'json',
+                success: function(res) {
+                    if (res.status === 'success') {
+                        closeModal('campaign-modal');
+                        loadCampaigns();
+                    } else {
+                        alert('Error: ' + res.message);
+                    }
+                }
+            });
+        }
+
+        function loadCampaigns() {
+            if (!currentClientId) return;
+            $.get(`api.php?action=campaigns_list&client_id=${currentClientId}`, function(res) {
+                const tbody = $('#campaigns-table tbody');
+                tbody.empty();
+                if (res.status === 'success') {
+                    res.data.forEach(c => {
+                        const targetLabel = c.target_type === 'all' ? '<span class="badge" style="background:#3b82f6;">Todos</span>' : '<span class="badge" style="background:#8b5cf6;">Seleccionados</span>';
+                        let statusHtml = '';
+                        if (c.status === 'pending') statusHtml = '<span class="status-badge status-offline">Pendiente</span>';
+                        else if (c.status === 'sent') statusHtml = '<span class="status-badge status-online">Enviada</span>';
+                        else statusHtml = '<span class="status-badge status-error">Error</span>';
+
+                        tbody.append(`
+                            <tr>
+                                <td>${c.id}</td>
+                                <td><b>${c.name}</b></td>
+                                <td>${targetLabel}</td>
+                                <td>${statusHtml}</td>
+                                <td>${c.sent_at || '---'}</td>
+                                <td>
+                                    <div class="actions">
+                                        ${c.status === 'pending' ? `<button class="btn btn-sm btn-success" onclick="sendCampaign(${c.id})" title="Enviar ahora"><i class="fa-solid fa-paper-plane"></i></button>` : ''}
+                                        <button class="btn btn-sm btn-danger" onclick="deleteCampaign(${c.id})"><i class="fa-solid fa-trash"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `);
+                    });
+                }
+            });
+        }
+
+        function deleteCampaign(id) {
+            if (!confirm('¿Seguro que quieres eliminar esta campaña?')) return;
+            $.post('api.php?action=campaigns_delete', { id, csrf_token: CSRF_TOKEN }, function(res) {
+                if (res.status === 'success') loadCampaigns();
+            });
+        }
+
+        function sendCampaign(id) {
+            if (!currentAssistantId) {
+                alert('Debes seleccionar un asistente (vincular WhatsApp) para realizar el envío.');
+                return;
+            }
+            
+            // Get selected leads if target_type is selected
+            const selectedLeads = [];
+            $('.lead-checkbox:checked').each(function() {
+                selectedLeads.push($(this).val());
+            });
+
+            if (!confirm('¿Confirmas el envío masivo de esta campaña por WhatsApp?')) return;
+
+            const btn = event.currentTarget;
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            btn.disabled = true;
+
+            $.post('api.php?action=campaigns_send', { 
+                id, 
+                assistant_id: currentAssistantId, 
+                lead_ids: selectedLeads.join(','),
+                csrf_token: CSRF_TOKEN 
+            }, function(res) {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+                if (res.status === 'success') {
+                    alert(`Éxito: ${res.sent} mensajes enviados. Errores: ${res.failed}`);
+                    loadCampaigns();
+                } else {
+                    alert('Error: ' + res.message);
+                }
+            });
+        }
+
+        // --- Lead Selection Logic ---
+        function toggleSelectAllLeads(checked) {
+            $('.lead-checkbox').prop('checked', checked);
+        }
+
         // Configure jQuery to automatically include CSRF token in all POST requests
         $.ajaxSetup({
             beforeSend: function(xhr, settings) {
@@ -2484,6 +2686,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                  if (target === 'pdf-templates-tab') loadPDFTemplates();
                  if (target === 'pdf-generated-tab') loadGeneratedDocs();
                  if (target === 'leads-tab') loadLeads();
+                 if (target === 'campaigns-tab') loadCampaigns();
                  if (target === 'integrations-tab') {
                      loadDriveStatus();
                      reloadWhatsAppIntegration();
@@ -3393,13 +3596,14 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                         if (l.status === 'descartado') statusBadge = `<span class="badge" style="background:#ef4444;">Descartado</span>`;
 
                         html += `<tr>
+                            <td><input type="checkbox" class="lead-checkbox" value="${l.id}"></td>
                             <td>#${l.id}</td>
                             <td><span style="font-size:11px;">${l.assistant_name || 'N/A'}</span></td>
                             <td><b>${l.name || 'S/N'}</b></td>
                             <td style="font-size:13px;">${contact || 'Sin contacto'}</td>
                             <td>${statusBadge}</td>
                             <td style="font-size:12px; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${l.notes || ''}</td>
-                            <td style="font-size:11px;">${captured || '-'}</td>
+                            <td><span style="font-size:11px;">${l.created_at}</span></td>
                             <td>
                                 <button class="btn btn-outline btn-sm" onclick='editLead(${JSON.stringify(l).replace(/'/g, "&#39;")})'><i class="fa-solid fa-pen"></i></button>
                                 <button class="btn btn-danger btn-sm" onclick="deleteLead(${l.id})"><i class="fa-solid fa-trash"></i></button>

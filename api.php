@@ -28,7 +28,11 @@ $secure_actions = [
     'pdf_templates_download',
     'pdf_templates_save_config',
     'pdf_templates_preview',
-    'pdf_templates_logo_upload'
+    'pdf_templates_logo_upload',
+    'campaigns_list',
+    'campaigns_create',
+    'campaigns_delete',
+    'campaigns_send'
 ];
 if (in_array($action, $secure_actions)) {
     if (!check_auth(false)) {
@@ -47,7 +51,8 @@ $csrf_protected_actions = [
     'leads_create', 'leads_update', 'leads_delete',
     'calendar_settings_update',
     'pdf_templates_save', 'pdf_templates_save_config', 'users_create', 'users_update', 'users_delete',
-    'whatsapp_disconnect'
+    'whatsapp_disconnect',
+    'campaigns_create', 'campaigns_delete', 'campaigns_send'
 ];
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, $csrf_protected_actions, true)) {
     $csrf_post  = $_POST['csrf_token'] ?? '';
@@ -72,6 +77,13 @@ function check_ast_owner($conn, $ast_id)
         return false;
     $q = mysqli_query($conn, "SELECT id FROM assistants WHERE id=" . intval($ast_id) . " AND client_id=" . intval($session_client_id));
     return mysqli_num_rows($q) > 0;
+}
+function check_client_owner($conn, $client_id)
+{
+    global $is_superadmin, $session_client_id;
+    if ($is_superadmin)
+        return true;
+    return $client_id && $session_client_id && intval($client_id) === intval($session_client_id);
 }
 function check_item_owner($conn, $table, $id)
 {
@@ -359,6 +371,113 @@ switch ($action) {
         }
         fclose($output);
         exit;
+
+    // ---- Marketing Campaigns ----
+    case 'campaigns_list':
+        $cid = $_GET['client_id'] ?? $session_client_id;
+        if (!check_client_owner($conn, $cid)) {
+            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
+            exit;
+        }
+        $query = "SELECT * FROM marketing_campaigns WHERE client_id = " . intval($cid) . " ORDER BY id DESC";
+        $result = mysqli_query($conn, $query);
+        $data = [];
+        if ($result) {
+            while ($row = mysqli_fetch_assoc($result)) {
+                $data[] = $row;
+            }
+        }
+        echo json_encode(['status' => 'success', 'data' => $data]);
+        break;
+
+    case 'campaigns_create':
+        $cid = $_POST['client_id'] ?? $session_client_id;
+        if (!check_client_owner($conn, $cid)) {
+            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
+            exit;
+        }
+        $name = $_POST['name'] ?? '';
+        $message = $_POST['message'] ?? '';
+        $target_type = $_POST['target_type'] ?? 'all';
+        $stmt = mysqli_prepare($conn, "INSERT INTO marketing_campaigns (client_id, name, message, target_type) VALUES (?, ?, ?, ?)");
+        mysqli_stmt_bind_param($stmt, "isss", $cid, $name, $message, $target_type);
+        echo json_encode(['status' => mysqli_stmt_execute($stmt) ? 'success' : 'error']);
+        break;
+
+    case 'campaigns_delete':
+        $id = $_POST['id'] ?? 0;
+        $q_chk = mysqli_query($conn, "SELECT client_id FROM marketing_campaigns WHERE id = " . intval($id));
+        $row_chk = mysqli_fetch_assoc($q_chk);
+        if (!$row_chk || !check_client_owner($conn, $row_chk['client_id'])) {
+            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
+            exit;
+        }
+        mysqli_query($conn, "DELETE FROM marketing_campaigns WHERE id = " . intval($id));
+        echo json_encode(['status' => 'success']);
+        break;
+
+    case 'campaigns_send':
+        $id = $_POST['id'] ?? 0;
+        $assistant_id = $_POST['assistant_id'] ?? 0; // The assistant whose WhatsApp session will be used
+        $lead_ids = isset($_POST['lead_ids']) ? explode(',', $_POST['lead_ids']) : [];
+
+        $q_camp = mysqli_query($conn, "SELECT * FROM marketing_campaigns WHERE id = " . intval($id));
+        $campaign = mysqli_fetch_assoc($q_camp);
+
+        if (!$campaign || !check_client_owner($conn, $campaign['client_id'])) {
+            echo json_encode(['status' => 'error', 'message' => 'No autorizado o campaña no existe']);
+            exit;
+        }
+
+        // 1. Fetch leads
+        $leads = [];
+        if ($campaign['target_type'] === 'all') {
+            $q_leads = mysqli_query($conn, "SELECT phone FROM leads WHERE client_id = " . intval($campaign['client_id']));
+            while ($rl = mysqli_fetch_assoc($q_leads)) $leads[] = $rl['phone'];
+        } else {
+            if (!empty($lead_ids)) {
+                $clean_ids = array_map('intval', $lead_ids);
+                $ids_str = implode(',', $clean_ids);
+                $q_leads = mysqli_query($conn, "SELECT phone FROM leads WHERE id IN ($ids_str) AND client_id = " . intval($campaign['client_id']));
+                while ($rl = mysqli_fetch_assoc($q_leads)) $leads[] = $rl['phone'];
+            }
+        }
+
+        if (empty($leads)) {
+            echo json_encode(['status' => 'error', 'message' => 'No hay destinatarios válidos seleccionados']);
+            exit;
+        }
+
+        // 2. Sending Loop (via Proxy to whatsapp.js)
+        $success_count = 0;
+        $error_count = 0;
+        foreach ($leads as $phone) {
+            $ch = curl_init(WHATSAPP_API_URL . "/send/" . intval($assistant_id));
+            $payload = json_encode(['to' => $phone, 'text' => $campaign['message']]);
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+            $res = curl_exec($ch);
+            $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            if (!curl_errno($ch) && $http_code === 200) {
+                $success_count++;
+            } else {
+                $error_count++;
+            }
+        }
+
+        $new_status = ($error_count === 0) ? 'sent' : 'error';
+        mysqli_query($conn, "UPDATE marketing_campaigns SET status = '$new_status', sent_at = NOW() WHERE id = " . intval($id));
+
+        echo json_encode([
+            'status' => 'success',
+            'message' => 'Envío completado',
+            'sent' => $success_count,
+            'failed' => $error_count
+        ]);
+        break;
 
     // ---- Assistants ----
     case 'assistants_list':

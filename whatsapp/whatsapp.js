@@ -248,6 +248,31 @@ app.post('/disconnect/:id', async (req, res) => {
     }
 });
 
+app.post('/send/:id', async (req, res) => {
+    const id = req.params.id;
+    const { to, text } = req.body;
+    const sock = sessions[id];
+
+    if (!sock || !sock.user) {
+        return res.status(400).json({ status: 'error', message: 'Sesión no conectada o no lista' });
+    }
+
+    if (!to || !text) {
+        return res.status(400).json({ status: 'error', message: 'Faltan parámetros (to, text)' });
+    }
+
+    try {
+        // Formato JID: número@s.whatsapp.net
+        const cleanNumber = to.replace(/\D/g, '');
+        const jid = `${cleanNumber}@s.whatsapp.net`;
+        await sock.sendMessage(jid, { text });
+        res.json({ status: 'success' });
+    } catch (err) {
+        console.error(`[Assistant ${id}] Error enviando mensaje:`, err.message);
+        res.status(500).json({ status: 'error', message: err.message });
+    }
+});
+
 // Auto-start existing sessions on launch
 if (fs.existsSync(AUTH_BASE_DIR)) {
     const dirs = fs.readdirSync(AUTH_BASE_DIR);
