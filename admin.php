@@ -2561,7 +2561,8 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
             e.preventDefault();
             const fd = new FormData(e.target);
             fd.append('csrf_token', CSRF_TOKEN);
-            fd.append('client_id', currentClientId);
+            let cid = getClientIdForAPI();
+            if (cid) fd.append('client_id', cid);
 
             $.ajax({
                 url: 'api.php?action=campaigns_create',
@@ -2582,8 +2583,10 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
         }
 
         function loadCampaigns() {
-            if (!currentClientId) return;
-            $.get(`api.php?action=campaigns_list&client_id=${currentClientId}`, function(res) {
+            let cid = getClientIdForAPI();
+            let u = `api.php?action=campaigns_list`;
+            if (cid) u += '&client_id=' + cid;
+            $.get(u, function(res) {
                 const tbody = $('#campaigns-table tbody');
                 tbody.empty();
                 if (res.status === 'success') {
