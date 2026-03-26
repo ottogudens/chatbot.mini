@@ -1,8 +1,20 @@
 <?php
 require_once 'auth.php';
+require_once 'db.php';
 check_auth();
 $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
+
+// Look for the Internal Support Assistant
+$support_assistant_id = null;
+$q_support = mysqli_query($conn, "SELECT id FROM assistants WHERE name = 'Asistente de Soporte Skale IA' LIMIT 1");
+if ($q_support && mysqli_num_rows($q_support) > 0) {
+    $row_support = mysqli_fetch_assoc($q_support);
+    $support_assistant_id = $row_support['id'];
+}
 ?>
+<script>
+    const SUPPORT_ASSISTANT_ID = <?php echo json_encode($support_assistant_id); ?>;
+</script>
 <!DOCTYPE html>
 <html lang="es" data-theme="dark">
 
@@ -602,6 +614,9 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
             <hr style="opacity:0.05; margin:10px 0;">
             <button class="nav-tab" data-target="help-tab" style="color:#60a5fa;"><i class="fa-solid fa-circle-info"></i>
                 Centro de Ayuda</button>
+            <button class="nav-tab" onclick="openSupportChat()" style="color:#10b981; border-top: 1px solid rgba(16,185,129,0.05); margin-top:5px; padding-top:10px;">
+                <i class="fa-solid fa-robot"></i> <b>Manual Virtual</b>
+            </button>
         </nav>
 
         <div class="sidebar-footer">
@@ -2315,12 +2330,99 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
         </div>
     </div>
 
+    <!-- SUPPORT CHAT MODAL -->
+    <div class="modal-overlay" id="support-chat-modal">
+        <div class="modal" style="max-width: 500px; height: 600px; display: flex; flex-direction: column; padding: 0; overflow: hidden;">
+            <div class="modal-header" style="padding: 15px 20px; background: var(--sidebar-bg);">
+                <h2 style="font-size: 16px;"><i class="fa-solid fa-robot" style="color:var(--success);"></i> Manual Virtual de Skale IA</h2>
+                <button class="close-btn" onclick="closeModal('support-chat-modal')">&times;</button>
+            </div>
+            <div id="support-chat-messages" style="flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; background: rgba(0,0,0,0.1);">
+                <div style="background: var(--glass-bg); padding: 12px 16px; border-radius: 12px 12px 12px 2px; align-self: flex-start; max-width: 85%; border: 1px solid var(--glass-border); font-size: 14px; line-height: 1.5;">
+                    ¡Hola! Soy tu asistente de soporte de <b>Skale IA</b>. <br><br>
+                    Puedo ayudarte a entender cómo configurar asistentes, conectar WhatsApp, crear plantillas canvas o cualquier otra duda sobre la plataforma. <br><br>
+                    <b>¿En qué puedo ayudarte hoy?</b>
+                </div>
+            </div>
+            <div style="padding: 15px 20px; border-top: 1px solid var(--glass-border); display: flex; gap: 10px; background: var(--sidebar-bg);">
+                <input type="text" id="support-chat-input" placeholder="Pregunta sobre Skale IA..." style="flex: 1; background: var(--input-bg); border: 1px solid var(--glass-border); color: white; padding: 10px 15px; border-radius: 8px; outline: none;" onkeypress="if(event.key==='Enter') sendSupportMessage()">
+                <button class="btn" onclick="sendSupportMessage()" style="padding: 0 15px;"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Global State
         const IS_SUPERADMIN = <?php echo $is_superadmin ? 'true' : 'false'; ?>;
         const id_client_sesion = <?php echo json_encode($_SESSION['client_id'] ?? null); ?>;
         // OPT-2: CSRF token for all mutating API calls
         const CSRF_TOKEN = "<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES); ?>";
+
+        function openSupportChat() {
+            if (!SUPPORT_ASSISTANT_ID) {
+                alert('El asistente de soporte aún no ha sido configurado. Por favor, ejecuta migrate12.php.');
+                return;
+            }
+            $('#support-chat-modal').fadeIn(200);
+            $('#support-chat-input').focus();
+        }
+
+        function sendSupportMessage() {
+            const input = $('#support-chat-input');
+            const text = input.val().trim();
+            if (!text) return;
+
+            const chatMessages = $('#support-chat-messages');
+            
+            // Append User Message
+            chatMessages.append(`
+                <div style="background: var(--primary); color: #000; padding: 12px 16px; border-radius: 12px 12px 2px 12px; align-self: flex-end; max-width: 85%; font-size: 14px; line-height: 1.5; font-weight:500;">
+                    ${text.replace(/\n/g, '<br>')}
+                </div>
+            `);
+            
+            input.val('');
+            chatMessages.scrollTop(chatMessages[0].scrollHeight);
+
+            // Show Typing Indicator
+            const typingId = 'typing-' + Date.now();
+            chatMessages.append(`
+                <div id="${typingId}" style="background: var(--glass-bg); padding: 12px 16px; border-radius: 12px 12px 12px 2px; align-self: flex-start; max-width: 85%; border: 1px solid var(--glass-border); font-size: 14px;">
+                    <i class="fa-solid fa-spinner fa-spin"></i> Escribiendo...
+                </div>
+            `);
+            chatMessages.scrollTop(chatMessages[0].scrollHeight);
+
+            // Send to API
+            $.ajax({
+                url: 'message.php',
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    text: text,
+                    assistant_id: SUPPORT_ASSISTANT_ID,
+                    csrf_token: CSRF_TOKEN
+                },
+                success: function(res) {
+                    $(`#${typingId}`).remove();
+                    const reply = res.reply || 'No recibí respuesta del asistente.';
+                    chatMessages.append(`
+                        <div style="background: var(--glass-bg); padding: 12px 16px; border-radius: 12px 12px 12px 2px; align-self: flex-start; max-width: 85%; border: 1px solid var(--glass-border); font-size: 14px; line-height: 1.5;">
+                            ${reply.replace(/\n/g, '<br>')}
+                        </div>
+                    `);
+                    chatMessages.scrollTop(chatMessages[0].scrollHeight);
+                },
+                error: function() {
+                    $(`#${typingId}`).remove();
+                    chatMessages.append(`
+                        <div style="background: rgba(239, 68, 68, 0.1); color: var(--danger); padding: 12px 16px; border-radius: 12px; align-self: center; font-size: 13px; border: 1px solid var(--danger);">
+                            Error de conexión con el soporte.
+                        </div>
+                    `);
+                }
+            });
+        }
         let currentAssistantId = null;
         let clientsCache = [];
         let assistantsCache = [];
