@@ -2553,7 +2553,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
             const type = document.getElementById('campaign-target-type').value;
             document.getElementById('campaign-lead-notice').style.display = (type === 'selected') ? 'block' : 'none';
             if (type === 'selected') {
-                showTab('leads-tab'); // Show leads tab to let them select
+                $('.nav-tab[data-target="leads-tab"]').click(); // Programmatic tab switch
             }
         }
 
