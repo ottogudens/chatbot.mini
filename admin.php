@@ -1794,7 +1794,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                             <?php if ($is_superadmin): ?>
                             <div class="form-group" style="margin-bottom:15px;" id="campaign-client-row">
                                 <label style="display:block; margin-bottom:5px; color:var(--primary);">Cliente Asignado *</label>
-                                <select name="client_id" id="campaign-client-id" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white;">
+                                <select name="client_id" id="campaign-client-id" onchange="loadCampaignLeads()" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white;">
                                     <option value="">Selecciona un cliente...</option>
                                 </select>
                             </div>
@@ -1826,8 +1826,32 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                                 <option value="selected">Solo Prospectos Seleccionados</option>
                             </select>
                         </div>
+                        
+                        <!-- EMBEDDED LEADS SELECTOR -->
+                        <div id="campaign-leads-selector" style="display:none; margin-bottom:20px; background:rgba(0,0,0,0.2); padding:15px; border-radius:12px; border:1px solid var(--glass-border);">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                <label style="font-weight:bold; color:var(--primary);">Seleccionar Prospectos</label>
+                                <div style="font-size:11px; color:var(--text-muted);"><i class="fa-solid fa-info-circle"></i> Los prospectos se filtran por el cliente seleccionado arriba.</div>
+                            </div>
+                            <div style="max-height:300px; overflow-y:auto; border:1px solid rgba(255,255,255,0.05); border-radius:8px;">
+                                <table class="table" id="campaign-leads-table" style="font-size:13px; width:100%;">
+                                    <thead style="position:sticky; top:0; background:var(--bg-secondary); z-index:1;">
+                                        <tr>
+                                            <th style="width:30px;"><input type="checkbox" id="campaign-select-all-leads" onclick="toggleSelectAllCampaignLeads(this.checked)"></th>
+                                            <th>Nombre</th>
+                                            <th>Contacto</th>
+                                            <th>Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr><td colspan="4" style="text-align:center; padding:20px; color:var(--text-muted);">Cargando prospectos...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
                         <div id="campaign-lead-notice" style="display:none; padding:12px; background:rgba(0,212,255,0.1); border-radius:8px; font-size:12px; margin-bottom:15px; border:1px solid var(--glass-border); color:var(--primary);">
-                            <i class="fa-solid fa-circle-info"></i> Selecciona los prospectos en la pestaña <b>Prospectos</b> usando las casillas de verificación antes de proceder.
+                            <i class="fa-solid fa-circle-info"></i> Selecciona los prospectos en la lista superior antes de proceder.
                         </div>
 
                         <div style="text-align:right; margin-top:20px;">
@@ -2561,7 +2585,8 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
             const form = document.getElementById('campaign-form');
             form.reset();
             document.getElementById('campaign-id').value = id || '';
-            document.getElementById('campaign-lead-notice').style.display = 'none';
+            $('#campaign-lead-notice').hide();
+            $('#campaign-leads-selector').hide();
             
             if (window.IS_SUPERADMIN) {
                 const clientSelect = document.getElementById('campaign-client-id');
@@ -2581,20 +2606,79 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
             $('#campaign-modal').fadeIn(200);
         }
 
+        function toggleSelectAllCampaignLeads(checked) {
+            $('.campaign-lead-checkbox').prop('checked', checked);
+        }
+
         function toggleCampaignLeadSelection() {
             const type = document.getElementById('campaign-target-type').value;
-            document.getElementById('campaign-lead-notice').style.display = (type === 'selected') ? 'block' : 'none';
+            const selector = $('#campaign-leads-selector');
+            const notice = $('#campaign-lead-notice');
+            
             if (type === 'selected') {
-                $('.nav-tab[data-target="leads-tab"]').click(); // Programmatic tab switch
+                selector.slideDown(200);
+                notice.fadeIn(200);
+                loadCampaignLeads(); // Fetch leads for the current client
+            } else {
+                selector.slideUp(200);
+                notice.fadeOut(200);
             }
+        }
+
+        function loadCampaignLeads() {
+            const tbody = $('#campaign-leads-table tbody');
+            tbody.html('<tr><td colspan="4" style="text-align:center; padding:20px;"><i class="fa-solid fa-spinner fa-spin"></i> Cargando prospectos...</td></tr>');
+            
+            let cid = window.IS_SUPERADMIN ? document.getElementById('campaign-client-id').value : getClientIdForAPI();
+            if (!cid && !window.IS_SUPERADMIN) cid = window.id_client_sesion;
+
+            if (!cid) {
+                tbody.html('<tr><td colspan="4" style="text-align:center; padding:20px; color:var(--text-muted);">Selecciona un cliente para ver sus prospectos.</td></tr>');
+                return;
+            }
+
+            $.get(`api.php?action=leads_list&client_id=${cid}`, function(res) {
+                if (res.status === 'success' && res.data.length > 0) {
+                    let html = '';
+                    res.data.forEach(l => {
+                        let contact = l.phone || l.email || '---';
+                        html += `
+                            <tr>
+                                <td><input type="checkbox" class="campaign-lead-checkbox" value="${l.id}"></td>
+                                <td>${l.name}</td>
+                                <td>${contact}</td>
+                                <td><span class="badge" style="font-size:10px; padding:2px 6px;">${l.status}</span></td>
+                            </tr>
+                        `;
+                    });
+                    tbody.html(html);
+                } else {
+                    tbody.html('<tr><td colspan="4" style="text-align:center; padding:20px; color:var(--text-muted);">No se encontraron prospectos para este cliente.</td></tr>');
+                }
+            });
         }
 
         function submitCampaign(e) {
             e.preventDefault();
             const fd = new FormData(e.target);
             fd.append('csrf_token', CSRF_TOKEN);
+            
             let cid = window.IS_SUPERADMIN ? document.getElementById('campaign-client-id').value : getClientIdForAPI();
             if (cid) fd.append('client_id', cid);
+
+            // GATHER SELECTED LEADS IF TYPE IS SELECTED
+            const type = document.getElementById('campaign-target-type').value;
+            if (type === 'selected') {
+                const selectedLeads = [];
+                $('.campaign-lead-checkbox:checked').each(function() {
+                    selectedLeads.push($(this).val());
+                });
+                if (selectedLeads.length === 0) {
+                    alert('Por favor selecciona al menos un prospecto para esta campaña.');
+                    return;
+                }
+                fd.append('lead_ids', selectedLeads.join(','));
+            }
 
             $.ajax({
                 url: 'api.php?action=campaigns_create',
@@ -4005,7 +4089,9 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
 
 
         // --- Utilities ---
-        function closeModal(id) { $('#' + id).removeClass('active'); }
+        function closeModal(id) { 
+            $('#' + id).fadeOut(200).removeClass('active'); 
+        }
 
         function copyChatLink() {
             let url = window.location.origin + window.location.pathname.replace('admin.php', 'index.php');

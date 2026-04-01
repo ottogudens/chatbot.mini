@@ -422,8 +422,9 @@ switch ($action) {
             }
         }
 
-        $stmt = mysqli_prepare($conn, "INSERT INTO marketing_campaigns (client_id, name, message, target_type, attachment_url, attachment_type) VALUES (?, ?, ?, ?, ?, ?)");
-        mysqli_stmt_bind_param($stmt, "isssss", $cid, $name, $message, $target_type, $attachment_url, $attachment_type);
+        $stmt = mysqli_prepare($conn, "INSERT INTO marketing_campaigns (client_id, name, message, target_type, target_ids, attachment_url, attachment_type) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $lead_ids_val = $_POST['lead_ids'] ?? null;
+        mysqli_stmt_bind_param($stmt, "issssss", $cid, $name, $message, $target_type, $lead_ids_val, $attachment_url, $attachment_type);
         echo json_encode(['status' => mysqli_stmt_execute($stmt) ? 'success' : 'error']);
         break;
 
@@ -458,8 +459,10 @@ switch ($action) {
             $q_leads = mysqli_query($conn, "SELECT phone FROM leads WHERE client_id = " . intval($campaign['client_id']));
             while ($rl = mysqli_fetch_assoc($q_leads)) $leads[] = $rl['phone'];
         } else {
-            if (!empty($lead_ids)) {
-                $clean_ids = array_map('intval', $lead_ids);
+            $ids_to_use = !empty($lead_ids) ? $lead_ids : (!empty($campaign['target_ids']) ? explode(',', $campaign['target_ids']) : []);
+            
+            if (!empty($ids_to_use)) {
+                $clean_ids = array_map('intval', $ids_to_use);
                 $ids_str = implode(',', $clean_ids);
                 $q_leads = mysqli_query($conn, "SELECT phone FROM leads WHERE id IN ($ids_str) AND client_id = " . intval($campaign['client_id']));
                 while ($rl = mysqli_fetch_assoc($q_leads)) $leads[] = $rl['phone'];
