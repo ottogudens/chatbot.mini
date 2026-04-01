@@ -1254,7 +1254,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
             <!-- CANVAS TEMPLATE EDITOR MODAL -->
             <div id="canvas-editor-modal" class="modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);overflow-y:auto;">
               <style>
-                #canvas-editor-modal .ce-wrap{max-width:940px;margin:30px auto;background:var(--bg-secondary,#1e1e2e);border-radius:18px;overflow:hidden;display:flex;flex-direction:column;min-height:85vh;}
+                #canvas-editor-modal .ce-wrap{max-width:100%;margin:0;background:var(--bg-secondary,#1e1e2e);border-radius:0;overflow:hidden;display:flex;flex-direction:column;height:100vh;}
                 #canvas-editor-modal .ce-topbar{background:var(--primary,#6366f1);padding:18px 28px;display:flex;align-items:center;justify-content:space-between;}
                 #canvas-editor-modal .ce-topbar h2{color:#fff;font-size:18px;margin:0;}
                 #canvas-editor-modal .ce-tabs{display:flex;border-bottom:1px solid rgba(255,255,255,0.1);background:rgba(0,0,0,0.2);}
@@ -1285,7 +1285,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                 #canvas-editor-modal .logo-preview{width:80px;height:80px;object-fit:contain;border-radius:8px;border:1px solid rgba(255,255,255,0.15);margin-top:8px;display:none;}
                 #canvas-editor-modal .checklist-item{display:flex;gap:8px;align-items:center;background:rgba(255,255,255,0.05);border-radius:8px;padding:8px 12px;margin-bottom:6px;}
                 #canvas-editor-modal .checklist-item input{flex:1;background:transparent;border:none;color:#fff;outline:none;font-size:13px;}
-                #canvas-editor-modal .preview-frame{width:100%;height:520px;border:none;border-radius:12px;background:#fff;}
+                #canvas-editor-modal .preview-frame{width:100%;height:calc(100vh - 200px);border:none;border-radius:12px;background:#fff;}
               </style>
               <div class="ce-wrap">
                 <!-- Topbar -->
@@ -1781,14 +1781,24 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
             </div>
 
             <!-- CAMPAIGN MODAL -->
-            <div class="modal" id="campaign-modal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.7); overflow-y:auto; padding:30px;">
-                <div class="panel" style="max-width:600px; margin:40px auto; position:relative;">
-                    <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                        <h2 style="margin:0;">Campaña de Marketing</h2>
-                        <button class="close-btn" onclick="closeModal('campaign-modal')" style="background:none; border:none; color:white; font-size:24px; cursor:pointer;">&times;</button>
+            <div class="modal" id="campaign-modal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.7); overflow-y:auto;">
+                <div class="panel" style="max-width:100%; min-height:100vh; margin:0; position:relative; border-radius:0; display:flex; flex-direction:column;">
+                    <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding:20px 30px; background:var(--primary); border-radius:0;">
+                        <h2 style="margin:0; color:white;"><i class="fa-solid fa-bullhorn"></i> Campaña de Marketing</h2>
+                        <button class="close-btn" onclick="closeModal('campaign-modal')" style="background:rgba(255,255,255,0.2); border:none; color:white; font-size:20px; cursor:pointer; padding:5px 15px; border-radius:8px;">&times; Cerrar</button>
                     </div>
-                    <form id="campaign-form" onsubmit="submitCampaign(event)">
-                        <input type="hidden" name="id" id="campaign-id">
+                    <div style="flex:1; padding:30px; max-width:800px; margin:0 auto; width:100%;">
+                        <form id="campaign-form" onsubmit="submitCampaign(event)">
+                            <input type="hidden" name="id" id="campaign-id">
+                            
+                            <?php if ($is_superadmin): ?>
+                            <div class="form-group" style="margin-bottom:15px;" id="campaign-client-row">
+                                <label style="display:block; margin-bottom:5px; color:var(--primary);">Cliente Asignado *</label>
+                                <select name="client_id" id="campaign-client-id" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white;">
+                                    <option value="">Selecciona un cliente...</option>
+                                </select>
+                            </div>
+                            <?php endif; ?>
                         <div class="form-group" style="margin-bottom:15px;">
                             <label style="display:block; margin-bottom:5px;">Nombre de la Campaña</label>
                             <input type="text" name="name" id="campaign-name" required placeholder="Ej: Oferta de Verano 2026" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white;">
@@ -2428,8 +2438,8 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
 
     <script>
         // Global State
-        const IS_SUPERADMIN = <?php echo $is_superadmin ? 'true' : 'false'; ?>;
-        const id_client_sesion = <?php echo json_encode($_SESSION['client_id'] ?? null); ?>;
+        window.IS_SUPERADMIN = <?php echo $is_superadmin ? 'true' : 'false'; ?>;
+        window.id_client_sesion = <?php echo json_encode($_SESSION['client_id'] ?? null); ?>;
         // OPT-2: CSRF token for all mutating API calls
         const CSRF_TOKEN = "<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES); ?>";
 
@@ -2498,9 +2508,9 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                 }
             });
         }
-        let currentAssistantId = null;
-        let clientsCache = [];
-        let assistantsCache = [];
+        window.currentAssistantId = null;
+        window.clientsCache = [];
+        window.assistantsCache = [];
  
         // Auto-refresh Manager for Dashboard
         const DashboardAutoRefresh = {
@@ -2542,8 +2552,19 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
             document.getElementById('campaign-id').value = id || '';
             document.getElementById('campaign-lead-notice').style.display = 'none';
             
+            if (window.IS_SUPERADMIN) {
+                const clientSelect = document.getElementById('campaign-client-id');
+                if (clientSelect && window.clientsCache) {
+                    let opts = '<option value="">Selecciona un cliente...</option>';
+                    window.clientsCache.forEach(c => {
+                        opts += `<option value="${c.id}">${c.name}</option>`;
+                    });
+                    clientSelect.innerHTML = opts;
+                }
+            }
+
             if (id) {
-                // Load for edit (not implemented in API yet, but good for future)
+                // Load for edit (not implemented in API yet)
             }
             
             $('#campaign-modal').fadeIn(200);
@@ -2561,7 +2582,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
             e.preventDefault();
             const fd = new FormData(e.target);
             fd.append('csrf_token', CSRF_TOKEN);
-            let cid = getClientIdForAPI();
+            let cid = window.IS_SUPERADMIN ? document.getElementById('campaign-client-id').value : getClientIdForAPI();
             if (cid) fd.append('client_id', cid);
 
             $.ajax({
