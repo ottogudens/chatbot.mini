@@ -250,22 +250,41 @@ app.post('/disconnect/:id', async (req, res) => {
 
 app.post('/send/:id', async (req, res) => {
     const id = req.params.id;
-    const { to, text } = req.body;
+    const { to, text, mediaUrl, mediaType } = req.body;
     const sock = sessions[id];
 
     if (!sock || !sock.user) {
         return res.status(400).json({ status: 'error', message: 'Sesión no conectada o no lista' });
     }
 
-    if (!to || !text) {
-        return res.status(400).json({ status: 'error', message: 'Faltan parámetros (to, text)' });
+    if (!to || (!text && !mediaUrl)) {
+        return res.status(400).json({ status: 'error', message: 'Faltan parámetros (to, text/mediaUrl)' });
     }
 
     try {
-        // Formato JID: número@s.whatsapp.net
         const cleanNumber = to.replace(/\D/g, '');
         const jid = `${cleanNumber}@s.whatsapp.net`;
-        await sock.sendMessage(jid, { text });
+
+        if (mediaUrl) {
+            console.log(`[Assistant ${id}] Enviando media (${mediaType}) a ${jid}: ${mediaUrl}`);
+            const sendOptions = { caption: text || '' };
+
+            if (mediaType === 'image') {
+                sendOptions.image = { url: mediaUrl };
+            } else if (mediaType === 'video') {
+                sendOptions.video = { url: mediaUrl };
+            } else {
+                // Default to document for everything else
+                const fileName = path.basename(mediaUrl.split('?')[0]) || 'documento';
+                sendOptions.document = { url: mediaUrl };
+                sendOptions.fileName = fileName;
+                sendOptions.mimetype = 'application/octet-stream'; // Let Baileys/WhatsApp handle it or refine
+            }
+
+            await sock.sendMessage(jid, sendOptions);
+        } else {
+            await sock.sendMessage(jid, { text });
+        }
         res.json({ status: 'success' });
     } catch (err) {
         console.error(`[Assistant ${id}] Error enviando mensaje:`, err.message);

@@ -399,8 +399,31 @@ switch ($action) {
         $name = $_POST['name'] ?? '';
         $message = $_POST['message'] ?? '';
         $target_type = $_POST['target_type'] ?? 'all';
-        $stmt = mysqli_prepare($conn, "INSERT INTO marketing_campaigns (client_id, name, message, target_type) VALUES (?, ?, ?, ?)");
-        mysqli_stmt_bind_param($stmt, "isss", $cid, $name, $message, $target_type);
+
+        $attachment_url = null;
+        $attachment_type = null;
+
+        if (isset($_FILES['attachment']) && $_FILES['attachment']['error'] === UPLOAD_ERR_OK) {
+            $upload_dir = __DIR__ . '/uploads/campaigns/';
+            if (!file_exists($upload_dir)) {
+                mkdir($upload_dir, 0777, true);
+            }
+            $orig_name = $_FILES['attachment']['name'];
+            $ext = pathinfo($orig_name, PATHINFO_EXTENSION);
+            $safe_name = time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+            $target_file = $upload_dir . $safe_name;
+
+            if (move_uploaded_file($_FILES['attachment']['tmp_name'], $target_file)) {
+                $attachment_url = 'uploads/campaigns/' . $safe_name;
+                $mime = $_FILES['attachment']['type'];
+                if (strpos($mime, 'image/') === 0) $attachment_type = 'image';
+                elseif (strpos($mime, 'video/') === 0) $attachment_type = 'video';
+                else $attachment_type = 'document';
+            }
+        }
+
+        $stmt = mysqli_prepare($conn, "INSERT INTO marketing_campaigns (client_id, name, message, target_type, attachment_url, attachment_type) VALUES (?, ?, ?, ?, ?, ?)");
+        mysqli_stmt_bind_param($stmt, "isssss", $cid, $name, $message, $target_type, $attachment_url, $attachment_type);
         echo json_encode(['status' => mysqli_stmt_execute($stmt) ? 'success' : 'error']);
         break;
 
@@ -451,9 +474,21 @@ switch ($action) {
         // 2. Sending Loop (via Proxy to whatsapp.js)
         $success_count = 0;
         $error_count = 0;
+        $baseUrl = (empty($_SERVER['HTTPS']) ? 'http' : 'https') . "://" . $_SERVER['HTTP_HOST'] . "/";
+        
         foreach ($leads as $phone) {
             $ch = curl_init(WHATSAPP_API_URL . "/send/" . intval($assistant_id));
-            $payload = json_encode(['to' => $phone, 'text' => $campaign['message']]);
+            $payload_data = [
+                'to' => $phone, 
+                'text' => $campaign['message']
+            ];
+            
+            if (!empty($campaign['attachment_url'])) {
+                $payload_data['mediaUrl'] = $baseUrl . $campaign['attachment_url'];
+                $payload_data['mediaType'] = $campaign['attachment_type'];
+            }
+
+            $payload = json_encode($payload_data);
             curl_setopt($ch, CURLOPT_POST, 1);
             curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
             curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);

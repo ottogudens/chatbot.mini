@@ -1808,6 +1808,17 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                             <textarea name="message" id="campaign-message" required rows="6" placeholder="Escribe el mensaje que recibirán tus clientes..." style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white;"></textarea>
                             <small style="color:var(--text-muted); font-size:11px;">Escribe el mensaje que se enviará. Recuerda que no será procesado por la IA.</small>
                         </div>
+                        
+                        <!-- NEW: Attachment Field -->
+                        <div class="form-group" style="margin-bottom:15px;">
+                            <label style="display:block; margin-bottom:5px;"><i class="fa-solid fa-paperclip"></i> Adjunto (Imagen, Video o Documento)</label>
+                            <div style="display:flex; gap:10px; align-items:center;">
+                                <input type="file" name="attachment" id="campaign-attachment" accept="image/*,video/*,.pdf,.doc,.docx" style="flex:1; padding:8px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white; font-size:13px;">
+                                <button type="button" class="btn btn-outline" onclick="document.getElementById('campaign-attachment').value=''" style="padding:8px 12px;"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                            <small style="color:var(--text-muted); font-size:11px;">Selecciona un archivo si deseas enviarlo junto al mensaje.</small>
+                        </div>
+
                         <div class="form-group" style="margin-bottom:15px;">
                             <label style="display:block; margin-bottom:5px;">Público Objetivo</label>
                             <select name="target_type" id="campaign-target-type" onchange="toggleCampaignLeadSelection()" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white;">
