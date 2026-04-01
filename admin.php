@@ -1252,7 +1252,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
             </div>
 
             <!-- CANVAS TEMPLATE EDITOR MODAL -->
-            <div id="canvas-editor-modal" class="modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);overflow-y:auto;">
+            <div id="canvas-editor-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);overflow-y:auto;">
               <style>
                 #canvas-editor-modal .ce-wrap{max-width:100%;margin:0;background:var(--bg-secondary,#1e1e2e);border-radius:0;overflow:hidden;display:flex;flex-direction:column;height:100vh;}
                 #canvas-editor-modal .ce-topbar{background:var(--primary,#6366f1);padding:18px 28px;display:flex;align-items:center;justify-content:space-between;}
@@ -1781,7 +1781,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
             </div>
 
             <!-- CAMPAIGN MODAL -->
-            <div class="modal" id="campaign-modal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.7); overflow-y:auto;">
+            <div id="campaign-modal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.7); overflow-y:auto;">
                 <div class="panel" style="max-width:100%; min-height:100vh; margin:0; position:relative; border-radius:0; display:flex; flex-direction:column;">
                     <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding:20px 30px; background:var(--primary); border-radius:0;">
                         <h2 style="margin:0; color:white;"><i class="fa-solid fa-bullhorn"></i> Campaña de Marketing</h2>
@@ -1799,62 +1799,60 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                                 </select>
                             </div>
                             <?php endif; ?>
-                        <div class="form-group" style="margin-bottom:15px;">
-                            <label style="display:block; margin-bottom:5px;">Nombre de la Campaña</label>
-                            <input type="text" name="name" id="campaign-name" required placeholder="Ej: Oferta de Verano 2026" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white;">
-                        </div>
-                        <div class="form-group" style="margin-bottom:15px;">
-                            <label style="display:block; margin-bottom:5px;">Mensaje (WhatsApp)</label>
-                            <textarea name="message" id="campaign-message" required rows="6" placeholder="Escribe el mensaje que recibirán tus clientes..." style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white;"></textarea>
-                            <small style="color:var(--text-muted); font-size:11px;">Escribe el mensaje que se enviará. Recuerda que no será procesado por la IA.</small>
-                        </div>
-                        
-                        <!-- NEW: Attachment Field -->
-                        <div class="form-group" style="margin-bottom:15px;">
-                            <label style="display:block; margin-bottom:5px;"><i class="fa-solid fa-paperclip"></i> Adjunto (Imagen, Video o Documento)</label>
-                            <div style="display:flex; gap:10px; align-items:center;">
-                                <input type="file" name="attachment" id="campaign-attachment" accept="image/*,video/*,.pdf,.doc,.docx" style="flex:1; padding:8px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white; font-size:13px;">
-                                <button type="button" class="btn btn-outline" onclick="document.getElementById('campaign-attachment').value=''" style="padding:8px 12px;"><i class="fa-solid fa-trash"></i></button>
+                            <div class="form-group" style="margin-bottom:15px;">
+                                <label style="display:block; margin-bottom:5px;">Nombre de la Campaña</label>
+                                <input type="text" name="name" id="campaign-name" required placeholder="Ej: Oferta de Verano 2026" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white;">
                             </div>
-                            <small style="color:var(--text-muted); font-size:11px;">Selecciona un archivo si deseas enviarlo junto al mensaje.</small>
-                        </div>
-
-                        <div class="form-group" style="margin-bottom:15px;">
-                            <label style="display:block; margin-bottom:5px;">Público Objetivo</label>
-                            <select name="target_type" id="campaign-target-type" onchange="toggleCampaignLeadSelection()" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white;">
-                                <option value="all">Todos los Prospectos</option>
-                                <option value="selected">Solo Prospectos Seleccionados</option>
-                            </select>
-                        </div>
-                        
-                        <!-- EMBEDDED LEADS SELECTOR -->
-                        <div id="campaign-leads-selector" style="display:none; margin-bottom:20px; background:rgba(0,0,0,0.2); padding:15px; border-radius:12px; border:1px solid var(--glass-border);">
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                                <label style="font-weight:bold; color:var(--primary);">Seleccionar Prospectos</label>
-                                <div style="font-size:11px; color:var(--text-muted);"><i class="fa-solid fa-info-circle"></i> Los prospectos se filtran por el cliente seleccionado arriba.</div>
+                            <div class="form-group" style="margin-bottom:15px;">
+                                <label style="display:block; margin-bottom:5px;">Mensaje (WhatsApp)</label>
+                                <textarea name="message" id="campaign-message" required rows="6" placeholder="Escribe el mensaje que recibirán tus clientes..." style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white;"></textarea>
+                                <small style="color:var(--text-muted); font-size:11px;">Escribe el mensaje que se enviará. Recuerda que no será procesado por la IA.</small>
                             </div>
-                            <div style="max-height:300px; overflow-y:auto; border:1px solid rgba(255,255,255,0.05); border-radius:8px;">
-                                <table class="table" id="campaign-leads-table" style="font-size:13px; width:100%;">
-                                    <thead style="position:sticky; top:0; background:var(--bg-secondary); z-index:1;">
-                                        <tr>
-                                            <th style="width:30px;"><input type="checkbox" id="campaign-select-all-leads" onclick="toggleSelectAllCampaignLeads(this.checked)"></th>
-                                            <th>Nombre</th>
-                                            <th>Contacto</th>
-                                            <th>Estado</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr><td colspan="4" style="text-align:center; padding:20px; color:var(--text-muted);">Cargando prospectos...</td></tr>
-                                    </tbody>
-                                </table>
+                                                    <!-- Attachment Field -->
+                            <div class="form-group" style="margin-bottom:15px;">
+                                <label style="display:block; margin-bottom:5px;"><i class="fa-solid fa-paperclip"></i> Adjunto (Imagen, Video o Documento)</label>
+                                <div style="display:flex; gap:10px; align-items:center;">
+                                    <input type="file" name="attachment" id="campaign-attachment" accept="image/*,video/*,.pdf,.doc,.docx" style="flex:1; padding:8px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white; font-size:13px;">
+                                    <button type="button" class="btn btn-outline" onclick="document.getElementById('campaign-attachment').value=''" style="padding:8px 12px;"><i class="fa-solid fa-trash"></i></button>
+                                </div>
+                                <small style="color:var(--text-muted); font-size:11px;">Selecciona un archivo si deseas enviarlo junto al mensaje.</small>
                             </div>
-                        </div>
 
-                        <div id="campaign-lead-notice" style="display:none; padding:12px; background:rgba(0,212,255,0.1); border-radius:8px; font-size:12px; margin-bottom:15px; border:1px solid var(--glass-border); color:var(--primary);">
-                            <i class="fa-solid fa-circle-info"></i> Selecciona los prospectos en la lista superior antes de proceder.
-                        </div>
+                            <div class="form-group" style="margin-bottom:15px;">
+                                <label style="display:block; margin-bottom:5px;">Público Objetivo</label>
+                                <select name="target_type" id="campaign-target-type" onchange="toggleCampaignLeadSelection()" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:white;">
+                                    <option value="all">Todos los Prospectos</option>
+                                    <option value="selected">Solo Prospectos Seleccionados</option>
+                                </select>
+                            </div>
+                            <!-- EMBEDDED LEADS SELECTOR -->
+                            <div id="campaign-leads-selector" style="display:none; margin-bottom:20px; background:rgba(0,0,0,0.2); padding:15px; border-radius:12px; border:1px solid var(--glass-border);">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                    <label style="font-weight:bold; color:var(--primary);">Seleccionar Prospectos</label>
+                                    <div style="font-size:11px; color:var(--text-muted);"><i class="fa-solid fa-info-circle"></i> Los prospectos se filtran por el cliente seleccionado arriba.</div>
+                                </div>
+                                <div style="max-height:300px; overflow-y:auto; border:1px solid rgba(255,255,255,0.05); border-radius:8px;">
+                                    <table id="campaign-leads-table" style="font-size:13px; width:100%;">
+                                        <thead style="position:sticky; top:0; background:var(--bg-secondary); z-index:1;">
+                                            <tr>
+                                                <th style="width:30px;"><input type="checkbox" id="campaign-select-all-leads" onclick="toggleSelectAllCampaignLeads(this.checked)"></th>
+                                                <th>Nombre</th>
+                                                <th>Contacto</th>
+                                                <th>Estado</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr><td colspan="4" style="text-align:center; padding:20px; color:var(--text-muted);">Cargando prospectos...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
 
-                        <div style="text-align:right; margin-top:20px;">
+                            <div id="campaign-lead-notice" style="display:none; padding:12px; background:rgba(0,212,255,0.1); border-radius:8px; font-size:12px; margin-bottom:15px; border:1px solid var(--glass-border); color:var(--primary);">
+                                <i class="fa-solid fa-circle-info"></i> Selecciona los prospectos en la lista superior antes de proceder.
+                            </div>
+
+                        <div style="text-align:right; margin-top:20px; padding-bottom:30px;">
                             <button type="button" class="btn btn-outline" onclick="closeModal('campaign-modal')">Cancelar</button>
                             <button type="submit" class="btn">Guardar Campaña</button>
                         </div>
@@ -4089,8 +4087,14 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
 
 
         // --- Utilities ---
-        function closeModal(id) { 
-            $('#' + id).fadeOut(200).removeClass('active'); 
+        function closeModal(id) {
+            const el = $('#' + id);
+            // campaign-modal and canvas-editor-modal use display:none/block directly
+            if (el.css('display') !== 'none') {
+                el.fadeOut(200).removeClass('active');
+            } else {
+                el.removeClass('active');
+            }
         }
 
         function copyChatLink() {
