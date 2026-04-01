@@ -20,7 +20,9 @@ $secure_actions = [
     'appointments_list', 'appointments_cancel',
     'calendar_settings_get', 'calendar_settings_update',
     'users_list', 'users_create', 'users_update', 'users_delete',
-    'stats', 'chart_data', 'logs', 'list'
+    'stats', 'chart_data', 'logs', 'list',
+    'logs_export', 'agents_list', 'agents_create', 'agents_delete',
+    'flows_list', 'flows_create', 'flows_update', 'flows_delete', 'flows_steps_list', 'flows_steps_update'
 ];
 if (in_array($action, $secure_actions)) {
     if (!check_auth(false)) {
@@ -40,7 +42,9 @@ $csrf_protected_actions = [
     'calendar_settings_update',
     'pdf_templates_save', 'pdf_templates_save_config', 'users_create', 'users_update', 'users_delete',
     'whatsapp_disconnect',
-    'campaigns_create', 'campaigns_delete', 'campaigns_send'
+    'campaigns_create', 'campaigns_delete', 'campaigns_send',
+    'agents_create', 'agents_delete',
+    'flows_create', 'flows_update', 'flows_delete', 'flows_steps_update'
 ];
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, $csrf_protected_actions, true)) {
     $csrf_post  = $_POST['csrf_token'] ?? '';
@@ -1518,6 +1522,136 @@ switch ($action) {
             echo json_encode(['status' => 'error', 'message' => 'El archivo físico no existe']);
             exit;
         }
+        break;
+
+    case 'logs_export':
+        $format = $_GET['format'] ?? 'csv';
+        $ast_id = $_GET['assistant_id'] ?? null;
+        
+        $query = "SELECT * FROM conversation_logs";
+        if ($ast_id) $query .= " WHERE assistant_id = " . intval($ast_id);
+        $query .= " ORDER BY created_at DESC";
+        
+        $res = mysqli_query($conn, $query);
+        $data = [];
+        while($row = mysqli_fetch_assoc($res)) $data[] = $row;
+
+        if ($format === 'json') {
+            header('Content-Type: application/json');
+            header('Content-Disposition: attachment; filename="logs_export_' . date('Ymd_His') . '.json"');
+            echo json_encode($data, JSON_PRETTY_PRINT);
+            exit;
+        } else {
+            header('Content-Type: text/csv');
+            header('Content-Disposition: attachment; filename="logs_export_' . date('Ymd_His') . '.csv"');
+            $output = fopen('php://output', 'w');
+            if (!empty($data)) {
+                fputcsv($output, array_keys($data[0]));
+                foreach ($data as $row) fputcsv($output, $row);
+            }
+            fclose($output);
+            exit;
+        }
+        break;
+
+    case 'agents_list':
+        $ast_id = $_GET['assistant_id'] ?? null;
+        if (!check_ast_owner($conn, $ast_id)) { echo json_encode(['status'=>'error','message'=>'No autorizado']); exit; }
+        $q = mysqli_query($conn, "SELECT * FROM authorized_agents WHERE assistant_id = " . intval($ast_id));
+        $list = [];
+        while($r = mysqli_fetch_assoc($q)) $list[] = $r;
+        echo json_encode(['status'=>'success', 'data'=>$list]);
+        break;
+
+    case 'agents_create':
+        $ast_id = $_POST['assistant_id'] ?? null;
+        if (!check_ast_owner($conn, $ast_id)) { echo json_encode(['status'=>'error','message'=>'No autorizado']); exit; }
+        $name = $_POST['agent_name'] ?? '';
+        $phone = preg_replace('/\D/', '', $_POST['phone_number'] ?? '');
+        if (!$phone) { echo json_encode(['status'=>'error','message'=>'Teléfono inválido']); exit; }
+        
+        $stmt = mysqli_prepare($conn, "INSERT INTO authorized_agents (assistant_id, agent_name, phone_number) VALUES (?, ?, ?)");
+        mysqli_stmt_bind_param($stmt, "iss", $ast_id, $name, $phone);
+        if (mysqli_stmt_execute($stmt)) echo json_encode(['status'=>'success']);
+        else echo json_encode(['status'=>'error', 'message'=>mysqli_error($conn)]);
+        break;
+
+    case 'agents_delete':
+        $id = $_POST['id'] ?? null;
+        // Verify ownership via assistant joined to agent
+        if (!$is_superadmin) {
+            $q = mysqli_query($conn, "SELECT a.client_id FROM authorized_agents g JOIN assistants a ON g.assistant_id = a.id WHERE g.id = ".intval($id));
+            $r = mysqli_fetch_assoc($q);
+            if (!$r || $r['client_id'] != $session_client_id) { echo json_encode(['status'=>'error','message'=>'No autorizado']); exit; }
+        }
+        mysqli_query($conn, "DELETE FROM authorized_agents WHERE id = ".intval($id));
+        echo json_encode(['status'=>'success']);
+        break;
+
+    case 'flows_list':
+        $ast_id = $_GET['assistant_id'] ?? null;
+        if (!check_ast_owner($conn, $ast_id)) { echo json_encode(['status'=>'error','message'=>'No autorizado']); exit; }
+        $q = mysqli_query($conn, "SELECT * FROM conversation_flows WHERE assistant_id = " . intval($ast_id));
+        $list = [];
+        while($r = mysqli_fetch_assoc($q)) $list[] = $r;
+        echo json_encode(['status'=>'success', 'data'=>$list]);
+        break;
+
+    case 'flows_create':
+        $ast_id = $_POST['assistant_id'] ?? null;
+        if (!check_ast_owner($conn, $ast_id)) { echo json_encode(['status'=>'error','message'=>'No autorizado']); exit; }
+        $name = $_POST['name'] ?? 'Nuevo Flujo';
+        $trigger = $_POST['trigger_keyword'] ?? null;
+        $stmt = mysqli_prepare($conn, "INSERT INTO conversation_flows (assistant_id, name, trigger_keyword) VALUES (?, ?, ?)");
+        mysqli_stmt_bind_param($stmt, "iss", $ast_id, $name, $trigger);
+        if (mysqli_stmt_execute($stmt)) echo json_encode(['status'=>'success', 'id'=>mysqli_insert_id($conn)]);
+        else echo json_encode(['status'=>'error', 'message'=>mysqli_error($conn)]);
+        break;
+
+    case 'flows_delete':
+        $id = $_POST['id'] ?? null;
+        if (!$is_superadmin) {
+           $q = mysqli_query($conn, "SELECT a.client_id FROM conversation_flows f JOIN assistants a ON f.assistant_id = a.id WHERE f.id = ".intval($id));
+           $r = mysqli_fetch_assoc($q);
+           if (!$r || $r['client_id'] != $session_client_id) { echo json_encode(['status'=>'error','message'=>'No autorizado']); exit; }
+        }
+        mysqli_query($conn, "DELETE FROM conversation_flows WHERE id = ".intval($id));
+        mysqli_query($conn, "DELETE FROM flow_steps WHERE flow_id = ".intval($id));
+        echo json_encode(['status'=>'success']);
+        break;
+
+    case 'flows_steps_list':
+        $flow_id = $_GET['flow_id'] ?? null;
+        $q = mysqli_query($conn, "SELECT * FROM flow_steps WHERE flow_id = ".intval($flow_id)." ORDER BY step_order ASC");
+        $list = [];
+        while($r = mysqli_fetch_assoc($q)) $list[] = $r;
+        echo json_encode(['status'=>'success', 'data'=>$list]);
+        break;
+
+    case 'flows_steps_update':
+        $flow_id = $_POST['flow_id'] ?? null;
+        $steps = json_decode($_POST['steps'] ?? '[]', true);
+        if (!$flow_id || !is_array($steps)) { echo json_encode(['status'=>'error','message'=>'Datos inválidos']); exit; }
+        
+        // Ownership check
+        if (!$is_superadmin) {
+            $q = mysqli_query($conn, "SELECT a.client_id FROM conversation_flows f JOIN assistants a ON f.assistant_id = a.id WHERE f.id = ".intval($flow_id));
+            $r = mysqli_fetch_assoc($q);
+            if (!$r || $r['client_id'] != $session_client_id) { echo json_encode(['status'=>'error','message'=>'No autorizado']); exit; }
+        }
+
+        mysqli_query($conn, "DELETE FROM flow_steps WHERE flow_id = ".intval($flow_id));
+        foreach($steps as $idx => $step) {
+            $order = $idx + 1;
+            $type = $step['step_type'] ?? 'text';
+            $content = $step['content'] ?? '';
+            $config = json_encode($step['interactive_config'] ?? null);
+            $next = $step['next_step_id'] ?? null;
+            $stmt = mysqli_prepare($conn, "INSERT INTO flow_steps (flow_id, step_order, step_type, content, interactive_config, next_step_id) VALUES (?, ?, ?, ?, ?, ?)");
+            mysqli_stmt_bind_param($stmt, "iisssi", $flow_id, $order, $type, $content, $config, $next);
+            mysqli_stmt_execute($stmt);
+        }
+        echo json_encode(['status'=>'success']);
         break;
 
     default:

@@ -660,6 +660,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
             <button class="nav-tab" data-target="info-tab"><i class="fa-solid fa-database"></i> Conocimiento</button>
             <button class="nav-tab" data-target="rules-tab"><i class="fa-solid fa-book"></i> Reglas Q&A</button>
             <button class="nav-tab" data-target="pdf-templates-tab"><i class="fa-solid fa-file-pdf"></i> Plantillas Canvas</button>
+            <button class="nav-tab" data-target="flows-tab"><i class="fa-solid fa-diagram-project"></i> Flujos Int.</button>
 
             <div class="sidebar-category">Marketing</div>
             <button class="nav-tab" data-target="leads-tab"><i class="fa-solid fa-address-book"></i> Prospectos</button>
@@ -669,6 +670,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
             <button class="nav-tab" data-target="integrations-tab"><i class="fa-brands fa-google-drive"></i> Integraciones</button>
             <button class="nav-tab" data-target="appointments-tab"><i class="fa-regular fa-calendar-check"></i> Reservas</button>
             <button class="nav-tab" data-target="logs-tab"><i class="fa-solid fa-list"></i> Historial Chats</button>
+            <button class="nav-tab" data-target="agents-tab"><i class="fa-solid fa-user-shield"></i> Agentes Autorizados</button>
             <button class="nav-tab" data-target="pdf-generated-tab"><i class="fa-solid fa-file-invoice"></i> Documentos Gen.</button>
 
             <div class="sidebar-category">Soporte</div>
@@ -1108,9 +1110,12 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
             <!-- LOGS TAB -->
             <div id="logs-tab" class="tab-content">
                 <div class="panel-header">
-                    <h2>Últimas Interacciones</h2>
-                    <button class="btn btn-outline" onclick="loadLogs()"><i class="fa-solid fa-rotate"></i>
-                        Actualizar</button>
+                    <h2>Historial de Conversaciones</h2>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn btn-outline" onclick="exportLogs('csv')"><i class="fa-solid fa-file-csv"></i> Exportar CSV</button>
+                        <button class="btn btn-outline" onclick="exportLogs('json')"><i class="fa-solid fa-file-code"></i> Exportar JSON</button>
+                        <button class="btn btn-outline" onclick="loadLogs()"><i class="fa-solid fa-rotate"></i> Refrescar</button>
+                    </div>
                 </div>
                 <div class="panel">
                     <div style="overflow-x: auto;">
@@ -1808,6 +1813,48 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
             })();
             </script>
 
+            <!-- CONVERSATION FLOWS TAB -->
+            <div id="flows-tab" class="tab-content">
+                <div class="panel-header">
+                    <div>
+                        <h2>Flujos de Conversación</h2>
+                        <p style="font-size:13px; color:var(--text-muted);">Crea árboles de decisión interactivos con botones.</p>
+                    </div>
+                    <button class="btn" onclick="openFlowModal()"><i class="fa-solid fa-plus"></i> Nuevo Flujo</button>
+                </div>
+                <div class="panel" style="background:transparent; border:none; padding:0;">
+                   <div id="flows-container" class="dashboard-cards" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">
+                       <!-- Populated by JS -->
+                   </div>
+                </div>
+            </div>
+
+            <!-- AUTHORIZED AGENTS TAB -->
+            <div id="agents-tab" class="tab-content">
+                <div class="panel-header">
+                    <div>
+                        <h2>Agentes Autorizados</h2>
+                        <p style="font-size:13px; color:var(--text-muted);">Números de WhatsApp autorizados para recibir transferencias humanas.</p>
+                    </div>
+                    <button class="btn" onclick="openAgentModal()"><i class="fa-solid fa-plus"></i> Agregar Agente</button>
+                </div>
+                <div class="panel">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Nombre Agente</th>
+                                <th>Teléfono (WhatsApp)</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="agents-table-body">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <!-- GENERATED DOCUMENTS TAB -->
             <div id="pdf-generated-tab" class="tab-content">
                 <div class="panel-header">
@@ -2175,6 +2222,79 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                 <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
                     <button type="button" class="btn btn-outline" onclick="closeModal('user-modal')">Cancelar</button>
                     <button type="submit" class="btn">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Flow Modal -->
+    <div class="modal-overlay" id="flow-modal">
+        <div class="modal" style="max-width:500px;">
+            <div class="modal-header">
+                <h2 id="flow-modal-title">Configurar Flujo</h2>
+                <button type="button" class="close-modal" onclick="closeModal('flow-modal')"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="flow-form" onsubmit="saveFlow(event)">
+                <input type="hidden" id="flow-id" name="id">
+                <div class="form-group">
+                    <label>Nombre del Flujo</label>
+                    <input type="text" id="flow-name" required placeholder="Ej: Menú de Bienvenida">
+                </div>
+                <div class="form-group">
+                    <label>Palabra Clave (Trigger)</label>
+                    <input type="text" id="flow-trigger" placeholder="Ej: hola, menu, inicio">
+                    <p style="font-size:11px; color:var(--text-muted); margin-top:4px;">El bot iniciará este flujo si el usuario escribe esta palabra exacta (opcional).</p>
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('flow-modal')">Cancelar</button>
+                    <button type="submit" class="btn">Guardar Flujo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Flow Builder Modal -->
+    <div class="modal-overlay" id="flow-builder-modal">
+        <div class="modal" style="max-width:1000px; width:95%; height:90vh; display:flex; flex-direction:column;">
+            <div class="modal-header">
+                <div>
+                    <h2 id="flow-builder-title">Editor de Pasos</h2>
+                    <p style="font-size:12px; color:var(--text-muted);" id="flow-builder-subtitle">Construye la secuencia de mensajes.</p>
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn btn-outline" onclick="addFlowStep()"><i class="fa-solid fa-plus"></i> Agregar Paso</button>
+                    <button class="btn" onclick="saveFlowSteps()"><i class="fa-solid fa-save"></i> Guardar Cambios</button>
+                    <button type="button" class="close-modal" onclick="closeModal('flow-builder-modal')"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+            <div class="modal-body" style="flex:1; overflow-y:auto; padding:20px; background:rgba(0,0,0,0.15);">
+                <div id="flow-steps-container" style="display:flex; flex-direction:column; gap:15px;">
+                    <!-- Steps logic via JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Agent Modal -->
+    <div class="modal-overlay" id="agent-modal">
+        <div class="modal" style="max-width:450px;">
+            <div class="modal-header">
+                <h2>Agregar Agente Autorizado</h2>
+                <button type="button" class="close-modal" onclick="closeModal('agent-modal')"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form onsubmit="saveAgent(event)">
+                <div class="form-group">
+                    <label>Nombre del Agente</label>
+                    <input type="text" id="agent-name" required placeholder="Ej: Soporte Técnico">
+                </div>
+                <div class="form-group">
+                    <label>Número de WhatsApp</label>
+                    <input type="text" id="agent-phone" required placeholder="Ej: 56912345678">
+                    <p style="font-size:11px; color:var(--text-muted); margin-top:4px;">Incluye código de país sin el signo '+'.</p>
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('agent-modal')">Cancelar</button>
+                    <button type="submit" class="btn">Autorizar Agente</button>
                 </div>
             </form>
         </div>
@@ -2860,7 +2980,250 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
             $('.lead-checkbox').prop('checked', checked);
         }
 
-        // Configure jQuery to automatically include CSRF token in all POST requests
+        // --- Conversation Flows Logic ---
+        function loadFlows() {
+            let aid = getActiveAssistantId();
+            if (!aid) {
+                $('#flows-container').html('<div style="grid-column:1/-1; text-align:center; padding:40px; color:var(--text-muted);">Selecciona un asistente para ver sus flujos.</div>');
+                return;
+            }
+            $.get(`api.php?action=flows_list\u0026assistant_id=${aid}`, function(res) {
+                const container = $('#flows-container');
+                container.empty();
+                if (res.status === 'success' \u0026\u0026 res.data.length \u003e 0) {
+                    res.data.forEach(f =\u003e {
+                        container.append(`
+                            \u003cdiv class=\"card\" style=\"flex-direction:column; align-items:flex-start; gap:12px; position:relative;\"\u003e
+                                \u003cdiv class=\"card-icon\" style=\"background:rgba(0,212,255,0.1); color:var(--primary);\"\u003e\u003ci class=\"fa-solid fa-diagram-project\"\u003e\u003c/i\u003e\u003c/div\u003e
+                                \u003cdiv class=\"card-info\"\u003e
+                                    \u003ch3 style=\"font-size:18px; margin:5px 0;\"\u003e${escapeHtml(f.name)}\u003c/h3\u003e
+                                    \u003cp style=\"font-size:12px;\"\u003eTrigger: \u003cb\u003e${f.trigger_keyword || 'Sin trigger'}\u003c/b\u003e\u003c/p\u003e
+                                \u003c/div\u003e
+                                \u003cdiv style=\"display:flex; gap:8px; width:100%; margin-top:10px;\"\u003e
+                                    \u003cbutton class=\"btn btn-sm btn-outline\" style=\"flex:1;\" onclick=\"openFlowBuilder(${f.id}, '${escapeHtml(f.name)}')\"\u003e\u003ci class=\"fa-solid fa-pen-to-square\"\u003e\u003c/i\u003e Editar Pasos\u003c/button\u003e
+                                    \u003cbutton class=\"btn btn-sm btn-danger\" style=\"padding:6px 12px;\" onclick=\"deleteFlow(${f.id})\"\u003e\u003ci class=\"fa-solid fa-trash\"\u003e\u003c/i\u003e\u003c/button\u003e
+                                \u003c/div\u003e
+                            \u003c/div\u003e
+                        `);
+                    });
+                } else {
+                    container.html('\u003cdiv style=\"grid-column:1/-1; text-align:center; padding:40px; color:var(--text-muted);\"\u003eNo hay flujos creados para este asistente.\u003c/div\u003e');
+                }
+            });
+        }
+
+        function openFlowModal() {
+            let aid = getActiveAssistantId();
+            if(!aid) { showToast('Selecciona un asistente primero', 'warning'); return; }
+            $('#flow-id').val('');
+            $('#flow-form')[0].reset();
+            $('#flow-modal-title').text('Nuevo Flujo');
+            $('#flow-modal').fadeIn(200).css('display','flex');
+        }
+
+        function saveFlow(e) {
+            e.preventDefault();
+            let aid = getActiveAssistantId();
+            const fd = new FormData(e.target);
+            fd.append('assistant_id', aid);
+            $.ajax({
+                url: 'api.php?action=flows_create',
+                type: 'POST',
+                data: fd,
+                processData: false,
+                contentType: false,
+                success: function(res) {
+                    if (res.status === 'success') {
+                        closeModal('flow-modal');
+                        loadFlows();
+                        showToast('Flujo creado correctamente');
+                    } else {
+                        showToast(res.message, 'error');
+                    }
+                }
+            });
+        }
+
+        function deleteFlow(id) {
+            if (!confirm('\u00bfSeguro que quieres eliminar este flujo y todos sus pasos?')) return;
+            $.post('api.php?action=flows_delete', { id }, function(res) {
+                if (res.status === 'success') loadFlows();
+            });
+        }
+
+        // --- Flow Builder ---
+        let currentFlowSteps = [];
+        let currentFlowId = null;
+
+        function openFlowBuilder(id, name) {
+            currentFlowId = id;
+            $('#flow-builder-title').text(`Editor: ${name}`);
+            $('#flow-steps-container').html('\u003cdiv style=\"text-align:center; padding:20px;\"\u003e\u003ci class=\"fa-solid fa-spinner fa-spin\"\u003e\u003c/i\u003e Cargando pasos...\u003c/div\u003e');
+            $('#flow-builder-modal').fadeIn(200).css('display','flex');
+            
+            $.get(`api.php?action=flows_steps_list\u0026flow_id=${id}`, function(res) {
+                if (res.status === 'success') {
+                    currentFlowSteps = res.data.map(s =\u003e ({
+                        ...s,
+                        interactive_config: s.interactive_config ? JSON.parse(s.interactive_config) : { interactive: { buttons: [] }, branches: {} }
+                    }));
+                    renderFlowSteps();
+                }
+            });
+        }
+
+        function addFlowStep() {
+            currentFlowSteps.push({
+                step_type: 'text',
+                content: 'Nuevo mensaje...',
+                interactive_config: { interactive: { buttons: [] }, branches: {} },
+                next_step_id: null
+            });
+            renderFlowSteps();
+        }
+
+        function renderFlowSteps() {
+            const container = $('#flow-steps-container');
+            container.empty();
+            if (currentFlowSteps.length === 0) {
+                container.html('\u003cdiv style=\"text-align:center; padding:40px; color:rgba(255,255,255,0.4); border:2px dashed rgba(255,255,255,0.1); border-radius:12px;\"\u003eEl flujo est\u00e1 vac\u00edo. Agrega un paso para comenzar.\u003c/div\u003e');
+                return;
+            }
+
+            currentFlowSteps.forEach((s, idx) =\u003e {
+                const isInteractive = s.step_type !== 'text';
+                let interactiveHtml = '';
+
+                if (s.step_type === 'buttons') {
+                    const buttons = s.interactive_config.interactive.buttons || [];
+                    interactiveHtml = `
+                        \u003cdiv style=\"margin-top:10px; padding:10px; background:rgba(0,0,0,0.2); border-radius:8px;\"\u003e
+                            \u003clabel style=\"font-size:11px; color:var(--primary);\"\u003eBOTONES (M\u00e1x 3)\u003c/label\u003e
+                            \u003cdiv style=\"display:flex; flex-direction:column; gap:8px; margin-top:8px;\"\u003e
+                                ${buttons.map((b, bi) =\u003e `
+                                    \u003cdiv style=\"display:flex; gap:8px;\"\u003e
+                                        \u003cinput type=\"text\" placeholder=\"ID\" style=\"width:80px;\" value=\"${b.buttonId}\" oninput=\"currentFlowSteps[${idx}].interactive_config.interactive.buttons[${bi}].buttonId=this.value\"\u003e
+                                        \u003cinput type=\"text\" placeholder=\"Texto del Bot\u00f3n\" style=\"flex:1;\" value=\"${b.buttonText.displayText}\" oninput=\"currentFlowSteps[${idx}].interactive_config.interactive.buttons[${bi}].buttonText.displayText=this.value\"\u003e
+                                        \u003cbutton class=\"btn btn-sm btn-danger\" onclick=\"currentFlowSteps[${idx}].interactive_config.interactive.buttons.splice(${bi},1);renderFlowSteps()\"\u003e\u003ci class=\"fa-solid fa-times\"\u003e\u003c/i\u003e\u003c/button\u003e
+                                    \u003c/div\u003e
+                                `).join('')}
+                                ${buttons.length \u003c 3 ? `\u003cbutton class=\"btn btn-sm btn-outline\" onclick=\"currentFlowSteps[${idx}].interactive_config.interactive.buttons.push({buttonId:'id_'+Date.now(), buttonText:{displayText:'Opci\u00f3n'}});renderFlowSteps()\"\u003e+ Agregar Bot\u00f3n\u003c/button\u003e` : ''}
+                            \u003c/div\u003e
+                        \u003c/div\u003e
+                    `;
+                }
+
+                container.append(`
+                    \u003cdiv class=\"panel\" style=\"background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1);\"\u003e
+                        \u003cdiv style=\"display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;\"\u003e
+                            \u003cdiv style=\"display:flex; align-items:center; gap:10px;\"\u003e
+                                \u003cspan style=\"background:var(--primary); color:#000; width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12px;\"\u003e${idx+1}\u003c/span\u003e
+                                \u003cselect style=\"background:var(--input-bg); border:1px solid var(--glass-border); color:white; padding:4px 8px; border-radius:4px; font-size:12px;\" onchange=\"currentFlowSteps[${idx}].step_type=this.value;renderFlowSteps()\"\u003e
+                                    \u003coption value=\"text\" ${s.step_type==='text'?'selected':''}\u003eSolo Texto\u003c/option\u003e
+                                    \u003coption value=\"buttons\" ${s.step_type==='buttons'?'selected':''}\u003eBotones Interactivos\u003c/option\u003e
+                                \u003c/select\u003e
+                            \u003c/div\u003e
+                            \u003cbutton class=\"btn btn-sm btn-danger\" onclick=\"currentFlowSteps.splice(${idx},1);renderFlowSteps()\"\u003eEliminar\u003c/button\u003e
+                        \u003c/div\u003e
+                        \u003ctextarea style=\"width:100%; min-height:80px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.1); color:white; border-radius:8px; padding:10px; font-size:13px;\" oninput=\"currentFlowSteps[${idx}].content=this.value\"\u003e${s.content}\u003c/textarea\u003e
+                        ${interactiveHtml}
+                    \u003c/div\u003e
+                `);
+            });
+        }
+
+        function saveFlowSteps() {
+            $.post('api.php?action=flows_steps_update', {
+                flow_id: currentFlowId,
+                steps: JSON.stringify(currentFlowSteps)
+            }, function(res) {
+                if (res.status === 'success') {
+                    showToast('Secuencia guardada correctamente');
+                    closeModal('flow-builder-modal');
+                } else {
+                    showToast(res.message, 'error');
+                }
+            });
+        }
+
+        // --- Authorized Agents Logic ---
+        function loadAgents() {
+            let aid = getActiveAssistantId();
+            if (!aid) {
+                $('#agents-table-body').html('\u003ctr\u003e\u003ctd colspan=\"4\" style=\"text-align:center; padding:20px; color:var(--text-muted);\"\u003eSelecciona un asistente.\u003c/td\u003e\u003c/tr\u003e');
+                return;
+            }
+            $.get(`api.php?action=agents_list\u0026assistant_id=${aid}`, function(res) {
+                const tbody = $('#agents-table-body');
+                tbody.empty();
+                if (res.status === 'success' \u0026\u0026 res.data.length \u003e 0) {
+                    res.data.forEach(a =\u003e {
+                        tbody.append(`
+                            \u003ctr\u003e
+                                \u003ctd\u003e\u003cb\u003e${escapeHtml(a.agent_name)}\u003c/b\u003e\u003c/td\u003e
+                                \u003ctd\u003e+${a.phone_number}\u003c/td\u003e
+                                \u003ctd\u003e\u003cspan class=\"status-badge status-online\"\u003eAutorizado\u003c/span\u003e\u003c/td\u003e
+                                \u003ctd\u003e
+                                    \u003cbutton class=\"btn btn-sm btn-danger\" onclick=\"deleteAgent(${a.id})\"\u003e\u003ci class=\"fa-solid fa-user-minus\"\u003e\u003c/i\u003e Revocar\u003c/button\u003e
+                                \u003c/td\u003e
+                            \u003c/div\u003e
+                        `);
+                    });
+                } else {
+                    tbody.html('\u003ctr\u003e\u003ctd colspan=\"4\" style=\"text-align:center; padding:20px; color:var(--text-muted);\"\u003eNo hay agentes autorizados para este asistente.\u003c/td\u003e\u003c/tr\u003e');
+                }
+            });
+        }
+
+        function openAgentModal() {
+            let aid = getActiveAssistantId();
+            if(!aid) { showToast('Selecciona un asistente primero', 'warning'); return; }
+            $('#agent-modal').fadeIn(200).css('display','flex');
+        }
+
+        function saveAgent(e) {
+            e.preventDefault();
+            let aid = getActiveAssistantId();
+            const fd = new FormData(e.target);
+            fd.append('assistant_id', aid);
+            $.ajax({
+                url: 'api.php?action=agents_create',
+                type: 'POST',
+                data: fd,
+                processData: false,
+                contentType: false,
+                success: function(res) {
+                    if (res.status === 'success') {
+                        closeModal('agent-modal');
+                        loadAgents();
+                        showToast('Agente autorizado correctamente');
+                    } else {
+                        showToast(res.message, 'error');
+                    }
+                }
+            });
+        }
+
+        function deleteAgent(id) {
+            if (!confirm('\u00bfRealmente deseas revocar la autorizaci\u00f3n de este agente? No podr\u00e1 recibir transferencias.')) return;
+            $.post('api.php?action=agents_delete', { id }, function(res) {
+                if (res.status === 'success') loadAgents();
+            });
+        }
+
+        // --- Export Logs Logic ---
+        function exportLogs(format) {
+            let aid = getActiveAssistantId();
+            let url = `api.php?action=logs_export\u0026format=${format}`;
+            if (aid) url += `\u0026assistant_id=${aid}`;
+            window.location.href = url;
+        }
+
+        function getActiveAssistantId() {
+            return $('#global-assistant-select').val();
+        }
+
+        // --- Global Tab Switching Handler ---
         $.ajaxSetup({
             beforeSend: function(xhr, settings) {
                 if (settings.type === 'POST' || settings.type === 'post') {

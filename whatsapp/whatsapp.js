@@ -157,10 +157,19 @@ async function startSession(assistantId) {
                     // Broad text extraction
                     let text = msg.message.conversation ||
                         msg.message.extendedTextMessage?.text ||
+                        '';
+
+                    // Extract interactive response ID (Button/List selection)
+                    let interactiveId = 
                         msg.message.buttonsResponseMessage?.selectedButtonId ||
                         msg.message.listResponseMessage?.singleSelectReply?.selectedRowId ||
                         msg.message.templateButtonReplyMessage?.selectedId ||
-                        '';
+                        null;
+
+                    // If it has an interactive ID but no text, use the ID as text for matching
+                    if (interactiveId && !text) {
+                        text = interactiveId;
+                    }
 
                     // If it's an ephemeral message, extract from content
                     if (msgType === 'ephemeralMessage') {
@@ -182,6 +191,10 @@ async function startSession(assistantId) {
                             const formData = new FormData();
                             formData.append('text', text);
                             formData.append('assistant_id', assistantId);
+                            formData.append('remote_jid', from);
+                            if (interactiveId) {
+                                formData.append('interactive_id', interactiveId);
+                            }
                             // Security token for internal communication
                             const token = process.env.INTERNAL_TOKEN || 'local_secret_123';
                             formData.append('internal_token', token);
@@ -218,7 +231,27 @@ async function startSession(assistantId) {
                                     .replace(/<br\s*\/?>/gi, '\n')
                                     .replace(/&nbsp;/g, ' ')
                                     .trim();
-                                await sock.sendMessage(from, { text: cleanReply });
+                                
+                                if (response.data.type === 'buttons' && response.data.interactive) {
+                                    // Send Buttons
+                                    await sock.sendMessage(from, {
+                                        text: cleanReply,
+                                        buttons: response.data.interactive.buttons,
+                                        footer: response.data.interactive.footer ?? '',
+                                        headerType: 1
+                                    });
+                                } else if (response.data.type === 'list' && response.data.interactive) {
+                                    // Send List
+                                    await sock.sendMessage(from, {
+                                        text: cleanReply,
+                                        sections: response.data.interactive.sections,
+                                        title: response.data.interactive.title ?? '',
+                                        buttonText: response.data.interactive.buttonText ?? 'Ver opciones'
+                                    });
+                                } else {
+                                    // Default Text
+                                    await sock.sendMessage(from, { text: cleanReply });
+                                }
                             }
                         } catch (error) {
                             console.error(`[Assistant ${assistantId}] Error backend:`, error.message);

@@ -16,6 +16,7 @@ header('Content-Type: application/json');
 require 'db.php';
 require_once 'ChatbotRouter.php';
 require_once 'AIHandler.php';
+require_once 'FlowManager.php';
 
 // ─── 1. Auth ─────────────────────────────────────────────────────────────────
 
@@ -45,6 +46,28 @@ $clean_msg = ChatbotRouter::normalize($user_msg);
 $reply       = '';
 $matched     = 0;
 $suggestions = [];
+$interactive = null;
+$type        = 'text';
+
+// ─── 3. Flow & Handover Check ────────────────────────────────────────────────
+$remote_jid = $_POST['remote_jid'] ?? 'browser_user';
+$flowManager = new FlowManager($conn, $assistant_id, $remote_jid);
+
+// If paused for handover, stop AI
+if ($flowManager->isPaused()) {
+    echo json_encode(['status' => 'paused', 'message' => 'Bot is paused for human handover.']);
+    exit;
+}
+
+// Process Flow
+$interactive_id = $_POST['interactive_id'] ?? null;
+$flowResult = $flowManager->process($user_msg, $interactive_id);
+if ($flowResult) {
+    $reply = $flowResult['reply'];
+    $interactive = $flowResult['interactive'];
+    $type = $flowResult['type'];
+    $matched = 1;
+}
 
 // ─── 3. Assistant config ─────────────────────────────────────────────────────
 
@@ -150,9 +173,14 @@ if ($matched === 0 && (!empty($clean_msg) || $has_audio)) {
     $can_cache = !$has_audio && empty($info_sources_files) && !empty($clean_msg) && $assistant_id;
 
     $ai    = new AIHandler($conn, $assistant_id, $client_id);
+    
+    // System instruction for Handover
+    $handover_instruction = "\n\nIMPORTANTE: Si el usuario solicita hablar con un humano o un agente, o si detectas que la situación requiere atención humana urgente, responde incluyendo la etiqueta [HANDOVER] al final de tu mensaje.";
+    $full_prompt = $custom_system_prompt . $handover_instruction;
+
     $reply = $ai->getReply(
         $user_msg,
-        $custom_system_prompt,
+        $full_prompt,
         $info_sources_text,
         $info_sources_files,
         $ai_config,
@@ -161,6 +189,20 @@ if ($matched === 0 && (!empty($clean_msg) || $has_audio)) {
 
     if ($reply !== null && $reply !== '') {
         $matched = 1;
+
+        // Handle Handover detection
+        if (strpos($reply, '[HANDOVER]') !== false) {
+            $reply = str_replace('[HANDOVER]', '', $reply);
+            $flowManager->pause(7200); // Pause for 2 hours
+            
+            // Notify authorized agents
+            $agents = $flowManager->getAuthorizedAgents();
+            foreach ($agents as $agent_phone) {
+                // In a real scenario, we'd trigger a WhatsApp message to the agent here
+                // For now, let's log the notification
+                error_log("HANDOVER NOTIVICATION: User $remote_jid requires attention. Notifying agent $agent_phone.");
+            }
+        }
     }
 }
 
@@ -191,5 +233,7 @@ echo json_encode([
     'reply'       => $reply,
     'matched'     => (bool) $matched,
     'suggestions' => $suggestions,
+    'interactive' => $interactive,
+    'type'        => $type,
     'timestamp'   => date('H:i'),
 ]);
