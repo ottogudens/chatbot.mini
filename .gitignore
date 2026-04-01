@@ -1,5 +1,25 @@
-uploads/*.pdf
-uploads/clients/*/pdf_templates/*.txt
-fpdf.zip
+# Dependencies
+node_modules/
+whatsapp/node_modules/
+
+# Environment and secrets
+.env
+whatsapp/.env
+*.sqlite
+chatbot.db
+
+# Uploads and user data
+uploads/
+persistent/
+
+# OS files
 .DS_Store
+Thumbs.db
+
+# Build artifacts
+fpdf.zip
 *.log
+
+# IDE
+.vscode/
+.idea/

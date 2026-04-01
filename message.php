@@ -23,8 +23,8 @@ $user_msg     = $_POST['text']         ?? '';
 $assistant_id = isset($_POST['assistant_id']) && is_numeric($_POST['assistant_id'])
     ? intval($_POST['assistant_id']) : null;
 $internal_token   = $_POST['internal_token'] ?? '';
-$expected_token   = getenv('INTERNAL_TOKEN') ?: 'local_secret_123';
-$has_valid_bridge = ($internal_token === $expected_token && !empty($expected_token));
+$expected_token   = getenv('INTERNAL_TOKEN') ?: '';
+$has_valid_bridge = (!empty($expected_token) && $internal_token === $expected_token);
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 $csrf_from_session = isset($_SESSION['csrf_token']) && !empty($_SESSION['csrf_token']);

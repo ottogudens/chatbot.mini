@@ -94,6 +94,8 @@ php migrate10.php || echo "Migration 10 failed, check logs."
 php migrate11.php || echo "Migration 11 failed, check logs."
 php migrate12.php || echo "Migration 12 failed, check logs."
 php migrate13.php || echo "Migration 13 failed, check logs."
+php migrate14.php || echo "Migration 14 failed, check logs."
+php migrate15.php || echo "Migration 15 failed, check logs."
 
 # 5. Start Services
 echo "---------------------------------------"

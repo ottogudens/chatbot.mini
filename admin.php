@@ -12,9 +12,6 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
     $support_assistant_id = $row_support['id'];
 }
 ?>
-<script>
-    const SUPPORT_ASSISTANT_ID = <?php echo json_encode($support_assistant_id); ?>;
-</script>
 <!DOCTYPE html>
 <html lang="es" data-theme="dark">
 
@@ -39,6 +36,9 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        const SUPPORT_ASSISTANT_ID = <?php echo json_encode($support_assistant_id); ?>;
+    </script>
     <style>
         :root {
             --bg-color: #080f1e;
@@ -586,10 +586,57 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                 transform: translateY(0);
             }
         }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 100000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .toast {
+            pointer-events: auto;
+            min-width: 300px;
+            max-width: 450px;
+            padding: 14px 20px;
+            border-radius: 12px;
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            color: var(--text-main);
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: toastSlideIn 0.35s ease-out;
+            transition: opacity 0.3s, transform 0.3s;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        .toast.removing {
+            opacity: 0;
+            transform: translateX(100px);
+        }
+        .toast-success { background: rgba(16,185,129,0.15); border-color: rgba(16,185,129,0.3); }
+        .toast-error   { background: rgba(239,68,68,0.15);  border-color: rgba(239,68,68,0.3);  }
+        .toast-warning { background: rgba(245,158,11,0.15); border-color: rgba(245,158,11,0.3); }
+        .toast-info    { background: rgba(0,212,255,0.15);  border-color: rgba(0,212,255,0.3);  }
+        .toast i { font-size: 18px; flex-shrink: 0; }
+        .toast-success i { color: #10b981; }
+        .toast-error i   { color: #ef4444; }
+        .toast-warning i { color: #f59e0b; }
+        .toast-info i    { color: #00d4ff; }
+        @keyframes toastSlideIn {
+            from { opacity: 0; transform: translateX(100px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
     </style>
 </head>
 
 <body>
+    <div id="toast-container" class="toast-container"></div>
     <div class="glass-bg-fx"></div>
 
     <!-- SIDEBAR -->
@@ -2476,9 +2523,39 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
         // OPT-2: CSRF token for all mutating API calls
         const CSRF_TOKEN = "<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES); ?>";
 
+        // SEC: Global XSS protection helper
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        // UX: Toast notification system (replaces alert())
+        function showToast(message, type = 'info', duration = 4000) {
+            const icons = {
+                success: 'fa-circle-check',
+                error: 'fa-circle-xmark',
+                warning: 'fa-triangle-exclamation',
+                info: 'fa-circle-info'
+            };
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.innerHTML = `<i class="fa-solid ${icons[type] || icons.info}"></i><span>${escapeHtml(message)}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.add('removing');
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
+
         function openSupportChat() {
             if (!SUPPORT_ASSISTANT_ID) {
-                alert('El asistente de soporte aún no ha sido configurado. Por favor, ejecuta migrate12.php.');
+                showToast('El asistente de soporte aún no ha sido configurado.', 'warning');
                 return;
             }
             $('#support-chat-modal').fadeIn(200);
@@ -2643,9 +2720,9 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                         html += `
                             <tr>
                                 <td><input type="checkbox" class="campaign-lead-checkbox" value="${l.id}"></td>
-                                <td>${l.name}</td>
-                                <td>${contact}</td>
-                                <td><span class="badge" style="font-size:10px; padding:2px 6px;">${l.status}</span></td>
+                                <td>${escapeHtml(l.name)}</td>
+                                <td>${escapeHtml(contact)}</td>
+                                <td><span class="badge" style="font-size:10px; padding:2px 6px;">${escapeHtml(l.status)}</span></td>
                             </tr>
                         `;
                     });
@@ -2659,7 +2736,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
         function submitCampaign(e) {
             e.preventDefault();
             const fd = new FormData(e.target);
-            fd.append('csrf_token', CSRF_TOKEN);
+            // Note: CSRF token is auto-appended by $.ajaxSetup
             
             let cid = window.IS_SUPERADMIN ? document.getElementById('campaign-client-id').value : getClientIdForAPI();
             if (cid) fd.append('client_id', cid);
@@ -2672,7 +2749,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                     selectedLeads.push($(this).val());
                 });
                 if (selectedLeads.length === 0) {
-                    alert('Por favor selecciona al menos un prospecto para esta campaña.');
+                    showToast('Por favor selecciona al menos un prospecto para esta campaña.', 'warning');
                     return;
                 }
                 fd.append('lead_ids', selectedLeads.join(','));
@@ -2690,7 +2767,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                         closeModal('campaign-modal');
                         loadCampaigns();
                     } else {
-                        alert('Error: ' + res.message);
+                        showToast(res.message || 'Error al crear campaña', 'error');
                     }
                 }
             });
@@ -2714,10 +2791,10 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                         tbody.append(`
                             <tr>
                                 <td>${c.id}</td>
-                                <td><b>${c.name}</b></td>
+                                <td><b>${escapeHtml(c.name)}</b></td>
                                 <td>${targetLabel}</td>
                                 <td>${statusHtml}</td>
-                                <td>${c.sent_at || '---'}</td>
+                                <td>${escapeHtml(c.sent_at || '---')}</td>
                                 <td>
                                     <div class="actions">
                                         ${c.status === 'pending' ? `<button class="btn btn-sm btn-success" onclick="sendCampaign(${c.id})" title="Enviar ahora"><i class="fa-solid fa-paper-plane"></i></button>` : ''}
@@ -2740,15 +2817,13 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
 
         function sendCampaign(id) {
             if (!currentAssistantId) {
-                alert('Debes seleccionar un asistente (vincular WhatsApp) para realizar el envío.');
+                showToast('Debes seleccionar un asistente (vincular WhatsApp) para realizar el envío.', 'warning');
                 return;
             }
             
-            // Get selected leads if target_type is selected
+            // Get selected leads from stored target_ids (campaign already in DB)
+            // This sends using the stored leads, not from a UI selector
             const selectedLeads = [];
-            $('.lead-checkbox:checked').each(function() {
-                selectedLeads.push($(this).val());
-            });
 
             if (!confirm('¿Confirmas el envío masivo de esta campaña por WhatsApp?')) return;
 
@@ -2766,10 +2841,10 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                 btn.innerHTML = originalHtml;
                 btn.disabled = false;
                 if (res.status === 'success') {
-                    alert(`Éxito: ${res.sent} mensajes enviados. Errores: ${res.failed}`);
+                    showToast(`${res.sent} mensajes enviados. Errores: ${res.failed}`, res.failed > 0 ? 'warning' : 'success');
                     loadCampaigns();
                 } else {
-                    alert('Error: ' + res.message);
+                    showToast(res.message || 'Error al enviar campaña', 'error');
                 }
             });
         }
@@ -3288,9 +3363,9 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
             $.post('api.php?action=calendar_settings_update', formData, function (res) {
                 btn.html(originalText).prop('disabled', false);
                 if (res.status === 'success') {
-                    alert('Configuración de calendario guardada correctamente.');
+                    showToast('Configuración de calendario guardada correctamente.', 'success');
                 } else {
-                    alert(res.message || 'Error guardando.');
+                    showToast(res.message || 'Error guardando configuración.', 'error');
                 }
             }, 'json').fail(function () {
                 btn.html(originalText).prop('disabled', false);
@@ -3375,8 +3450,8 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                 if (res.status === 'success') {
                     closeModal('client-modal');
                     loadClients();
-                    if (action === 'clients_create') alert("Cliente creado exitosamente. Se ha generado un usuario con el email proporcionado y la clave admin123!");
-                } else alert(res.message || 'Error');
+                    if (action === 'clients_create') showToast('Cliente creado exitosamente.', 'success');
+                } else showToast(res.message || 'Error al procesar', 'error');
             }, 'json');
         }
         function deleteClient(id) { if (confirm('¿Eliminar cliente? Se borrarán sus asistentes asociados.')) { $.post('api.php?action=clients_delete', { id }, res => { if (res.status === 'success') { loadClients(); loadAssistants(true); } else alert('Error'); }, 'json'); } }

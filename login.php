@@ -246,7 +246,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </form>
 
         <div class="footer">
-            &copy; 2024 <a href="https://skale.cl" target="_blank">Skale IA</a>. Todos los derechos reservados.
+            &copy; <?php echo date('Y'); ?> <a href="https://skale.cl" target="_blank">Skale IA</a>. Todos los derechos reservados.
         </div>
     </div>
 </body>

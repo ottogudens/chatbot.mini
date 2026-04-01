@@ -165,7 +165,8 @@ switch ($action) {
 
             echo json_encode(['status' => 'success', 'client_id' => $new_client_id, 'temp_password' => $password, 'note' => 'Contraseña temporal. El cliente debe cambiarla al primer acceso.']);
         } else {
-            echo json_encode(['status' => 'error', 'message' => mysqli_error($conn)]);
+            error_log('clients_create error: ' . mysqli_error($conn));
+            echo json_encode(['status' => 'error', 'message' => 'Error al crear el cliente.']);
         }
         break;
     case 'clients_update':
@@ -318,7 +319,8 @@ switch ($action) {
         if (mysqli_stmt_execute($stmt))
             echo json_encode(['status' => 'success']);
         else
-            echo json_encode(['status' => 'error', 'message' => mysqli_error($conn)]);
+            error_log('leads_create error: ' . mysqli_error($conn));
+            echo json_encode(['status' => 'error', 'message' => 'Error al crear el prospecto.']);
         break;
 
     case 'leads_update':
@@ -406,7 +408,7 @@ switch ($action) {
         if (isset($_FILES['attachment']) && $_FILES['attachment']['error'] === UPLOAD_ERR_OK) {
             $upload_dir = __DIR__ . '/uploads/campaigns/';
             if (!file_exists($upload_dir)) {
-                mkdir($upload_dir, 0777, true);
+                mkdir($upload_dir, 0755, true);
             }
             $orig_name = $_FILES['attachment']['name'];
             $ext = pathinfo($orig_name, PATHINFO_EXTENSION);
@@ -507,7 +509,9 @@ switch ($action) {
         }
 
         $new_status = ($error_count === 0) ? 'sent' : 'error';
-        mysqli_query($conn, "UPDATE marketing_campaigns SET status = '$new_status', sent_at = NOW() WHERE id = " . intval($id));
+        $upd_stmt = mysqli_prepare($conn, "UPDATE marketing_campaigns SET status = ?, sent_at = NOW() WHERE id = ?");
+        mysqli_stmt_bind_param($upd_stmt, "si", $new_status, $id);
+        mysqli_stmt_execute($upd_stmt);
 
         echo json_encode([
             'status' => 'success',
@@ -556,7 +560,9 @@ switch ($action) {
         $voice_enabled = isset($_POST['voice_enabled']) ? intval($_POST['voice_enabled']) : 1;
         $stmt = mysqli_prepare($conn, "INSERT INTO assistants (client_id, name, system_prompt, gemini_model, temperature, max_output_tokens, response_style, voice_enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
         mysqli_stmt_bind_param($stmt, "isssdiis", $client_id, $name, $sp, $gemini_model, $temperature, $max_tokens, $response_style, $voice_enabled);
-        echo json_encode(['status' => mysqli_stmt_execute($stmt) ? 'success' : 'error', 'error' => mysqli_error($conn)]);
+        $ok = mysqli_stmt_execute($stmt);
+        if (!$ok) error_log('assistants_create error: ' . mysqli_error($conn));
+        echo json_encode(['status' => $ok ? 'success' : 'error']);
         break;
     case 'assistants_update':
         $id = $_POST['id'] ?? 0;
@@ -573,7 +579,9 @@ switch ($action) {
         $voice_enabled = isset($_POST['voice_enabled']) ? intval($_POST['voice_enabled']) : 1;
         $stmt = mysqli_prepare($conn, "UPDATE assistants SET name=?, system_prompt=?, gemini_model=?, temperature=?, max_output_tokens=?, response_style=?, voice_enabled=? WHERE id=?");
         mysqli_stmt_bind_param($stmt, "ssssdiis", $name, $sp, $gemini_model, $temperature, $max_tokens, $response_style, $voice_enabled, $id);
-        echo json_encode(['status' => mysqli_stmt_execute($stmt) ? 'success' : 'error', 'error' => mysqli_error($conn)]);
+        $ok = mysqli_stmt_execute($stmt);
+        if (!$ok) error_log('assistants_update error: ' . mysqli_error($conn));
+        echo json_encode(['status' => $ok ? 'success' : 'error']);
         break;
     case 'assistants_delete':
         $id = $_POST['id'] ?? 0;
@@ -688,7 +696,7 @@ switch ($action) {
 
             $target_dir = $upload_base_dir . "/clients/{$client_id}/assistants/{$assistant_id}/";
             if (!file_exists($target_dir)) {
-                mkdir($target_dir, 0777, true);
+                mkdir($target_dir, 0755, true);
             }
 
             $original_name = basename($_FILES['file_upload']['name']);
@@ -989,7 +997,8 @@ switch ($action) {
         if (mysqli_stmt_execute($stmt)) {
             echo json_encode(['status' => 'success']);
         } else {
-            echo json_encode(['status' => 'error', 'message' => 'Error guardando configuraciones: ' . mysqli_error($conn)]);
+            error_log('calendar_settings_update error: ' . mysqli_error($conn));
+            echo json_encode(['status' => 'error', 'message' => 'Error guardando configuraciones.']);
         }
         break;
 
@@ -1019,7 +1028,7 @@ switch ($action) {
 
         set_time_limit(300);
         $temp_dir = __DIR__ . "/uploads/temp/";
-        if (!is_dir($temp_dir)) @mkdir($temp_dir, 0777, true);
+        if (!is_dir($temp_dir)) @mkdir($temp_dir, 0755, true);
 
         $file = $_FILES['template_file'];
         $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
@@ -1027,7 +1036,7 @@ switch ($action) {
         $temp_path = $temp_dir . $temp_filename;
 
         $log_dir = __DIR__ . '/persistent';
-        if (!is_dir($log_dir)) @mkdir($log_dir, 0777, true);
+        if (!is_dir($log_dir)) @mkdir($log_dir, 0755, true);
         $log_file = $log_dir . '/pdf_analysis.log';
 
         if (move_uploaded_file($file['tmp_name'], $temp_path)) {
@@ -1082,7 +1091,7 @@ switch ($action) {
         }
 
         $upload_dir = "uploads/clients/{$req_client_id}/pdf_templates/";
-        if (!is_dir(__DIR__ . '/' . $upload_dir)) @mkdir(__DIR__ . '/' . $upload_dir, 0777, true);
+        if (!is_dir(__DIR__ . '/' . $upload_dir)) @mkdir(__DIR__ . '/' . $upload_dir, 0755, true);
 
         $filename = basename($temp_file);
         $final_path = $upload_dir . $filename;
@@ -1093,7 +1102,7 @@ switch ($action) {
             mysqli_stmt_bind_param($stmt, "issss", $client_id_int, $name, $desc, $final_path, $placeholders_json);
             
             if (mysqli_stmt_execute($stmt)) echo json_encode(['status' => 'success']);
-            else echo json_encode(['status' => 'error', 'message' => mysqli_error($conn)]);
+            else { error_log('pdf_templates_save error: ' . mysqli_error($conn)); echo json_encode(['status' => 'error', 'message' => 'Error al guardar plantilla.']); }
         } else {
             echo json_encode(['status' => 'error', 'message' => 'Error al mover archivo final']);
         }
@@ -1136,12 +1145,12 @@ switch ($action) {
                 echo json_encode(['status' => 'error', 'message' => 'No autorizado']); exit;
             }
             $stmt = mysqli_prepare($conn, 'UPDATE pdf_templates SET name=?, description=?, doc_type=?, template_config=?, placeholders=? WHERE id=?');
-            if (!$stmt) { echo json_encode(['status' => 'error', 'message' => 'Error al preparar reporte (UPDATE): ' . mysqli_error($conn)]); exit; }
+            if (!$stmt) { error_log('pdf_templates_save_config UPDATE error: ' . mysqli_error($conn)); echo json_encode(['status' => 'error', 'message' => 'Error interno al actualizar plantilla.']); exit; }
             mysqli_stmt_bind_param($stmt, 'sssssi', $name, $desc, $dtype, $config, $ph_json, $id);
         } else {
             // Insert new
             $stmt = mysqli_prepare($conn, 'INSERT INTO pdf_templates (client_id, name, description, doc_type, template_config, placeholders, file_path) VALUES (?, ?, ?, ?, ?, ?, ?)');
-            if (!$stmt) { echo json_encode(['status' => 'error', 'message' => 'Error al preparar reporte (INSERT): ' . mysqli_error($conn)]); exit; }
+            if (!$stmt) { error_log('pdf_templates_save_config INSERT error: ' . mysqli_error($conn)); echo json_encode(['status' => 'error', 'message' => 'Error interno al crear plantilla.']); exit; }
             $fp = '';
             mysqli_stmt_bind_param($stmt, 'issssss', $client_id_int, $name, $desc, $dtype, $config, $ph_json, $fp);
         }
@@ -1149,7 +1158,8 @@ switch ($action) {
             $new_id = $id ?: mysqli_insert_id($conn);
             echo json_encode(['status' => 'success', 'id' => $new_id]);
         } else {
-            echo json_encode(['status' => 'error', 'message' => mysqli_error($conn)]);
+            error_log('pdf_templates_save_config execute error: ' . mysqli_error($conn));
+            echo json_encode(['status' => 'error', 'message' => 'Error al guardar configuración de plantilla.']);
         }
         break;
 
@@ -1189,7 +1199,7 @@ switch ($action) {
             echo json_encode(['status' => 'error', 'message' => 'Tipo de archivo no permitido']); exit;
         }
         $dir = __DIR__ . '/uploads/clients/' . intval($req_client_id) . '/logos/';
-        if (!is_dir($dir)) @mkdir($dir, 0777, true);
+        if (!is_dir($dir)) @mkdir($dir, 0755, true);
         $ext  = pathinfo($_FILES['logo']['name'], PATHINFO_EXTENSION);
         $fname = 'logo_' . time() . '.' . strtolower($ext);
         if (move_uploaded_file($_FILES['logo']['tmp_name'], $dir . $fname)) {
@@ -1286,7 +1296,8 @@ switch ($action) {
             if (mysqli_stmt_execute($stmt)) {
                 echo json_encode(['status' => 'success']);
             } else {
-                echo json_encode(['status' => 'error', 'message' => 'Error al actualizar: ' . mysqli_error($conn)]);
+                error_log('pdf_templates_rename error: ' . mysqli_error($conn));
+                echo json_encode(['status' => 'error', 'message' => 'Error al renombrar plantilla.']);
             }
         } else {
             echo json_encode(['status' => 'error', 'message' => 'Plantilla no encontrada']);

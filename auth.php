@@ -1,5 +1,13 @@
 <?php
 if (session_status() === PHP_SESSION_NONE) {
+    // SEC: Harden session cookies
+    ini_set('session.cookie_httponly', 1);
+    ini_set('session.cookie_samesite', 'Strict');
+    ini_set('session.use_strict_mode', 1);
+    // Only set secure flag when running over HTTPS
+    if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+        ini_set('session.cookie_secure', 1);
+    }
     session_start();
 }
 
@@ -55,6 +63,10 @@ function attempt_login($username, $password, $conn)
             // Successful login — reset counter and set session
             $_SESSION['login_attempts'] = 0;
             unset($_SESSION['login_first_attempt']);
+
+            // SEC: Regenerate session ID to prevent session fixation
+            session_regenerate_id(true);
+
             $_SESSION['admin_logged_in'] = true;
             $_SESSION['admin_id'] = $user['id'];
             $_SESSION['admin_user'] = $username;

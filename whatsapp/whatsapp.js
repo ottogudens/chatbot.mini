@@ -26,6 +26,46 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// SEC: Authentication middleware for mutating endpoints
+const BRIDGE_TOKEN = process.env.INTERNAL_TOKEN || '';
+function authMiddleware(req, res, next) {
+    // Only enforce on POST (mutating) endpoints
+    if (req.method === 'POST') {
+        const token = req.headers['x-internal-token'] || req.body?.internal_token || '';
+        if (!BRIDGE_TOKEN || token !== BRIDGE_TOKEN) {
+            return res.status(403).json({ status: 'error', message: 'Unauthorized' });
+        }
+    }
+    next();
+}
+
+// SEC: Simple in-memory rate limiter (per IP, 60 requests per minute)
+const rateLimitMap = new Map();
+function rateLimiter(req, res, next) {
+    const ip = req.ip || req.connection.remoteAddress;
+    const now = Date.now();
+    const windowMs = 60000; // 1 minute
+    const maxReqs = 60;
+
+    if (!rateLimitMap.has(ip)) {
+        rateLimitMap.set(ip, { count: 1, start: now });
+        return next();
+    }
+    const entry = rateLimitMap.get(ip);
+    if (now - entry.start > windowMs) {
+        entry.count = 1;
+        entry.start = now;
+        return next();
+    }
+    entry.count++;
+    if (entry.count > maxReqs) {
+        return res.status(429).json({ status: 'error', message: 'Too many requests' });
+    }
+    next();
+}
+
+app.use(rateLimiter);
+app.use(authMiddleware);
 const logger = P({ level: 'silent' });
 const sessions = {};
 const qrData = {};

@@ -24,6 +24,26 @@ http {
         root /app;
         index index.php index.html;
 
+        # SEC: Security headers
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header X-XSS-Protection "1; mode=block" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+        # SEC: Block access to sensitive files
+        location ~ /\.(env|git|gitignore|user\.ini) {
+            deny all;
+            return 404;
+        }
+        location ~ ^/(db|auth|check_schema|migrate\d+|AIHandler|ChatbotRouter|calendar_functions|gemini_client|pdf_helper)\.php$ {
+            deny all;
+            return 404;
+        }
+        location ~ ^/(php-fpm\.conf|nixpacks\.toml|start\.sh|exclude_git\.txt)$ {
+            deny all;
+            return 404;
+        }
+
         location / {
             try_files $uri $uri/ /index.php?$query_string;
         }

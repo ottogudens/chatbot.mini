@@ -10,8 +10,10 @@ if (empty($_SESSION['csrf_token'])) {
 $assistant_id = isset($_GET['assistant']) && is_numeric($_GET['assistant']) ? intval($_GET['assistant']) : null;
 $bot_name = "SkaleBot";
 if ($assistant_id) {
-    $ast_query = "SELECT name FROM assistants WHERE id = $assistant_id";
-    $ast_res = mysqli_query($conn, $ast_query);
+    $ast_stmt = mysqli_prepare($conn, "SELECT name FROM assistants WHERE id = ?");
+    mysqli_stmt_bind_param($ast_stmt, "i", $assistant_id);
+    mysqli_stmt_execute($ast_stmt);
+    $ast_res = mysqli_stmt_get_result($ast_stmt);
     if ($ast_row = mysqli_fetch_assoc($ast_res)) {
         $bot_name = htmlspecialchars($ast_row['name']);
     }
@@ -283,7 +285,7 @@ if ($assistant_id) {
                         if (result.suggestions && result.suggestions.length > 0) {
                             let suggHtml = '';
                             result.suggestions.forEach(sugg => {
-                                suggHtml += `<button class="sugg-btn">${sugg}</button>`;
+                                suggHtml += `<button class="sugg-btn">${escapeHtml(sugg)}</button>`;
                             });
                             $("#suggestions-area").html(suggHtml);
                         }
