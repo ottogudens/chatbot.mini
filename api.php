@@ -7,32 +7,20 @@ $action = isset($_GET['action']) ? $_GET['action'] : '';
 
 // Actions that REQUIRE authentication
 $secure_actions = [
-    'create',
-    'update',
-    'delete',
-    'clients_create',
-    'clients_update',
-    'clients_delete',
-    'assistants_create',
-    'assistants_update',
-    'assistants_delete',
-    'info_create',
-    'info_update',
-    'info_delete',
-    'whatsapp_disconnect',
-    'leads_list',
-    'leads_create',
-    'leads_update',
-    'leads_delete',
-    'leads_export',
-    'pdf_templates_download',
-    'pdf_templates_save_config',
-    'pdf_templates_preview',
-    'pdf_templates_logo_upload',
-    'campaigns_list',
-    'campaigns_create',
-    'campaigns_delete',
-    'campaigns_send'
+    'create', 'update', 'delete',
+    'clients_list', 'clients_create', 'clients_update', 'clients_delete',
+    'assistants_list', 'assistants_create', 'assistants_update', 'assistants_delete',
+    'info_list', 'info_create', 'info_update', 'info_delete',
+    'whatsapp_connector', 'whatsapp_status', 'whatsapp_qr', 'whatsapp_connect', 'whatsapp_disconnect',
+    'leads_list', 'leads_create', 'leads_update', 'leads_delete', 'leads_export',
+    'pdf_templates_list', 'pdf_templates_save', 'pdf_templates_rename', 'pdf_templates_delete', 'pdf_templates_download',
+    'pdf_templates_save_config', 'pdf_templates_preview', 'pdf_templates_logo_upload', 'pdf_templates_analyze',
+    'pdf_generated_list', 'pdf_generated_delete',
+    'campaigns_list', 'campaigns_create', 'campaigns_delete', 'campaigns_send',
+    'appointments_list', 'appointments_cancel',
+    'calendar_settings_get', 'calendar_settings_update',
+    'users_list', 'users_create', 'users_update', 'users_delete',
+    'stats', 'chart_data', 'logs', 'list'
 ];
 if (in_array($action, $secure_actions)) {
     if (!check_auth(false)) {

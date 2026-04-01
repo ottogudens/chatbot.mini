@@ -1729,8 +1729,14 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                       cont.innerHTML = '<div style="text-align:center;padding:40px;color:#ef4444;"><i class="fa-solid fa-triangle-exclamation"></i> Error: ' + (res.message||'desconocido') + '</div>';
                     }
                   },
-                  error: function(xhr) {
-                    cont.innerHTML = '<div style="text-align:center;padding:40px;color:#ef4444;"><i class="fa-solid fa-triangle-exclamation"></i> Error de conexión: HTTP ' + xhr.status + '. Revisa los logs del servidor.</div>';
+                  error: function(xhr, status, err) {
+                    console.error('Preview error:', { status, err, response: xhr.responseText });
+                    cont.innerHTML = `<div style="text-align:center;padding:40px;color:#ef4444;">
+                      <i class="fa-solid fa-circle-exclamation" style="font-size:32px;"></i>
+                      <p>Error de conexión o sesión al generar vista previa</p>
+                      <p style="font-size:12px;opacity:0.7;">Código HTTP: ${xhr.status}</p>
+                    </div>`;
+                    showToast('Error al generar vista previa (HTTP ' + xhr.status + ')', 'error');
                   }
                 });
               };
