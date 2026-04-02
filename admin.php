@@ -2644,8 +2644,10 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
 
     <script>
         // Global State
-        window.IS_SUPERADMIN = <?php echo $is_superadmin ? 'true' : 'false'; ?>;
-        window.id_client_sesion = <?php echo json_encode($_SESSION['client_id'] ?? null); ?>;
+        const IS_SUPERADMIN = <?php echo $is_superadmin ? 'true' : 'false'; ?>;
+        window.IS_SUPERADMIN = IS_SUPERADMIN;
+        const id_client_sesion = <?php echo json_encode($_SESSION['client_id'] ?? null); ?>;
+        window.id_client_sesion = id_client_sesion;
         // OPT-2: CSRF token for all mutating API calls
         const CSRF_TOKEN = "<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES); ?>";
 
