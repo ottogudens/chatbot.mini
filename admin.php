@@ -2953,26 +2953,26 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
 
             if (!confirm('¿Confirmas el envío masivo de esta campaña por WhatsApp?')) return;
 
-            const btn = window.event ? window.event.currentTarget : document.activeElement;
+            const btn = window.event ? window.event.currentTarget : (document ? document.activeElement : null);
             let originalHtml = "";
-            if (btn) {
+            if (btn && btn.innerHTML) {
                 originalHtml = btn.innerHTML;
                 btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
                 btn.disabled = true;
             }
 
-            $.post('api.php?action=campaigns_send', { 
-                id: id, 
-                assistant_id: currentAssistantId, 
-                lead_ids: selectedLeads.join(','),
-                csrf_token: CSRF_TOKEN 
+            $.post('api.php?action=campaigns_send', {
+                "id": id,
+                "assistant_id": currentAssistantId,
+                "lead_ids": selectedLeads.join(","),
+                "csrf_token": CSRF_TOKEN
             }, function(res) {
                 if (btn) {
                     btn.innerHTML = originalHtml;
                     btn.disabled = false;
                 }
                 if (res.status === 'success') {
-                    showToast(res.sent + ' mensajes enviados. Errores: ' + res.failed, res.failed > 0 ? 'warning' : 'success');
+                    showToast(res.sent + " mensajes enviados. Errores: " + res.failed, res.failed > 0 ? 'warning' : 'success');
                     loadCampaigns();
                 } else {
                     showToast(res.message || 'Error al enviar campaña', 'error');
