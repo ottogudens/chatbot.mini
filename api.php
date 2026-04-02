@@ -3,6 +3,26 @@ require 'db.php';
 require 'auth.php';
 header('Content-Type: application/json');
 
+/**
+ * SEC: Safe query wrapper to prevent silent crashes and return JSON errors.
+ */
+function safe_query($conn, $sql, $error_msg = "Error en la consulta a la base de datos") {
+    try {
+        $res = mysqli_query($conn, $sql);
+        if ($res === false) {
+            $err = mysqli_error($conn);
+            error_log("API Query Error: $err | SQL: $sql");
+            echo json_encode(['status' => 'error', 'message' => "$error_msg. Por favor, revise el diagnóstico del sistema."]);
+            exit;
+        }
+        return $res;
+    } catch (Exception $e) {
+        error_log("API Exception: " . $e->getMessage());
+        echo json_encode(['status' => 'error', 'message' => "Excepción en el servidor: " . $e->getMessage()]);
+        exit;
+    }
+}
+
 $action = isset($_GET['action']) ? $_GET['action'] : '';
 
 // Actions that REQUIRE authentication

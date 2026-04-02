@@ -30,14 +30,26 @@ try {
 } catch (Exception $e) {
     // SEC: Log full error internally, never expose DB details to user
     error_log("DB Connection Error: " . $e->getMessage());
-    $req_uri = $_SERVER['REQUEST_URI'] ?? '';
-    $http_accept = $_SERVER['HTTP_ACCEPT'] ?? '';
-    if (strpos($req_uri, '.php') !== false && strpos($http_accept, 'application/json') === false) {
-        die("<div style='color:red; font-family:sans-serif; padding:20px; border:1px solid red; background:#fff5f5;'>
-                <h3>⚠️ Error de Base de Datos</h3>
-                <p>No se pudo conectar a la base de datos. Contacta al administrador del sistema.</p>
-              </div>");
+    
+    $is_ajax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') || 
+               (strpos($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') !== false) ||
+               (strpos($_SERVER['REQUEST_URI'] ?? '', 'api.php') !== false) ||
+               (strpos($_SERVER['REQUEST_URI'] ?? '', 'message.php') !== false);
+
+    if ($is_ajax) {
+        header('Content-Type: application/json');
+        die(json_encode([
+            "status" => "error",
+            "error" => true, 
+            "message" => "Error de conexión a la base de datos. Verifique la configuración del servidor."
+        ]));
     }
-    die(json_encode(["error" => true, "message" => "Error de conexión a la base de datos."]));
+
+    // Fallback for direct browser access (HTML)
+    die("<div style='color:red; font-family:sans-serif; padding:20px; border:1px solid red; background:#fff5f5; border-radius:8px; max-width:600px; margin:20px auto;'>
+            <h3>⚠️ Error de Base de Datos</h3>
+            <p>No se pudo conectar a la base de datos. Contacta al administrador del sistema.</p>
+            <small style='color:#666;'>Detalle técnico: La conexión ha sido rechazada o el servidor no responde.</small>
+          </div>");
 }
 ?>

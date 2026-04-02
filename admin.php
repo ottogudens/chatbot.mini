@@ -3766,8 +3766,12 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                     });
                     $('#clients-table tbody').html(html || '<tr><td colspan="5">No hay clientes.</td></tr>');
                     $('#assistant-client').html(optHtml);
+                } else {
+                    $('#clients-table tbody').html(`<tr><td colspan="6" style="color:var(--danger);text-align:center;"><i class="fa-solid fa-circle-xmark"></i> ${res.message || 'Error al cargar clientes'}</td></tr>`);
                 }
-            }, 'json');
+            }, 'json').fail(() => {
+                $('#clients-table tbody').html('<tr><td colspan="6" style="text-align:center;opacity:0.6;"><i class="fa-solid fa-wifi"></i> Error de conexión al cargar clientes.</td></tr>');
+            });
         }
         function toggleClientFields() {
             const type = $('#client-type').val();
@@ -4218,8 +4222,12 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                         <div class="card"><div class="card-icon"><i class="fa-solid fa-comments"></i></div><div class="card-info"><h3>${res.data.total_interactions}</h3><p>Interacciones</p></div></div>
                         <div class="card"><div class="card-icon"><i class="fa-solid fa-bullseye"></i></div><div class="card-info"><h3>${res.data.accuracy}%</h3><p>Precisión</p></div></div>
                     `);
+                } else {
+                    $('#stats-container').html(`<div class="card" style="grid-column: 1/-1; color: var(--danger);"><p><i class="fa-solid fa-triangle-exclamation"></i> Error: ${res.message || 'No se pudieron cargar las estadísticas'}</p></div>`);
                 }
-            }, 'json');
+            }, 'json').fail(() => {
+                $('#stats-container').html(`<div class="card" style="grid-column: 1/-1; opacity: 0.7;"><p><i class="fa-solid fa-wifi"></i> No hay conexión con la API para estadísticas.</p></div>`);
+            });
         }
 
         let activityChart = null;
@@ -4243,7 +4251,9 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                         }
                     });
                 }
-            }, 'json');
+            }, 'json').fail(() => {
+                console.warn('No se pudo cargar el gráfico de actividad.');
+            });
         }
 
         // --- PDF Templates ---
