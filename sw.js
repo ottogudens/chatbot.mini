@@ -9,43 +9,44 @@ const SHELL_ASSETS = [
 ];
 
 // Install: cache the app shell
-self.addEventListener('install', event => {
+self.addEventListener('install', function(event) {
     event.waitUntil(
-        caches.open(CACHE_NAME).then(cache => cache.addAll(SHELL_ASSETS))
+        caches.open(CACHE_NAME).then(function(cache) { return cache.addAll(SHELL_ASSETS); })
     );
     self.skipWaiting();
 });
 
 // Activate: clean old caches
-self.addEventListener('activate', event => {
+self.addEventListener('activate', function(event) {
     event.waitUntil(
-        caches.keys().then(keys =>
-            Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-        )
+        caches.keys().then(function(keys) {
+            return Promise.all(keys.filter(function(k) { return k !== CACHE_NAME; }).map(function(k) { return caches.delete(k); }));
+        })
     );
     self.clients.claim();
 });
 
 // Fetch: network-first for API calls, cache-first for static assets
-self.addEventListener('fetch', event => {
-    const url = new URL(event.request.url);
+self.addEventListener('fetch', function(event) {
+    var url = new URL(event.request.url);
 
     // Always bypass cache for API/PHP calls
-    if (url.pathname.includes('.php') || url.pathname.includes('api')) {
+    if (url.pathname.indexOf('.php') !== -1 || url.pathname.indexOf('api') !== -1) {
         return; // Let the browser handle normally
     }
 
     // Cache-first for static assets
     event.respondWith(
-        caches.match(event.request).then(cached => {
+        caches.match(event.request).then(function(cached) {
             if (cached) return cached;
-            return fetch(event.request).then(response => {
+            return fetch(event.request).then(function(response) {
                 if (response && response.status === 200) {
-                    const clone = response.clone();
-                    caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+                    var clone = response.clone();
+                    caches.open(CACHE_NAME).then(function(cache) { cache.put(event.request, clone); });
                 }
                 return response;
             });
-        }).catch(() => caches.match('/index.php'))
+        }).catch(function() { return caches.match('/index.php'); })
     );
 });
+

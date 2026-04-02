@@ -1505,7 +1505,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
               window.openCanvasEditor = function(templateData) {
                 window._ceState = { id: null, client_id: null, sections: [], fields: [] };
                 // Reset form
-                ['ce-name','ce-desc','ce-company','ce-rut','ce-address','ce-phone','ce-email'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+                ['ce-name','ce-desc','ce-company','ce-rut','ce-address','ce-phone','ce-email'].forEach(function(id) { const el = document.getElementById(id); if(el) el.value=''; });
                 document.getElementById('ce-doctype').value = 'budget';
                 document.getElementById('ce-font').value = 'Arial';
                 document.getElementById('ce-color-primary').value = '#1a3a5c';
@@ -1527,7 +1527,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                   document.getElementById('ce-color-primary').value = (c.design||{}).primary_color || '#1a3a5c';
                   document.getElementById('ce-color-accent').value = (c.design||{}).accent_color || '#f0a500';
                   const h = c.header || {};
-                  ['company','rut','address','phone','email'].forEach(f => {
+                  ['company','rut','address','phone','email'].forEach(function(f) {
                     const el = document.getElementById('ce-'+f);
                     if (el) el.value = h['company_'+f] || h[f] || '';
                   });
@@ -1543,7 +1543,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                   const clientSelect = document.getElementById('ce-client-id');
                   if (clientSelect && window.clientsCache) {
                     let opts = '<option value="">Selecciona un cliente...</option>';
-                    window.clientsCache.forEach(c => {
+                    window.clientsCache.forEach(function(c) {
                       opts += `<option value="${c.id}" ${window._ceState.client_id == c.id ? 'selected' : ''}>${c.name}</option>`;
                     });
                     clientSelect.innerHTML = opts;
@@ -1581,7 +1581,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
               window.ceRenderSections = function() {
                 const el = document.getElementById('ce-sections-list');
                 el.innerHTML = '';
-                _ceState.sections.forEach((sec, idx) => {
+                _ceState.sections.forEach(function((sec, idx)) {
                   const meta = sectionMeta[sec.type] || { icon: 'fa-file', label: sec.type, color: '#888' };
                   const div = document.createElement('div');
                   div.className = 'section-block';
@@ -1612,10 +1612,10 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                 // Automatically link defined fields to the first client_info / vehicle_info / general_info section
                 const clientFields = _ceState.fields.filter(f => f.section === 'client_info' || !f.section).map(f => f.name);
                 const vehicleFields = _ceState.fields.filter(f => f.section === 'vehicle_info').map(f => f.name);
-                _ceState.sections.forEach((sec, idx) => {
+                _ceState.sections.forEach(function((sec, idx)) {
                   if (sec.type === 'client_info') _ceState.sections[idx].fields = clientFields;
                   if (sec.type === 'vehicle_info') _ceState.sections[idx].fields = vehicleFields;
-                  if (sec.type === 'general_info') _ceState.sections[idx].fields = _ceState.fields.map(f => f.name);
+                  if (sec.type === 'general_info') _ceState.sections[idx].fields = _ceState.fields.map(function(f) { return f.name; });
                 });
               }
 
@@ -1631,7 +1631,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                   el.innerHTML = '<div style="color:rgba(255,255,255,0.4);font-size:13px;padding:20px;">Sin campos definidos. Agrega campos para que la IA sepa qué datos solicitar.</div>';
                   return;
                 }
-                _ceState.fields.forEach((f, idx) => {
+                _ceState.fields.forEach(function((f, idx)) {
                   const row = document.createElement('div');
                   row.className = 'field-row';
                   row.innerHTML = `
@@ -2675,9 +2675,9 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
             toast.className = `toast toast-${type}`;
             toast.innerHTML = `<i class="fa-solid ${icons[type] || icons.info}"></i><span>${escapeHtml(message)}</span>`;
             container.appendChild(toast);
-            setTimeout(() => {
+            setTimeout(function() {
                 toast.classList.add('removing');
-                setTimeout(() => toast.remove(), 300);
+                setTimeout(function() { toast.remove(); }, 300);
             }, duration);
         }
 
@@ -2764,10 +2764,10 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                 else if (tabId === 'leads-tab') { delay = 30000; func = loadLeads; }
                 else if (tabId === 'appointments-tab') { delay = 60000; func = loadAppointments; }
                 else if (tabId === 'pdf-generated-tab') { delay = 20000; func = loadGeneratedDocs; }
-                else if (tabId === 'dashboard-tab') { delay = 300000; func = () => { loadStats(); initChart(); }; }
+                else if (tabId === 'dashboard-tab') { delay = 300000; func = function() { loadStats(); initChart(); }; }
 
                 if (func && delay > 0) {
-                    this.interval = setInterval(() => {
+                    this.interval = setInterval(function() {
                         // Only refresh if an assistant is selected and tab is visible
                         if (currentAssistantId && document.visibilityState === 'visible') {
                             func();
@@ -2795,8 +2795,8 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                 const clientSelect = document.getElementById('campaign-client-id');
                 if (clientSelect && window.clientsCache) {
                     let opts = '<option value="">Selecciona un cliente...</option>';
-                    window.clientsCache.forEach(c => {
-                        opts += `<option value="${c.id}">${c.name}</option>`;
+                    window.clientsCache.forEach(function(c) {
+                        opts += '<option value="' + c.id + '">' + c.name + '</option>';
                     });
                     clientSelect.innerHTML = opts;
                 }
@@ -2840,19 +2840,17 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                 return;
             }
 
-            $.get(`api.php?action=leads_list&client_id=${cid}`, function(res) {
+            $.get('api.php?action=leads_list&client_id=' + cid, function(res) {
                 if (res.status === 'success' && res.data.length > 0) {
-                    let html = '';
-                    res.data.forEach(l => {
-                        let contact = l.phone || l.email || '---';
-                        html += `
-                            <tr>
-                                <td><input type="checkbox" class="campaign-lead-checkbox" value="${l.id}"></td>
-                                <td>${escapeHtml(l.name)}</td>
-                                <td>${escapeHtml(contact)}</td>
-                                <td><span class="badge" style="font-size:10px; padding:2px 6px;">${escapeHtml(l.status)}</span></td>
-                            </tr>
-                        `;
+                    var html = '';
+                    res.data.forEach(function(l) {
+                        var contact = l.phone || l.email || '---';
+                        html += '<tr>' +
+                                '<td><input type="checkbox" class="campaign-lead-checkbox" value="' + l.id + '"></td>' +
+                                '<td>' + escapeHtml(l.name) + '</td>' +
+                                '<td>' + escapeHtml(contact) + '</td>' +
+                                '<td><span class="badge" style="font-size:10px; padding:2px 6px;">' + escapeHtml(l.status) + '</span></td>' +
+                                '</tr>';
                     });
                     tbody.html(html);
                 } else {
@@ -2909,7 +2907,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                 const tbody = $('#campaigns-table tbody');
                 tbody.empty();
                 if (res.status === 'success') {
-                    res.data.forEach(c => {
+                    res.data.forEach(function(c) {
                         const targetLabel = c.target_type === 'all' ? '<span class="badge" style="background:#3b82f6;">Todos</span>' : '<span class="badge" style="background:#8b5cf6;">Seleccionados</span>';
                         let statusHtml = '';
                         if (c.status === 'pending') statusHtml = '<span class="status-badge status-offline">Pendiente</span>';
@@ -2949,18 +2947,16 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                 return;
             }
             
-            // Get selected leads from stored target_ids (campaign already in DB)
-            // This sends using the stored leads, not from a UI selector
-            const selectedLeads = [];
+            var selectedLeads = [];
 
             if (!confirm('¿Confirmas el envío masivo de esta campaña por WhatsApp?')) return;
 
-            const btn = window.event ? window.event.currentTarget : (document ? document.activeElement : null);
-            let originalHtml = "";
-            if (btn && btn.innerHTML) {
-                originalHtml = btn.innerHTML;
-                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-                btn.disabled = true;
+            var b = window.event ? window.event.currentTarget : null;
+            var originalHtml = "";
+            if (b && b.innerHTML) {
+                originalHtml = b.innerHTML;
+                b.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+                b.disabled = true;
             }
 
             $.post('api.php?action=campaigns_send', {
@@ -2969,17 +2965,17 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                 "lead_ids": selectedLeads.join(","),
                 "csrf_token": CSRF_TOKEN
             }, function(res) {
-                if (btn) {
-                    btn.innerHTML = originalHtml;
-                    btn.disabled = false;
+                if (b) {
+                    b.innerHTML = originalHtml;
+                    b.disabled = false;
                 }
                 if (res.status === 'success') {
-                    showToast(res.sent + " mensajes enviados. Errores: " + res.failed, res.failed > 0 ? 'warning' : 'success');
+                    showToast(res.sent + ' mensajes enviados. Errores: ' + res.failed, res.failed > 0 ? 'warning' : 'success');
                     loadCampaigns();
                 } else {
                     showToast(res.message || 'Error al enviar campaña', 'error');
                 }
-            });
+            }, 'json');
         }
 
         // --- Lead Selection Logic ---
@@ -2994,27 +2990,29 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                 $('#flows-container').html('<div style="grid-column:1/-1; text-align:center; padding:40px; color:var(--text-muted);">Selecciona un asistente para ver sus flujos.</div>');
                 return;
             }
-            $.get(`api.php?action=flows_list\u0026assistant_id=${aid}`, function(res) {
+            $.get('api.php?action=flows_list&assistant_id=' + aid, function(res) {
                 const container = $('#flows-container');
                 container.empty();
-                if (res.status === 'success' \u0026\u0026 res.data.length \u003e 0) {
-                    res.data.forEach(f =\u003e {
-                        container.append(`
-                            \u003cdiv class=\"card\" style=\"flex-direction:column; align-items:flex-start; gap:12px; position:relative;\"\u003e
-                                \u003cdiv class=\"card-icon\" style=\"background:rgba(0,212,255,0.1); color:var(--primary);\"\u003e\u003ci class=\"fa-solid fa-diagram-project\"\u003e\u003c/i\u003e\u003c/div\u003e
-                                \u003cdiv class=\"card-info\"\u003e
-                                    \u003ch3 style=\"font-size:18px; margin:5px 0;\"\u003e${escapeHtml(f.name)}\u003c/h3\u003e
-                                    \u003cp style=\"font-size:12px;\"\u003eTrigger: \u003cb\u003e${f.trigger_keyword || 'Sin trigger'}\u003c/b\u003e\u003c/p\u003e
-                                \u003c/div\u003e
-                                \u003cdiv style=\"display:flex; gap:8px; width:100%; margin-top:10px;\"\u003e
-                                    \u003cbutton class=\"btn btn-sm btn-outline\" style=\"flex:1;\" onclick=\"openFlowBuilder(${f.id}, '${escapeHtml(f.name)}')\"\u003e\u003ci class=\"fa-solid fa-pen-to-square\"\u003e\u003c/i\u003e Editar Pasos\u003c/button\u003e
-                                    \u003cbutton class=\"btn btn-sm btn-danger\" style=\"padding:6px 12px;\" onclick=\"deleteFlow(${f.id})\"\u003e\u003ci class=\"fa-solid fa-trash\"\u003e\u003c/i\u003e\u003c/button\u003e
-                                \u003c/div\u003e
-                            \u003c/div\u003e
-                        `);
+                if (res.status === 'success' && res.data.length > 0) {
+                    res.data.forEach(function(f) {
+                        let flowName = escapeHtml(f.name);
+                        let trigger = f.trigger_keyword || 'Sin trigger';
+                        container.append(
+                            '<div class="card" style="flex-direction:column; align-items:flex-start; gap:12px; position:relative;">' +
+                                '<div class="card-icon" style="background:rgba(0,212,255,0.1); color:var(--primary);"><i class="fa-solid fa-diagram-project"></i></div>' +
+                                '<div class="card-info">' +
+                                    '<h3 style="font-size:18px; margin:5px 0;">' + flowName + '</h3>' +
+                                    '<p style="font-size:12px;">Trigger: <b>' + trigger + '</b></p>' +
+                                '</div>' +
+                                '<div style="display:flex; gap:8px; width:100%; margin-top:10px;">' +
+                                    '<button class="btn btn-sm btn-outline" style="flex:1;" onclick="openFlowBuilder(' + f.id + ', \'' + flowName + '\')"><i class="fa-solid fa-pen-to-square"></i> Editar Pasos</button>' +
+                                    '<button class="btn btn-sm btn-danger" style="padding:6px 12px;" onclick="deleteFlow(' + f.id + ')"><i class="fa-solid fa-trash"></i></button>' +
+                                '</div>' +
+                            '</div>'
+                        );
                     });
                 } else {
-                    container.html('\u003cdiv style=\"grid-column:1/-1; text-align:center; padding:40px; color:var(--text-muted);\"\u003eNo hay flujos creados para este asistente.\u003c/div\u003e');
+                    container.html('<div style="grid-column:1/-1; text-align:center; padding:40px; color:var(--text-muted);">No hay flujos creados para este asistente.</div>');
                 }
             });
         }
@@ -3065,12 +3063,12 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
         function openFlowBuilder(id, name) {
             currentFlowId = id;
             $('#flow-builder-title').text(`Editor: ${name}`);
-            $('#flow-steps-container').html('\u003cdiv style=\"text-align:center; padding:20px;\"\u003e\u003ci class=\"fa-solid fa-spinner fa-spin\"\u003e\u003c/i\u003e Cargando pasos...\u003c/div\u003e');
+            $('#flow-steps-container').html('<div style=\"text-align:center; padding:20px;\"><i class=\"fa-solid fa-spinner fa-spin\"></i> Cargando pasos...</div>');
             $('#flow-builder-modal').fadeIn(200).css('display','flex');
             
-            $.get(`api.php?action=flows_steps_list\u0026flow_id=${id}`, function(res) {
+            $.get(`api.php?action=flows_steps_list&flow_id=${id}`, function(res) {
                 if (res.status === 'success') {
-                    currentFlowSteps = res.data.map(s =\u003e ({
+                    currentFlowSteps = res.data.map(s => ({
                         ...s,
                         interactive_config: s.interactive_config ? JSON.parse(s.interactive_config) : { interactive: { buttons: [] }, branches: {} }
                     }));
@@ -3093,48 +3091,48 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
             const container = $('#flow-steps-container');
             container.empty();
             if (currentFlowSteps.length === 0) {
-                container.html('\u003cdiv style=\"text-align:center; padding:40px; color:rgba(255,255,255,0.4); border:2px dashed rgba(255,255,255,0.1); border-radius:12px;\"\u003eEl flujo est\u00e1 vac\u00edo. Agrega un paso para comenzar.\u003c/div\u003e');
+                container.html('<div style=\"text-align:center; padding:40px; color:rgba(255,255,255,0.4); border:2px dashed rgba(255,255,255,0.1); border-radius:12px;\">El flujo est\u00e1 vac\u00edo. Agrega un paso para comenzar.</div>');
                 return;
             }
 
-            currentFlowSteps.forEach((s, idx) =\u003e {
+            currentFlowSteps.forEach(function((s, idx)) {
                 const isInteractive = s.step_type !== 'text';
                 let interactiveHtml = '';
 
                 if (s.step_type === 'buttons') {
                     const buttons = s.interactive_config.interactive.buttons || [];
                     interactiveHtml = `
-                        \u003cdiv style=\"margin-top:10px; padding:10px; background:rgba(0,0,0,0.2); border-radius:8px;\"\u003e
-                            \u003clabel style=\"font-size:11px; color:var(--primary);\"\u003eBOTONES (M\u00e1x 3)\u003c/label\u003e
-                            \u003cdiv style=\"display:flex; flex-direction:column; gap:8px; margin-top:8px;\"\u003e
-                                ${buttons.map((b, bi) =\u003e `
-                                    \u003cdiv style=\"display:flex; gap:8px;\"\u003e
-                                        \u003cinput type=\"text\" placeholder=\"ID\" style=\"width:80px;\" value=\"${b.buttonId}\" oninput=\"currentFlowSteps[${idx}].interactive_config.interactive.buttons[${bi}].buttonId=this.value\"\u003e
-                                        \u003cinput type=\"text\" placeholder=\"Texto del Bot\u00f3n\" style=\"flex:1;\" value=\"${b.buttonText.displayText}\" oninput=\"currentFlowSteps[${idx}].interactive_config.interactive.buttons[${bi}].buttonText.displayText=this.value\"\u003e
-                                        \u003cbutton class=\"btn btn-sm btn-danger\" onclick=\"currentFlowSteps[${idx}].interactive_config.interactive.buttons.splice(${bi},1);renderFlowSteps()\"\u003e\u003ci class=\"fa-solid fa-times\"\u003e\u003c/i\u003e\u003c/button\u003e
-                                    \u003c/div\u003e
+                        <div style=\"margin-top:10px; padding:10px; background:rgba(0,0,0,0.2); border-radius:8px;\">
+                            <label style=\"font-size:11px; color:var(--primary);\">BOTONES (M\u00e1x 3)</label>
+                            <div style=\"display:flex; flex-direction:column; gap:8px; margin-top:8px;\">
+                                ${buttons.map((b, bi) => `
+                                    <div style=\"display:flex; gap:8px;\">
+                                        <input type=\"text\" placeholder=\"ID\" style=\"width:80px;\" value=\"${b.buttonId}\" oninput=\"currentFlowSteps[${idx}].interactive_config.interactive.buttons[${bi}].buttonId=this.value\">
+                                        <input type=\"text\" placeholder=\"Texto del Bot\u00f3n\" style=\"flex:1;\" value=\"${b.buttonText.displayText}\" oninput=\"currentFlowSteps[${idx}].interactive_config.interactive.buttons[${bi}].buttonText.displayText=this.value\">
+                                        <button class=\"btn btn-sm btn-danger\" onclick=\"currentFlowSteps[${idx}].interactive_config.interactive.buttons.splice(${bi},1);renderFlowSteps()\"><i class=\"fa-solid fa-times\"></i></button>
+                                    </div>
                                 `).join('')}
-                                ${buttons.length \u003c 3 ? `\u003cbutton class=\"btn btn-sm btn-outline\" onclick=\"currentFlowSteps[${idx}].interactive_config.interactive.buttons.push({buttonId:'id_'+Date.now(), buttonText:{displayText:'Opci\u00f3n'}});renderFlowSteps()\"\u003e+ Agregar Bot\u00f3n\u003c/button\u003e` : ''}
-                            \u003c/div\u003e
-                        \u003c/div\u003e
+                                ${buttons.length < 3 ? `<button class=\"btn btn-sm btn-outline\" onclick=\"currentFlowSteps[${idx}].interactive_config.interactive.buttons.push({buttonId:'id_'+Date.now(), buttonText:{displayText:'Opci\u00f3n'}});renderFlowSteps()\">+ Agregar Bot\u00f3n</button>` : ''}
+                            </div>
+                        </div>
                     `;
                 }
 
                 container.append(`
-                    \u003cdiv class=\"panel\" style=\"background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1);\"\u003e
-                        \u003cdiv style=\"display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;\"\u003e
-                            \u003cdiv style=\"display:flex; align-items:center; gap:10px;\"\u003e
-                                \u003cspan style=\"background:var(--primary); color:#000; width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12px;\"\u003e${idx+1}\u003c/span\u003e
-                                \u003cselect style=\"background:var(--input-bg); border:1px solid var(--glass-border); color:white; padding:4px 8px; border-radius:4px; font-size:12px;\" onchange=\"currentFlowSteps[${idx}].step_type=this.value;renderFlowSteps()\"\u003e
-                                    \u003coption value=\"text\" ${s.step_type==='text'?'selected':''}\u003eSolo Texto\u003c/option\u003e
-                                    \u003coption value=\"buttons\" ${s.step_type==='buttons'?'selected':''}\u003eBotones Interactivos\u003c/option\u003e
-                                \u003c/select\u003e
-                            \u003c/div\u003e
-                            \u003cbutton class=\"btn btn-sm btn-danger\" onclick=\"currentFlowSteps.splice(${idx},1);renderFlowSteps()\"\u003eEliminar\u003c/button\u003e
-                        \u003c/div\u003e
-                        \u003ctextarea style=\"width:100%; min-height:80px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.1); color:white; border-radius:8px; padding:10px; font-size:13px;\" oninput=\"currentFlowSteps[${idx}].content=this.value\"\u003e${s.content}\u003c/textarea\u003e
+                    <div class=\"panel\" style=\"background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1);\">
+                        <div style=\"display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;\">
+                            <div style=\"display:flex; align-items:center; gap:10px;\">
+                                <span style=\"background:var(--primary); color:#000; width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12px;\">${idx+1}</span>
+                                <select style=\"background:var(--input-bg); border:1px solid var(--glass-border); color:white; padding:4px 8px; border-radius:4px; font-size:12px;\" onchange=\"currentFlowSteps[${idx}].step_type=this.value;renderFlowSteps()\">
+                                    <option value=\"text\" ${s.step_type==='text'?'selected':''}>Solo Texto</option>
+                                    <option value=\"buttons\" ${s.step_type==='buttons'?'selected':''}>Botones Interactivos</option>
+                                </select>
+                            </div>
+                            <button class=\"btn btn-sm btn-danger\" onclick=\"currentFlowSteps.splice(${idx},1);renderFlowSteps()\">Eliminar</button>
+                        </div>
+                        <textarea style=\"width:100%; min-height:80px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.1); color:white; border-radius:8px; padding:10px; font-size:13px;\" oninput=\"currentFlowSteps[${idx}].content=this.value\">${s.content}</textarea>
                         ${interactiveHtml}
-                    \u003c/div\u003e
+                    </div>
                 `);
             });
         }
@@ -3157,27 +3155,27 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
         function loadAgents() {
             let aid = getActiveAssistantId();
             if (!aid) {
-                $('#agents-table-body').html('\u003ctr\u003e\u003ctd colspan=\"4\" style=\"text-align:center; padding:20px; color:var(--text-muted);\"\u003eSelecciona un asistente.\u003c/td\u003e\u003c/tr\u003e');
+                $('#agents-table-body').html('<tr><td colspan=\"4\" style=\"text-align:center; padding:20px; color:var(--text-muted);\">Selecciona un asistente.</td></tr>');
                 return;
             }
-            $.get(`api.php?action=agents_list\u0026assistant_id=${aid}`, function(res) {
+            $.get(`api.php?action=agents_list&assistant_id=${aid}`, function(res) {
                 const tbody = $('#agents-table-body');
                 tbody.empty();
-                if (res.status === 'success' \u0026\u0026 res.data.length \u003e 0) {
-                    res.data.forEach(a =\u003e {
+                if (res.status === 'success' && res.data.length > 0) {
+                    res.data.forEach(function(a) {
                         tbody.append(`
-                            \u003ctr\u003e
-                                \u003ctd\u003e\u003cb\u003e${escapeHtml(a.agent_name)}\u003c/b\u003e\u003c/td\u003e
-                                \u003ctd\u003e+${a.phone_number}\u003c/td\u003e
-                                \u003ctd\u003e\u003cspan class=\"status-badge status-online\"\u003eAutorizado\u003c/span\u003e\u003c/td\u003e
-                                \u003ctd\u003e
-                                    \u003cbutton class=\"btn btn-sm btn-danger\" onclick=\"deleteAgent(${a.id})\"\u003e\u003ci class=\"fa-solid fa-user-minus\"\u003e\u003c/i\u003e Revocar\u003c/button\u003e
-                                \u003c/td\u003e
-                            \u003c/div\u003e
+                            <tr>
+                                <td><b>${escapeHtml(a.agent_name)}</b></td>
+                                <td>+${a.phone_number}</td>
+                                <td><span class=\"status-badge status-online\">Autorizado</span></td>
+                                <td>
+                                    <button class=\"btn btn-sm btn-danger\" onclick=\"deleteAgent(${a.id})\"><i class=\"fa-solid fa-user-minus\"></i> Revocar</button>
+                                </td>
+                            </div>
                         `);
                     });
                 } else {
-                    tbody.html('\u003ctr\u003e\u003ctd colspan=\"4\" style=\"text-align:center; padding:20px; color:var(--text-muted);\"\u003eNo hay agentes autorizados para este asistente.\u003c/td\u003e\u003c/tr\u003e');
+                    tbody.html('<tr><td colspan=\"4\" style=\"text-align:center; padding:20px; color:var(--text-muted);\">No hay agentes autorizados para este asistente.</td></tr>');
                 }
             });
         }
@@ -3221,8 +3219,8 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
         // --- Export Logs Logic ---
         function exportLogs(format) {
             let aid = getActiveAssistantId();
-            let url = `api.php?action=logs_export\u0026format=${format}`;
-            if (aid) url += `\u0026assistant_id=${aid}`;
+            let url = `api.php?action=logs_export&format=${format}`;
+            if (aid) url += `&assistant_id=${aid}`;
             window.location.href = url;
         }
 
@@ -3297,7 +3295,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
 
         function getClientIdForAPI() {
             if (IS_SUPERADMIN && currentAssistantId) {
-                let ast = assistantsCache.find(a => a.id == currentAssistantId);
+                let ast = assistantsCache.find(function(a) { return a.id == currentAssistantId; });
                 return ast ? ast.client_id : null;
             }
             return null; // backend will use session client_id if client
@@ -3378,7 +3376,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                         return;
                     }
                     let html = '';
-                    res.data.forEach(a => {
+                    res.data.forEach(function(a) {
                         let statusBadge = a.status === 'confirmed'
                             ? '<span class="badge success">Confirmada</span>'
                             : '<span class="badge failed">Cancelada</span>';
@@ -3610,7 +3608,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
             $.get('api_drive.php?action=list_files&folder_id=' + folderId + (cid ? '&client_id=' + cid : ''), function (res) {
                 if (res.files) {
                     let html = '';
-                    res.files.forEach(f => {
+                    res.files.forEach(function(f) {
                         let isFolder = f.mimeType === 'application/vnd.google-apps.folder';
                         let icon = isFolder ? '<i class="fa-solid fa-folder" style="color:#f59e0b"></i>' : '<i class="fa-brands fa-google-drive" style="color:#4285F4"></i>';
                         let actionBtn = isFolder
@@ -3679,7 +3677,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                     // Checkboxes
                     $('#calendar-settings-form input[type=checkbox]').prop('checked', false);
                     if (d.available_days) {
-                        d.available_days.split(',').forEach(day => {
+                        d.available_days.split(',').forEach(function(day) {
                             $(`#calendar-settings-form input[value="${day}"]`).prop('checked', true);
                         });
                     }
@@ -3692,7 +3690,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
             $.get('api_drive.php?action=list_calendars' + (cid ? '&client_id=' + cid : ''), function (res) {
                 if (res.items) {
                     let html = '';
-                    res.items.forEach(c => {
+                    res.items.forEach(function(c) {
                         let sel = (c.id === selectedId) ? 'selected' : '';
                         html += `<option value="${c.id}" ${sel}>${c.summary} ${c.primary ? '(Principal)' : ''}</option>`;
                     });
@@ -3756,7 +3754,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                     clientsCache = res.data;
                     let html = '';
                     let optHtml = '';
-                    res.data.forEach(c => {
+                    res.data.forEach(function(c) {
                         let clientJson = JSON.stringify(c).replace(/'/g, "&#39;");
                         let typeBadge = c.type === 'empresa' ? '<span class="badge success">Empresa</span>' : '<span class="badge">Particular</span>';
                         html += `<tr><td>${c.id}</td><td>${c.name}</td><td>${typeBadge}</td><td>${c.contact_email || '-'}</td><td>${c.created_at}</td>
@@ -3769,7 +3767,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                 } else {
                     $('#clients-table tbody').html(`<tr><td colspan="6" style="color:var(--danger);text-align:center;"><i class="fa-solid fa-circle-xmark"></i> ${res.message || 'Error al cargar clientes'}</td></tr>`);
                 }
-            }, 'json').fail(() => {
+            }, 'json').fail(function() {
                 $('#clients-table tbody').html('<tr><td colspan="6" style="text-align:center;opacity:0.6;"><i class="fa-solid fa-wifi"></i> Error de conexión al cargar clientes.</td></tr>');
             });
         }
@@ -3834,7 +3832,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                 } else showToast(res.message || 'Error al procesar', 'error');
             }, 'json');
         }
-        function deleteClient(id) { if (confirm('¿Eliminar cliente? Se borrarán sus asistentes asociados.')) { $.post('api.php?action=clients_delete', { id }, res => { if (res.status === 'success') { loadClients(); loadAssistants(true); } else alert('Error'); }, 'json'); } }
+        function deleteClient(id) { if (confirm('¿Eliminar cliente? Se borrarán sus asistentes asociados.')) { $.post('api.php?action=clients_delete', { id }, function(res) { if (res.status === 'success') { loadClients(); loadAssistants(true); } else alert('Error'); }, 'json'); } }
 
         // --- Users ---
         function loadUsers() {
@@ -3842,7 +3840,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
             $.get('api.php?action=users_list', function (res) {
                 if (res.status === 'success') {
                     let html = '';
-                    res.data.forEach(u => {
+                    res.data.forEach(function(u) {
                         let badgeClass = u.role === 'superadmin' ? 'badge success' : 'badge';
                         let userJson = JSON.stringify(u).replace(/'/g, "&#39;");
                         html += `<tr><td>${u.id}</td><td>${u.username}</td><td><span class="${badgeClass}">${u.role}</span></td><td>${u.client_name || '-'}</td><td>${u.created_at}</td>
@@ -3852,7 +3850,9 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                     $('#users-table tbody').html(html || '<tr><td colspan="6">No hay usuarios asignables.</td></tr>');
 
                     let optHtml = '<option value="">(Ninguno / Global)</option>';
-                    clientsCache.forEach(c => optHtml += `<option value="${c.id}">${c.name}</option>`);
+                    clientsCache.forEach(function(c) {
+                    optHtml += '<option value="' + c.id + '">' + c.name + '</option>';
+                });
                     $('#user-client').html(optHtml);
                 }
             }, 'json');
@@ -3889,7 +3889,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                 if (res.status === 'success') { closeModal('user-modal'); loadUsers(); } else alert(res.message || 'Error');
             }, 'json');
         }
-        function deleteUser(id) { if (confirm('¿Eliminar cuenta permanentemente?')) { $.post('api.php?action=users_delete', { id }, res => { if (res.status === 'success') { loadUsers(); } else alert(res.message || 'Error'); }, 'json'); } }
+        function deleteUser(id) { if (confirm('¿Eliminar cuenta permanentemente?')) { $.post('api.php?action=users_delete', { id }, function(res) { if (res.status === 'success') { loadUsers(); } else alert(res.message || 'Error'); }, 'json'); } }
 
         // --- Assistants ---
         function loadAssistants(updateSelects = false) {
@@ -3898,8 +3898,9 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                     assistantsCache = res.data;
                     let html = '';
                     let optHtml = '<option value="">Global (Todos)</option>';
-                    res.data.forEach(a => {
-                        let clientName = clientsCache.find(c => c.id == a.client_id)?.name || a.client_id;
+                    res.data.forEach(function(a) {
+                        let clientObj = clientsCache.find(function(c) { return c.id == a.client_id; });
+                let clientName = clientObj ? clientObj.name : a.client_id;
                         html += `<tr><td>${a.id}</td><td><b>${a.name}</b></td><td>${clientName}</td><td><span style="font-size:11px">${(a.system_prompt || '').substring(0, 30)}...</span></td>
                             <td><button class="btn btn-outline" onclick='editAssistant(${JSON.stringify(a).replace(/'/g, "&#39;")})'><i class="fa-solid fa-pen"></i></button>
                             <button class="btn btn-danger" onclick="deleteAssistant(${a.id})"><i class="fa-solid fa-trash"></i></button></td></tr>`;
@@ -3948,7 +3949,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                 if (res.status === 'success') { closeModal('assistant-modal'); loadAssistants(true); } else alert(res.message || 'Error');
             }, 'json');
         }
-        function deleteAssistant(id) { if (confirm('¿Eliminar asistente? Se borrarán sus fuentes de información y reglas asociadas.')) { $.post('api.php?action=assistants_delete', { id }, res => { if (res.status === 'success') { loadAssistants(true); } else alert('Error'); }, 'json'); } }
+        function deleteAssistant(id) { if (confirm('¿Eliminar asistente? Se borrarán sus fuentes de información y reglas asociadas.')) { $.post('api.php?action=assistants_delete', { id }, function(res) { if (res.status === 'success') { loadAssistants(true); } else alert('Error'); }, 'json'); } }
 
         // --- Info Sources ---
         function loadInfoSources() {
@@ -3956,7 +3957,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
             $.get('api.php?action=info_list&assistant_id=' + currentAssistantId, function (res) {
                 if (res.status === 'success') {
                     let html = '';
-                    res.data.forEach(i => {
+                    res.data.forEach(function(i) {
                         let icon = '<i class="fa-solid fa-align-left"></i>';
                         if (i.type === 'link') icon = '<i class="fa-solid fa-link"></i>';
                         if (i.type === 'file') icon = '<i class="fa-solid fa-file"></i>';
@@ -4098,7 +4099,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
 
             $.ajax(ajaxSettings);
         }
-        function deleteInfo(id) { if (confirm('¿Eliminar fuente?')) { $.post('api.php?action=info_delete', { id }, res => { if (res.status === 'success') { loadInfoSources(); } else alert('Error'); }, 'json'); } }
+        function deleteInfo(id) { if (confirm('¿Eliminar fuente?')) { $.post('api.php?action=info_delete', { id }, function(res) { if (res.status === 'success') { loadInfoSources(); } else alert('Error'); }, 'json'); } }
 
         // --- Rules ---
         function loadRules() {
@@ -4107,7 +4108,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
             $.get(u, function (res) {
                 if (res.status === 'success') {
                     let html = '';
-                    res.data.forEach(r => {
+                    res.data.forEach(function(r) {
                         html += `<tr><td>#${r.id}</td><td><span class="badge">${r.category || 'general'}</span></td>
                             <td style="max-width:200px;word-break:break-all;">${r.queries}</td><td style="max-width:300px;">${r.replies}</td>
                             <td><button class="btn btn-outline" onclick='editRule(${JSON.stringify(r).replace(/'/g, "&#39;")})'><i class="fa-solid fa-pen"></i></button>
@@ -4126,7 +4127,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                 if (res.status === 'success') { closeModal('rule-modal'); loadRules(); loadStats(); } else alert(res.message || 'Error');
             }, 'json');
         }
-        function deleteRule(id) { if (confirm('¿Eliminar regla?')) { $.post('api.php?action=delete', { id }, res => { if (res.status === 'success') { loadRules(); loadStats(); } else alert('Error'); }, 'json'); } }
+        function deleteRule(id) { if (confirm('¿Eliminar regla?')) { $.post('api.php?action=delete', { id }, function(res) { if (res.status === 'success') { loadRules(); loadStats(); } else alert('Error'); }, 'json'); } }
 
         // --- Logs ---
         function loadLogs() {
@@ -4135,7 +4136,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
             $.get(u, function (res) {
                 if (res.status === 'success') {
                     let html = '';
-                    res.data.forEach(l => {
+                    res.data.forEach(function(l) {
                         let status = l.matched == 1 ? '<span class="badge success"><i class="fa-solid fa-check"></i> OK</span>' : '<span class="badge failed"><i class="fa-solid fa-xmark"></i> Fail</span>';
                         html += `<tr><td style="font-size:12px">${l.created_at}</td><td>${l.user_message}</td><td style="max-width:400px; font-size:12px">${l.bot_reply.substring(0, 80)}...</td><td>${status}</td></tr>`;
                     });
@@ -4153,7 +4154,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
             $.get(u, function (res) {
                 if (res.status === 'success') {
                     let html = '';
-                    res.data.forEach(l => {
+                    res.data.forEach(function(l) {
                         let contact = (l.phone || '') + (l.phone && l.email ? ' / ' : '') + (l.email || '');
                         let captured = '';
                         if (l.captured_data) {
@@ -4204,7 +4205,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                 if (res.status === 'success') { closeModal('lead-modal'); loadLeads(); } else alert(res.message || 'Error');
             }, 'json');
         }
-        function deleteLead(id) { if (confirm('¿Eliminar prospecto?')) { $.post('api.php?action=leads_delete', { id }, res => { if (res.status === 'success') loadLeads(); else alert('Error'); }, 'json'); } }
+        function deleteLead(id) { if (confirm('¿Eliminar prospecto?')) { $.post('api.php?action=leads_delete', { id }, function(res) { if (res.status === 'success') loadLeads(); else alert('Error'); }, 'json'); } }
         function exportLeads() {
             let u = 'api.php?action=leads_export';
             if (currentAssistantId) u += '&assistant_id=' + currentAssistantId;
@@ -4217,16 +4218,16 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
             if (currentAssistantId) u += '&assistant_id=' + currentAssistantId;
             $.get(u, function (res) {
                 if (res.status === 'success') {
-                    $('#stats-container').html(`
-                        <div class="card"><div class="card-icon"><i class="fa-solid fa-book-open"></i></div><div class="card-info"><h3>${res.data.total_rules}</h3><p>Reglas / Contexto</p></div></div>
-                        <div class="card"><div class="card-icon"><i class="fa-solid fa-comments"></i></div><div class="card-info"><h3>${res.data.total_interactions}</h3><p>Interacciones</p></div></div>
-                        <div class="card"><div class="card-icon"><i class="fa-solid fa-bullseye"></i></div><div class="card-info"><h3>${res.data.accuracy}%</h3><p>Precisión</p></div></div>
-                    `);
+                    $('#stats-container').html(
+                        '<div class="card"><div class="card-icon"><i class="fa-solid fa-book-open"></i></div><div class="card-info"><h3>' + res.data.total_rules + '</h3><p>Reglas / Contexto</p></div></div>' +
+                        '<div class="card"><div class="card-icon"><i class="fa-solid fa-comments"></i></div><div class="card-info"><h3>' + res.data.total_interactions + '</h3><p>Interacciones</p></div></div>' +
+                        '<div class="card"><div class="card-icon"><i class="fa-solid fa-bullseye"></i></div><div class="card-info"><h3>' + res.data.accuracy + '%</h3><p>Precisión</p></div></div>'
+                    );
                 } else {
-                    $('#stats-container').html(`<div class="card" style="grid-column: 1/-1; color: var(--danger);"><p><i class="fa-solid fa-triangle-exclamation"></i> Error: ${res.message || 'No se pudieron cargar las estadísticas'}</p></div>`);
+                    $('#stats-container').html('<div class="card" style="grid-column: 1/-1; color: var(--danger);"><p><i class="fa-solid fa-triangle-exclamation"></i> Error: ' + (res.message || 'No se pudieron cargar las estadísticas') + '</p></div>');
                 }
-            }, 'json').fail(() => {
-                $('#stats-container').html(`<div class="card" style="grid-column: 1/-1; opacity: 0.7;"><p><i class="fa-solid fa-wifi"></i> No hay conexión con la API para estadísticas.</p></div>`);
+            }, 'json').fail(function() {
+                $('#stats-container').html('<div class="card" style="grid-column: 1/-1; opacity: 0.7;"><p><i class="fa-solid fa-wifi"></i> No hay conexión con la API para estadísticas.</p></div>');
             });
         }
 
@@ -4251,7 +4252,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                         }
                     });
                 }
-            }, 'json').fail(() => {
+            }, 'json').fail(function() {
                 console.warn('No se pudo cargar el gráfico de actividad.');
             });
         }
@@ -4271,7 +4272,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                 } else {
                     grid.html('<div class="tpl-empty"><i class="fa-solid fa-circle-exclamation"></i><p>Error al cargar las plantillas.</p></div>');
                 }
-            }, 'json').fail(() => {
+            }, 'json').fail(function() {
                 grid.html('<div class="tpl-empty"><i class="fa-solid fa-wifi"></i><p>Error de conexión.</p></div>');
             });
         }
@@ -4292,7 +4293,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                 return;
             }
             let html = '';
-            data.forEach(t => {
+            data.forEach(function(t) {
                 const isCustom  = t.source === 'db' || t.source === 'canvas';
                 const isCanvas  = t.source === 'canvas';
                 const srcBadge  = isCanvas
@@ -4385,7 +4386,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
             if (!name) { alert('El nombre es obligatorio'); return; }
             const desc = $('#edit-tpl-desc').val().trim();
             $('#btn-save-tpl-edit').prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Guardando...');
-            $.post('api.php?action=pdf_templates_rename', { id: _editingTplId, name, description: desc }, res => {
+            $.post('api.php?action=pdf_templates_rename', { id: _editingTplId, name, description: desc }, function(res) {
                 $('#btn-save-tpl-edit').prop('disabled', false).html('Guardar Cambios');
                 if (res.status === 'success') {
                     closeModal('tpl-edit-modal');
@@ -4398,7 +4399,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
 
         function deletePDFTemplate(id, name) {
             if (confirm(`¿Eliminar la plantilla "${name}"?\nEsta acción no se puede deshacer.`)) {
-                $.post('api.php?action=pdf_templates_delete', { id }, res => {
+                $.post('api.php?action=pdf_templates_delete', { id }, function(res) {
                     if (res.status === 'success') loadPDFTemplates();
                     else alert(res.message || 'Error');
                 }, 'json');
@@ -4517,7 +4518,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
             $.get(u, function (res) {
                 if (res.status === 'success') {
                     let html = '';
-                    res.data.forEach(d => {
+                    res.data.forEach(function(d) {
                         html += `<tr>
                             <td>${d.created_at}</td>
                             <td>${d.assistant_name || 'Desconocido'}</td>
@@ -4561,7 +4562,7 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
         function copyChatLink() {
             let url = window.location.origin + window.location.pathname.replace('admin.php', 'index.php');
             if (currentAssistantId) url += '?assistant=' + currentAssistantId;
-            navigator.clipboard.writeText(url).then(() => {
+            navigator.clipboard.writeText(url).then(function() {
                 alert("Link copiado: " + url);
             });
         }
@@ -4570,9 +4571,12 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
         // Service Worker Registration (PWA)
         // ==========================================
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW error:', err));
+            navigator.serviceWorker.register('/sw.js').catch(function(err) { console.warn('SW error:', err); });
         }
     </script>
 </body>
 
 </html>
+
+
+
