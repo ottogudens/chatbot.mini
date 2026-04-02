@@ -7,13 +7,16 @@ require_once 'db.php';
 $query = "ALTER TABLE marketing_campaigns 
     ADD COLUMN target_ids TEXT NULL AFTER target_type;";
 
-if (mysqli_query($conn, $query)) {
-    echo "Migration 15 (Campaign Target IDs) completed successfully.\n";
-} else {
-    if (strpos(mysqli_error($conn), 'Duplicate column') !== false) {
+try {
+    if (mysqli_query($conn, $query)) {
+        echo "Migration 15 (Campaign Target IDs) completed successfully.\n";
+    }
+} catch (mysqli_sql_exception $e) {
+    if (strpos($e->getMessage(), 'Duplicate column') !== false) {
         echo "Migration 15 already applied.\n";
     } else {
-        echo "Error: " . mysqli_error($conn) . "\n";
+        echo "Error: " . $e->getMessage() . "\n";
     }
 }
+
 ?>

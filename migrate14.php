@@ -8,14 +8,16 @@ $query = "ALTER TABLE marketing_campaigns
     ADD COLUMN attachment_url VARCHAR(255) NULL AFTER message,
     ADD COLUMN attachment_type VARCHAR(50) NULL AFTER attachment_url;";
 
-if (mysqli_query($conn, $query)) {
-    echo "Migration 14 (Marketing Campaign Attachments) completed successfully.\n";
-} else {
-    // If it already exists, just ignore
-    if (strpos(mysqli_error($conn), 'Duplicate column') !== false) {
+try {
+    if (mysqli_query($conn, $query)) {
+        echo "Migration 14 (Marketing Campaign Attachments) completed successfully.\n";
+    }
+} catch (mysqli_sql_exception $e) {
+    if (strpos($e->getMessage(), 'Duplicate column') !== false) {
         echo "Migration 14 already applied (columns exist).\n";
     } else {
-        echo "Error in Migration 14: " . mysqli_error($conn) . "\n";
+        echo "Error in Migration 14: " . $e->getMessage() . "\n";
     }
 }
+
 ?>

@@ -66,10 +66,12 @@ $queries = [
 ];
 
 foreach ($queries as $i => $q) {
-    if (mysqli_query($conn, $q)) {
-        echo "Step " . ($i+1) . " of Migration 16 completed successfully.\n";
-    } else {
-        $err = mysqli_error($conn);
+    try {
+        if (mysqli_query($conn, $q)) {
+            echo "Step " . ($i+1) . " of Migration 16 completed successfully.\n";
+        }
+    } catch (mysqli_sql_exception $e) {
+        $err = $e->getMessage();
         if (strpos($err, 'Duplicate column') !== false || strpos($err, 'already exists') !== false) {
             echo "Step " . ($i+1) . " already applied.\n";
         } else {
@@ -77,4 +79,5 @@ foreach ($queries as $i => $q) {
         }
     }
 }
+
 ?>
