@@ -85,7 +85,7 @@ function get_valid_token($conn, $client_id_db, $google_client_id, $google_client
 switch ($action) {
     case 'status':
         $token = get_valid_token($conn, $client_id, $google_client_id, $google_client_secret);
-        echo json_encode(['status' => 'success', 'connected' => $token !== false]);
+        send_response('success', '', ['connected' => $token !== false]);
         break;
 
     case 'auth_url':
@@ -98,7 +98,7 @@ switch ($action) {
             'prompt' => 'consent',
             'state' => $client_id // passing client id in state to know who is connecting
         ]);
-        echo json_encode(['status' => 'success', 'url' => $url]);
+        send_response('success', '', ['url' => $url]);
         break;
 
     case 'callback':
@@ -165,15 +165,14 @@ switch ($action) {
     case 'list_files':
         $token = get_valid_token($conn, $client_id, $google_client_id, $google_client_secret);
         if (!$token) {
-            echo json_encode(['status' => 'error', 'message' => 'No hay conexión activa con Google Drive.']);
-            exit;
+            send_response('error', 'No hay conexión activa con Google Drive.');
         }
 
         $folder_id = $_GET['folder_id'] ?? 'root';
-        $q = "('{$folder_id}' in parents) and (mimeType='application/vnd.google-apps.folder' or mimeType='application/vnd.google-apps.spreadsheet' or mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' or mimeType='text/csv' or mimeType='application/pdf' or mimeType='application/msword' or mimeType='application/vnd.openxmlformats-officedocument.wordprocessingml.document' or mimeType='application/vnd.google-apps.document')";
+        $query_str = "('{$folder_id}' in parents) and (mimeType='application/vnd.google-apps.folder' or mimeType='application/vnd.google-apps.spreadsheet' or mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' or mimeType='text/csv' or mimeType='application/pdf' or mimeType='application/msword' or mimeType='application/vnd.openxmlformats-officedocument.wordprocessingml.document' or mimeType='application/vnd.google-apps.document')";
 
         $url = "https://www.googleapis.com/drive/v3/files?" . http_build_query([
-            'q' => $q,
+            'q' => $query_str,
             'fields' => 'files(id, name, mimeType, modifiedTime)',
             'orderBy' => 'folder,name',
             'pageSize' => 50
@@ -190,13 +189,13 @@ switch ($action) {
         // curl_close deprecated in PHP 8.4+
 
         echo $response; // Return raw google response
+        exit;
         break;
 
     case 'list_calendars':
         $token = get_valid_token($conn, $client_id, $google_client_id, $google_client_secret);
         if (!$token) {
-            echo json_encode(['status' => 'error', 'message' => 'Sin conexión activa a Google.']);
-            exit;
+            send_response('error', 'Sin conexión activa a Google.');
         }
 
         $url = "https://www.googleapis.com/calendar/v3/users/me/calendarList";
@@ -208,13 +207,13 @@ switch ($action) {
         $response = curl_exec($ch);
         // curl_close deprecated in PHP 8.4+
         echo $response;
+        exit;
         break;
 
     case 'create_calendar':
         $token = get_valid_token($conn, $client_id, $google_client_id, $google_client_secret);
         if (!$token) {
-            echo json_encode(['status' => 'error', 'message' => 'Sin conexión activa a Google.']);
-            exit;
+            send_response('error', 'Sin conexión activa a Google.');
         }
 
         $summary = $_POST['summary'] ?? 'Asistente Chatbot';
@@ -232,23 +231,23 @@ switch ($action) {
         $response = curl_exec($ch);
         // curl_close deprecated in PHP 8.4+
         echo $response;
+        exit;
         break;
 
     case 'disconnect':
         $stmt = mysqli_prepare($conn, "DELETE FROM client_integrations WHERE client_id=? AND provider='google_drive'");
         mysqli_stmt_bind_param($stmt, "i", $client_id);
         if (mysqli_stmt_execute($stmt)) {
-            echo json_encode(['status' => 'success', 'message' => 'Cuenta de Google desconectada correctamente.']);
+            send_response('success', 'Cuenta de Google desconectada correctamente.');
         } else {
-            echo json_encode(['status' => 'error', 'message' => 'Error al desconectar: ' . mysqli_error($conn)]);
+            send_response('error', 'Error al desconectar: ' . mysqli_error($conn));
         }
         break;
 
     case 'sync_file':
         $token = get_valid_token($conn, $client_id, $google_client_id, $google_client_secret);
         if (!$token) {
-            echo json_encode(['status' => 'error', 'message' => 'Sin conexión activa a Google Drive.']);
-            exit;
+            send_response('error', 'Sin conexión activa a Google Drive.');
         }
 
         $file_id = $_POST['file_id'] ?? '';
@@ -257,16 +256,16 @@ switch ($action) {
         $assistant_id = $_POST['assistant_id'] ?? '';
 
         if (!$file_id || !$assistant_id) {
-            echo json_encode(['status' => 'error', 'message' => 'Datos incompletos. Revisa el ID y el asistente seleccionado.']);
-            exit;
+            send_response('error', 'Datos incompletos. Revisa el ID y el asistente seleccionado.');
         }
 
         $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
         if (!$is_superadmin) {
-            $chk = mysqli_query($conn, "SELECT id FROM assistants WHERE id=" . intval($assistant_id) . " AND client_id=" . intval($client_id));
-            if (mysqli_num_rows($chk) == 0) {
-                echo json_encode(['status' => 'error', 'message' => 'No tienes asignado este asistente.']);
-                exit;
+            $stmt = mysqli_prepare($conn, "SELECT id FROM assistants WHERE id=? AND client_id=?");
+            mysqli_stmt_bind_param($stmt, "ii", $assistant_id, $client_id);
+            mysqli_stmt_execute($stmt);
+            if (mysqli_num_rows(mysqli_stmt_get_result($stmt)) == 0) {
+                send_response('error', 'No tienes asignado este asistente.');
             }
         }
 
@@ -301,8 +300,7 @@ switch ($action) {
         // curl_close deprecated in PHP 8.4+
 
         if ($http_code != 200 || !$file_content) {
-            echo json_encode(['status' => 'error', 'message' => "Error de descarga desde Google Drive (HTTP $http_code). ¿Es un archivo válido y no vacío?"]);
-            exit;
+            send_response('error', "Error de descarga desde Google Drive (HTTP $http_code). ¿Es un archivo válido y no vacío?");
         }
 
         // Guardar locálmente el cache
@@ -329,21 +327,21 @@ switch ($action) {
 
             mysqli_stmt_bind_param($stmt, "issssis", $assistant_id, $file_name, $content_msg, $final_path, $calc_mime, $fsize, $uri);
             if (mysqli_stmt_execute($stmt)) {
-                echo json_encode(['status' => 'success', 'uri' => $uri]);
+                send_response('success', '', ['uri' => $uri]);
             } else {
                 error_log("DB Error in sync_file: " . mysqli_error($conn));
-                echo json_encode(['status' => 'error', 'message' => 'Error guardando en la BD: ' . mysqli_error($conn)]);
+                send_response('error', 'Error guardando en la BD: ' . mysqli_error($conn));
             }
         } else {
             // Rollback si falla subir a Gemini
             if (file_exists($target_file))
                 unlink($target_file);
             error_log("Gemini Upload failed for file: $file_name");
-            echo json_encode(['status' => 'error', 'message' => 'El archivo se descargó de Drive, pero la subida a Google Gemini falló. Revisa los logs del servidor.']);
+            send_response('error', 'El archivo se descargó de Drive, pero la subida a Google Gemini falló. Revisa los logs del servidor.');
         }
         break;
 
     default:
-        echo json_encode(['status' => 'error', 'message' => 'Acción Drive no válida']);
+        send_response('error', 'Acción Drive no válida');
         break;
 }

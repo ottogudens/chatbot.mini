@@ -6,9 +6,13 @@ $is_superadmin = ($_SESSION['role'] ?? 'client') === 'superadmin';
 
 // Look for the Internal Support Assistant
 $support_assistant_id = null;
-$q_support = mysqli_query($conn, "SELECT id FROM assistants WHERE name = 'Asistente de Soporte Skale IA' LIMIT 1");
-if ($q_support && mysqli_num_rows($q_support) > 0) {
-    $row_support = mysqli_fetch_assoc($q_support);
+$stmt_support = mysqli_prepare($conn, "SELECT id FROM assistants WHERE name = ? LIMIT 1");
+$support_name = 'Asistente de Soporte Skale IA';
+mysqli_stmt_bind_param($stmt_support, "s", $support_name);
+mysqli_stmt_execute($stmt_support);
+$res_support = mysqli_stmt_get_result($stmt_support);
+if ($res_support && mysqli_num_rows($res_support) > 0) {
+    $row_support = mysqli_fetch_assoc($res_support);
     $support_assistant_id = $row_support['id'];
 }
 ?>
@@ -2523,8 +2527,10 @@ if ($q_support && mysqli_num_rows($q_support) > 0) {
                             <select name="client_id" required>
                                 <?php
                                 require_once 'db.php';
-                                $q = mysqli_query($conn, "SELECT id, name FROM clients");
-                                while ($c = mysqli_fetch_assoc($q))
+                                $stmt_clients = mysqli_prepare($conn, "SELECT id, name FROM clients");
+                                mysqli_stmt_execute($stmt_clients);
+                                $res_clients = mysqli_stmt_get_result($stmt_clients);
+                                while ($c = mysqli_fetch_assoc($res_clients))
                                     echo "<option value='{$c['id']}'>{$c['name']}</option>";
                                 ?>
                             </select>

@@ -38,6 +38,28 @@ try {
                 <p>No se pudo conectar a la base de datos. Contacta al administrador del sistema.</p>
               </div>");
     }
-    die(json_encode(["error" => true, "message" => "Error de conexión a la base de datos."]));
+    header('Content-Type: application/json');
+    die(json_encode(["status" => "error", "message" => "Error de conexión a la base de datos."]));
+}
+
+/**
+ * Standardized API response function.
+ */
+function send_response($status, $message = '', $data = null) {
+    if (!headers_sent()) {
+        header('Content-Type: application/json');
+    }
+    $response = ['status' => $status, 'message' => $message];
+    if ($data !== null) $response['data'] = $data;
+    echo json_encode($response);
+    exit;
+}
+
+/**
+ * Internal logging function with context.
+ */
+function log_error($message, $context = []) {
+    $ctx_str = !empty($context) ? " | Context: " . json_encode($context) : "";
+    error_log("[SkaleBot] " . $message . $ctx_str);
 }
 ?>

@@ -27,8 +27,7 @@ $secure_actions = [
 if (in_array($action, $secure_actions)) {
     if (!check_auth(false)) {
         http_response_code(401);
-        echo json_encode(['status' => 'error', 'message' => 'No autorizado. Por favor inicie sesión.']);
-        exit;
+        send_response('error', 'No autorizado. Por favor inicie sesión.');
     }
 }
 
@@ -51,8 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, $csrf_protected_a
     $csrf_sess  = $_SESSION['csrf_token'] ?? '';
     if (empty($csrf_post) || empty($csrf_sess) || !hash_equals($csrf_sess, $csrf_post)) {
         http_response_code(403);
-        echo json_encode(['status' => 'error', 'message' => 'Token CSRF inválido. Recarga la página e intenta de nuevo.']);
-        exit;
+        send_response('error', 'Token CSRF inválido. Recarga la página e intenta de nuevo.');
     }
 }
 
@@ -63,12 +61,12 @@ define('WHATSAPP_API_URL', 'http://localhost:3001'); // URL of the Node.js bridg
 function check_ast_owner($conn, $ast_id)
 {
     global $is_superadmin, $session_client_id;
-    if ($is_superadmin)
-        return true;
-    if (!$ast_id || !$session_client_id)
-        return false;
-    $q = mysqli_query($conn, "SELECT id FROM assistants WHERE id=" . intval($ast_id) . " AND client_id=" . intval($session_client_id));
-    return mysqli_num_rows($q) > 0;
+    if ($is_superadmin) return true;
+    if (!$ast_id || !$session_client_id) return false;
+    $stmt = mysqli_prepare($conn, "SELECT id FROM assistants WHERE id = ? AND client_id = ?");
+    mysqli_stmt_bind_param($stmt, "ii", $ast_id, $session_client_id);
+    mysqli_stmt_execute($stmt);
+    return mysqli_num_rows(mysqli_stmt_get_result($stmt)) > 0;
 }
 function check_client_owner($conn, $client_id)
 {
@@ -80,17 +78,14 @@ function check_client_owner($conn, $client_id)
 function check_item_owner($conn, $table, $id)
 {
     global $is_superadmin, $session_client_id;
-    // Whitelist allowed tables to prevent SQL injection via table name
     $allowed_tables = ['chatbot', 'information_sources'];
-    if (!in_array($table, $allowed_tables, true)) {
-        return false;
-    }
-    if ($is_superadmin)
-        return true;
-    if (!$id || !$session_client_id)
-        return false;
-    $q = mysqli_query($conn, "SELECT a.id FROM $table t JOIN assistants a ON t.assistant_id = a.id WHERE t.id=" . intval($id) . " AND a.client_id=" . intval($session_client_id));
-    return mysqli_num_rows($q) > 0;
+    if (!in_array($table, $allowed_tables, true)) return false;
+    if ($is_superadmin) return true;
+    if (!$id || !$session_client_id) return false;
+    $stmt = mysqli_prepare($conn, "SELECT a.id FROM $table t JOIN assistants a ON t.assistant_id = a.id WHERE t.id = ? AND a.client_id = ?");
+    mysqli_stmt_bind_param($stmt, "ii", $id, $session_client_id);
+    mysqli_stmt_execute($stmt);
+    return mysqli_num_rows(mysqli_stmt_get_result($stmt)) > 0;
 }
 
 // Superadmin-only actions
@@ -104,26 +99,28 @@ $superadmin_actions = [
 ];
 if (in_array($action, $superadmin_actions) && !$is_superadmin) {
     http_response_code(403);
-    echo json_encode(['status' => 'error', 'message' => 'Acceso denegado. Se requiere ser superadmin.']);
-    exit;
+    send_response('error', 'Acceso denegado. Se requiere ser superadmin.');
 }
 
 switch ($action) {
     // ---- Clients ----
     case 'clients_list':
         if (!$is_superadmin && $session_client_id) {
-            $query = "SELECT * FROM clients WHERE id = " . intval($session_client_id) . " ORDER BY id DESC";
+            $stmt = mysqli_prepare($conn, "SELECT * FROM clients WHERE id = ? ORDER BY id DESC");
+            mysqli_stmt_bind_param($stmt, "i", $session_client_id);
         } else {
-            $query = "SELECT * FROM clients ORDER BY id DESC";
+            $stmt = mysqli_prepare($conn, "SELECT * FROM clients ORDER BY id DESC");
         }
-        $result = mysqli_query($conn, $query);
+        
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
         $data = [];
         if ($result) {
             while ($row = mysqli_fetch_assoc($result)) {
                 $data[] = $row;
             }
         }
-        echo json_encode(['status' => 'success', 'data' => $data]);
+        send_response('success', '', $data);
         break;
     case 'clients_create':
         $type = $_POST['type'] ?? 'particular';
@@ -138,8 +135,7 @@ switch ($action) {
         $rep_email = $_POST['representative_email'] ?? null;
 
         if (empty($name) || empty($email)) {
-            echo json_encode(['status' => 'error', 'message' => 'Nombre y Email son requeridos.']);
-            exit;
+            send_response('error', 'Nombre y Email son requeridos.');
         }
 
         $stmt = mysqli_prepare($conn, "INSERT INTO clients (name, contact_email, type, rut, address, phone, business_line, representative_name, representative_phone, representative_email) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
@@ -155,10 +151,14 @@ switch ($action) {
             mysqli_stmt_bind_param($user_stmt, "ssi", $email, $hash, $new_client_id);
             mysqli_stmt_execute($user_stmt);
 
-            echo json_encode(['status' => 'success', 'client_id' => $new_client_id, 'temp_password' => $password, 'note' => 'Contraseña temporal. El cliente debe cambiarla al primer acceso.']);
+            send_response('success', 'Cliente creado con éxito.', [
+                'client_id' => $new_client_id,
+                'temp_password' => $password,
+                'note' => 'Contraseña temporal. El cliente debe cambiarla al primer acceso.'
+            ]);
         } else {
-            error_log('clients_create error: ' . mysqli_error($conn));
-            echo json_encode(['status' => 'error', 'message' => 'Error al crear el cliente.']);
+            log_error('clients_create failed', ['error' => mysqli_error($conn)]);
+            send_response('error', 'Error al crear el cliente.');
         }
         break;
     case 'clients_update':
@@ -175,32 +175,42 @@ switch ($action) {
         $rep_email = $_POST['representative_email'] ?? null;
 
         if (empty($name) || empty($email)) {
-            echo json_encode(['status' => 'error', 'message' => 'Nombre y Email son requeridos.']);
-            exit;
+            send_response('error', 'Nombre y Email son requeridos.');
         }
 
         $stmt = mysqli_prepare($conn, "UPDATE clients SET name=?, contact_email=?, type=?, rut=?, address=?, phone=?, business_line=?, representative_name=?, representative_phone=?, representative_email=? WHERE id=?");
         mysqli_stmt_bind_param($stmt, "ssssssssssi", $name, $email, $type, $rut, $address, $phone, $giro, $rep_name, $rep_phone, $rep_email, $id);
-        echo json_encode(['status' => mysqli_stmt_execute($stmt) ? 'success' : 'error']);
+        
+        if (mysqli_stmt_execute($stmt)) {
+            send_response('success', 'Cliente actualizado.');
+        } else {
+            log_error('clients_update failed', ['id' => $id, 'error' => mysqli_error($conn)]);
+            send_response('error', 'Error al actualizar el cliente.');
+        }
         break;
     case 'clients_delete':
         $id = $_POST['id'] ?? 0;
         $stmt = mysqli_prepare($conn, "DELETE FROM clients WHERE id=?");
         mysqli_stmt_bind_param($stmt, "i", $id);
-        echo json_encode(['status' => mysqli_stmt_execute($stmt) ? 'success' : 'error']);
+        if (mysqli_stmt_execute($stmt)) {
+            send_response('success', 'Cliente eliminado.');
+        } else {
+            send_response('error', 'Error al eliminar cliente.');
+        }
         break;
 
     // ---- Users (Superadmin only) ----
     case 'users_list':
-        $query = "SELECT u.id, u.username, u.role, u.client_id, c.name as client_name, u.created_at FROM users u LEFT JOIN clients c ON u.client_id = c.id ORDER BY u.id DESC";
-        $result = mysqli_query($conn, $query);
+        $stmt = mysqli_prepare($conn, "SELECT u.id, u.username, u.role, u.client_id, c.name as client_name, u.created_at FROM users u LEFT JOIN clients c ON u.client_id = c.id ORDER BY u.id DESC");
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
         $data = [];
         if ($result) {
             while ($row = mysqli_fetch_assoc($result)) {
                 $data[] = $row;
             }
         }
-        echo json_encode(['status' => 'success', 'data' => $data]);
+        send_response('success', '', $data);
         break;
     case 'users_create':
         $username = $_POST['username'] ?? '';
@@ -209,16 +219,15 @@ switch ($action) {
         $client_id = !empty($_POST['client_id']) ? intval($_POST['client_id']) : null;
 
         if (empty($username) || empty($password)) {
-            echo json_encode(['status' => 'error', 'message' => 'Usuario y contraseña requeridos.']);
-            exit;
+            send_response('error', 'Usuario y contraseña requeridos.');
         }
         $hash = password_hash($password, PASSWORD_DEFAULT);
         $stmt = mysqli_prepare($conn, "INSERT INTO users (username, password_hash, role, client_id) VALUES (?, ?, ?, ?)");
         mysqli_stmt_bind_param($stmt, "sssi", $username, $hash, $role, $client_id);
         if (mysqli_stmt_execute($stmt)) {
-            echo json_encode(['status' => 'success']);
+            send_response('success', 'Usuario creado.');
         } else {
-            echo json_encode(['status' => 'error', 'message' => 'Error al crear usuario. Posible nombre duplicado.']);
+            send_response('error', 'Error al crear usuario. Posible nombre duplicado.');
         }
         break;
     case 'users_update':
@@ -229,8 +238,7 @@ switch ($action) {
         $client_id = !empty($_POST['client_id']) ? intval($_POST['client_id']) : null;
 
         if (empty($username)) {
-            echo json_encode(['status' => 'error', 'message' => 'Usuario requerido.']);
-            exit;
+            send_response('error', 'Usuario requerido.');
         }
 
         if (!empty($password)) {
@@ -243,63 +251,68 @@ switch ($action) {
         }
 
         if (mysqli_stmt_execute($stmt)) {
-            echo json_encode(['status' => 'success']);
+            send_response('success', 'Usuario actualizado.');
         } else {
-            echo json_encode(['status' => 'error', 'message' => 'Error al actualizar usuario.']);
+            send_response('error', 'Error al actualizar usuario.');
         }
         break;
     case 'users_delete':
         $id = $_POST['id'] ?? 0;
         if ($id == $_SESSION['admin_id']) {
-            echo json_encode(['status' => 'error', 'message' => 'No puedes eliminar tu propia cuenta.']);
-            exit;
+            send_response('error', 'No puedes eliminar tu propia cuenta.');
         }
         $stmt = mysqli_prepare($conn, "DELETE FROM users WHERE id=?");
         mysqli_stmt_bind_param($stmt, "i", $id);
-        echo json_encode(['status' => mysqli_stmt_execute($stmt) ? 'success' : 'error']);
+        if (mysqli_stmt_execute($stmt)) {
+            send_response('success', 'Usuario eliminado.');
+        } else {
+            send_response('error', 'Error al eliminar usuario.');
+        }
         break;
 
     // ---- Leads (Marketing) ----
     case 'leads_list':
         $req_client_id = $_GET['client_id'] ?? $session_client_id;
-        $filter_assistant = isset($_GET['assistant_id']) && is_numeric($_GET['assistant_id'])
-            ? intval($_GET['assistant_id']) : null;
+        $filter_assistant = isset($_GET['assistant_id']) && is_numeric($_GET['assistant_id']) ? intval($_GET['assistant_id']) : null;
 
-        // Non-superadmins can only see their own client's leads
         if (!$is_superadmin && $req_client_id != $session_client_id) {
-            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
-            exit;
+            send_response('error', 'No autorizado');
         }
 
-        $where_parts = [];
+        $query = "SELECT l.*, a.name as assistant_name FROM leads l LEFT JOIN assistants a ON l.assistant_id = a.id WHERE ";
+        $where = [];
+        $params = [];
+        $types = "";
+
         if ($req_client_id !== null) {
-            $where_parts[] = "l.client_id = " . intval($req_client_id);
-        } elseif (!$is_superadmin) {
-            // Shouldn't happen, but block just in case
-            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
-            exit;
+            $where[] = "l.client_id = ?";
+            $params[] = $req_client_id;
+            $types .= "i";
         }
         if ($filter_assistant) {
-            $where_parts[] = "l.assistant_id = " . $filter_assistant;
+            $where[] = "l.assistant_id = ?";
+            $params[] = $filter_assistant;
+            $types .= "i";
         }
-        $where_sql = empty($where_parts) ? '1=1' : implode(' AND ', $where_parts);
 
-        $query = "SELECT l.*, a.name as assistant_name FROM leads l LEFT JOIN assistants a ON l.assistant_id = a.id WHERE $where_sql ORDER BY l.id DESC";
-        $result = mysqli_query($conn, $query);
+        $query .= (!empty($where) ? implode(" AND ", $where) : "1=1") . " ORDER BY l.id DESC";
+        $stmt = mysqli_prepare($conn, $query);
+        if (!empty($params)) {
+            mysqli_stmt_bind_param($stmt, $types, ...$params);
+        }
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
         $data = [];
         if ($result) {
-            while ($row = mysqli_fetch_assoc($result)) {
-                $data[] = $row;
-            }
+            while ($row = mysqli_fetch_assoc($result)) $data[] = $row;
         }
-        echo json_encode(['status' => 'success', 'data' => $data]);
+        send_response('success', '', $data);
         break;
 
     case 'leads_create':
         $client_id = $_POST['client_id'] ?? $session_client_id;
         if (!$is_superadmin && $client_id != $session_client_id) {
-            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
-            exit;
+            send_response('error', 'No autorizado');
         }
         $ast_id = !empty($_POST['assistant_id']) ? intval($_POST['assistant_id']) : null;
         $name = $_POST['name'] ?? '';
@@ -309,19 +322,21 @@ switch ($action) {
         $stmt = mysqli_prepare($conn, "INSERT INTO leads (client_id, assistant_id, name, phone, email, notes) VALUES (?, ?, ?, ?, ?, ?)");
         mysqli_stmt_bind_param($stmt, "iissss", $client_id, $ast_id, $name, $phone, $email, $notes);
         if (mysqli_stmt_execute($stmt))
-            echo json_encode(['status' => 'success']);
-        else
-            error_log('leads_create error: ' . mysqli_error($conn));
-            echo json_encode(['status' => 'error', 'message' => 'Error al crear el prospecto.']);
+            send_response('success', 'Prospecto registrado.');
+        else {
+            log_error('leads_create error', ['error' => mysqli_error($conn)]);
+            send_response('error', 'Error al crear el prospecto.');
+        }
         break;
 
     case 'leads_update':
         $id = $_POST['id'] ?? 0;
-        $q = mysqli_query($conn, "SELECT client_id FROM leads WHERE id=" . intval($id));
-        $row = mysqli_fetch_assoc($q);
+        $stmt_check = mysqli_prepare($conn, "SELECT client_id FROM leads WHERE id = ?");
+        mysqli_stmt_bind_param($stmt_check, "i", $id);
+        mysqli_stmt_execute($stmt_check);
+        $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_check));
         if (!$row || (!$is_superadmin && !empty($row['client_id']) && $row['client_id'] != $session_client_id)) {
-            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
-            exit;
+            send_response('error', 'No autorizado');
         }
         $name = $_POST['name'] ?? '';
         $phone = $_POST['phone'] ?? '';
@@ -330,19 +345,24 @@ switch ($action) {
         $notes = $_POST['notes'] ?? '';
         $stmt = mysqli_prepare($conn, "UPDATE leads SET name=?, phone=?, email=?, status=?, notes=? WHERE id=?");
         mysqli_stmt_bind_param($stmt, "sssssi", $name, $phone, $email, $status, $notes, $id);
-        echo json_encode(['status' => mysqli_stmt_execute($stmt) ? 'success' : 'error']);
+        if (mysqli_stmt_execute($stmt)) send_response('success', 'Prospecto actualizado.');
+        else send_response('error', 'Error al actualizar.');
         break;
 
     case 'leads_delete':
         $id = $_POST['id'] ?? 0;
-        $q = mysqli_query($conn, "SELECT client_id FROM leads WHERE id=" . intval($id));
-        $row = mysqli_fetch_assoc($q);
+        $stmt = mysqli_prepare($conn, "SELECT client_id FROM leads WHERE id=?");
+        mysqli_stmt_bind_param($stmt, "i", $id);
+        mysqli_stmt_execute($stmt);
+        $res = mysqli_stmt_get_result($stmt);
+        $row = mysqli_fetch_assoc($res);
         if (!$row || (!$is_superadmin && !empty($row['client_id']) && $row['client_id'] != $session_client_id)) {
-            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
-            exit;
+            send_response('error', 'No autorizado');
         }
-        mysqli_query($conn, "DELETE FROM leads WHERE id=" . intval($id));
-        echo json_encode(['status' => 'success']);
+        $del = mysqli_prepare($conn, "DELETE FROM leads WHERE id=?");
+        mysqli_stmt_bind_param($del, "i", $id);
+        if (mysqli_stmt_execute($del)) send_response('success', 'Prospecto eliminado.');
+        else send_response('error', 'Error al eliminar');
         break;
 
     case 'leads_export':
@@ -354,12 +374,19 @@ switch ($action) {
         header('Content-Disposition: attachment; filename="prospectos_' . date('Y-m-d') . '.csv"');
         $output = fopen('php://output', 'w');
         fputcsv($output, ['ID', 'Nombre', 'Telefono', 'Email', 'Estado', 'Notas', 'Asistente', 'Fecha']);
-        $query = "SELECT l.id, l.name, l.phone, l.email, l.status, l.notes, a.name as assistant_name, l.created_at FROM leads l LEFT JOIN assistants a ON l.assistant_id = a.id WHERE l.client_id = " . intval($req_client_id);
+        
+        $sql = "SELECT l.id, l.name, l.phone, l.email, l.status, l.notes, a.name as assistant_name, l.created_at FROM leads l LEFT JOIN assistants a ON l.assistant_id = a.id WHERE l.client_id = ?";
         if (!empty($_GET['assistant_id'])) {
-            $query .= " AND l.assistant_id = " . intval($_GET['assistant_id']);
+            $sql .= " AND l.assistant_id = ?";
+            $stmt = mysqli_prepare($conn, $sql . " ORDER BY l.id DESC");
+            mysqli_stmt_bind_param($stmt, "ii", $req_client_id, $_GET['assistant_id']);
+        } else {
+            $stmt = mysqli_prepare($conn, $sql . " ORDER BY l.id DESC");
+            mysqli_stmt_bind_param($stmt, "i", $req_client_id);
         }
-        $query .= " ORDER BY l.id DESC";
-        $result = mysqli_query($conn, $query);
+        
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
         while ($row = mysqli_fetch_assoc($result)) {
             fputcsv($output, $row);
         }
@@ -369,26 +396,20 @@ switch ($action) {
     // ---- Marketing Campaigns ----
     case 'campaigns_list':
         $cid = $_GET['client_id'] ?? $session_client_id;
-        if (!check_client_owner($conn, $cid)) {
-            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
-            exit;
-        }
-        $query = "SELECT * FROM marketing_campaigns WHERE client_id = " . intval($cid) . " ORDER BY id DESC";
-        $result = mysqli_query($conn, $query);
+        if (!$is_superadmin && $cid != $session_client_id) send_response('error', 'No autorizado');
+        $stmt = mysqli_prepare($conn, "SELECT * FROM marketing_campaigns WHERE client_id = ? ORDER BY id DESC");
+        mysqli_stmt_bind_param($stmt, "i", $cid);
+        mysqli_stmt_execute($stmt);
+        $res = mysqli_stmt_get_result($stmt);
         $data = [];
-        if ($result) {
-            while ($row = mysqli_fetch_assoc($result)) {
-                $data[] = $row;
-            }
-        }
-        echo json_encode(['status' => 'success', 'data' => $data]);
+        while($row = mysqli_fetch_assoc($res)) $data[] = $row;
+        send_response('success', '', $data);
         break;
 
     case 'campaigns_create':
         $cid = $_POST['client_id'] ?? $session_client_id;
         if (!check_client_owner($conn, $cid)) {
-            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
-            exit;
+            send_response('error', 'No autorizado');
         }
         $name = $_POST['name'] ?? '';
         $message = $_POST['message'] ?? '';
@@ -416,57 +437,66 @@ switch ($action) {
             }
         }
 
-        $stmt = mysqli_prepare($conn, "INSERT INTO marketing_campaigns (client_id, name, message, target_type, target_ids, attachment_url, attachment_type) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $lead_ids_val = $_POST['lead_ids'] ?? null;
-        mysqli_stmt_bind_param($stmt, "issssss", $cid, $name, $message, $target_type, $lead_ids_val, $attachment_url, $attachment_type);
-        echo json_encode(['status' => mysqli_stmt_execute($stmt) ? 'success' : 'error']);
+        if (mysqli_stmt_execute($stmt)) send_response('success', 'Campaña creada.');
+        else {
+            log_error('campaigns_create error', ['error' => mysqli_error($conn)]);
+            send_response('error', 'Error al crear la campaña.');
+        }
         break;
 
     case 'campaigns_delete':
         $id = $_POST['id'] ?? 0;
-        $q_chk = mysqli_query($conn, "SELECT client_id FROM marketing_campaigns WHERE id = " . intval($id));
-        $row_chk = mysqli_fetch_assoc($q_chk);
-        if (!$row_chk || !check_client_owner($conn, $row_chk['client_id'])) {
-            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
-            exit;
+        $chk_stmt = mysqli_prepare($conn, "SELECT client_id FROM marketing_campaigns WHERE id = ?");
+        mysqli_stmt_bind_param($chk_stmt, "i", $id);
+        mysqli_stmt_execute($chk_stmt);
+        $res = mysqli_stmt_get_result($chk_stmt);
+        $row_chk = mysqli_fetch_assoc($res);
+        if (!$row_chk || (!$is_superadmin && $row_chk['client_id'] != $session_client_id)) {
+            send_response('error', 'No autorizado');
         }
-        mysqli_query($conn, "DELETE FROM marketing_campaigns WHERE id = " . intval($id));
-        echo json_encode(['status' => 'success']);
+        $del = mysqli_prepare($conn, "DELETE FROM marketing_campaigns WHERE id = ?");
+        mysqli_stmt_bind_param($del, "i", $id);
+        if (mysqli_stmt_execute($del)) send_response('success', 'Campaña eliminada.');
+        else send_response('error', 'Error al eliminar campaña.');
         break;
 
     case 'campaigns_send':
         $id = $_POST['id'] ?? 0;
-        $assistant_id = $_POST['assistant_id'] ?? 0; // The assistant whose WhatsApp session will be used
+        $assistant_id = $_POST['assistant_id'] ?? 0;
         $lead_ids = isset($_POST['lead_ids']) ? explode(',', $_POST['lead_ids']) : [];
 
-        $q_camp = mysqli_query($conn, "SELECT * FROM marketing_campaigns WHERE id = " . intval($id));
-        $campaign = mysqli_fetch_assoc($q_camp);
+        $q_stmt = mysqli_prepare($conn, "SELECT * FROM marketing_campaigns WHERE id = ?");
+        mysqli_stmt_bind_param($q_stmt, "i", $id);
+        mysqli_stmt_execute($q_stmt);
+        $campaign = mysqli_fetch_assoc(mysqli_stmt_get_result($q_stmt));
 
-        if (!$campaign || !check_client_owner($conn, $campaign['client_id'])) {
-            echo json_encode(['status' => 'error', 'message' => 'No autorizado o campaña no existe']);
-            exit;
+        if (!$campaign || (!$is_superadmin && $campaign['client_id'] != $session_client_id)) {
+            send_response('error', 'No autorizado o campaña no existe');
         }
 
-        // 1. Fetch leads
         $leads = [];
         if ($campaign['target_type'] === 'all') {
-            $q_leads = mysqli_query($conn, "SELECT phone FROM leads WHERE client_id = " . intval($campaign['client_id']));
-            while ($rl = mysqli_fetch_assoc($q_leads)) $leads[] = $rl['phone'];
+            $leads_q = mysqli_prepare($conn, "SELECT phone FROM leads WHERE client_id = ?");
+            mysqli_stmt_bind_param($leads_q, "i", $campaign['client_id']);
+            mysqli_stmt_execute($leads_q);
+            $q_lres = mysqli_stmt_get_result($leads_q);
+            while ($rl = mysqli_fetch_assoc($q_lres)) $leads[] = $rl['phone'];
         } else {
             $ids_to_use = !empty($lead_ids) ? $lead_ids : (!empty($campaign['target_ids']) ? explode(',', $campaign['target_ids']) : []);
-            
             if (!empty($ids_to_use)) {
-                $clean_ids = array_map('intval', $ids_to_use);
-                $ids_str = implode(',', $clean_ids);
-                $q_leads = mysqli_query($conn, "SELECT phone FROM leads WHERE id IN ($ids_str) AND client_id = " . intval($campaign['client_id']));
-                while ($rl = mysqli_fetch_assoc($q_leads)) $leads[] = $rl['phone'];
+                $ids_str = implode(',', array_map('intval', $ids_to_use));
+                // Since $ids_str is built from intval, it's safe for IN clause, 
+                // but for total compliance we still check client_id with prepared statement
+                $sql_leads = "SELECT phone FROM leads WHERE client_id = ? AND id IN ($ids_str)";
+                $stmt_leads = mysqli_prepare($conn, $sql_leads);
+                mysqli_stmt_bind_param($stmt_leads, "i", $campaign['client_id']);
+                mysqli_stmt_execute($stmt_leads);
+                $q_leads_res = mysqli_stmt_get_result($stmt_leads);
+                while ($rl = mysqli_fetch_assoc($q_leads_res)) $leads[] = $rl['phone'];
             }
         }
 
-        if (empty($leads)) {
-            echo json_encode(['status' => 'error', 'message' => 'No hay destinatarios válidos seleccionados']);
-            exit;
-        }
+        if (empty($leads)) send_response('error', 'No hay destinatarios válidos seleccionados');
 
         // 2. Sending Loop (via Proxy to whatsapp.js)
         $success_count = 0;
@@ -505,9 +535,7 @@ switch ($action) {
         mysqli_stmt_bind_param($upd_stmt, "si", $new_status, $id);
         mysqli_stmt_execute($upd_stmt);
 
-        echo json_encode([
-            'status' => 'success',
-            'message' => 'Envío completado',
+        send_response('success', 'Envío completado', [
             'sent' => $success_count,
             'failed' => $error_count
         ]);
@@ -516,30 +544,22 @@ switch ($action) {
     // ---- Assistants ----
     case 'assistants_list':
         $requested_client_id = $_GET['client_id'] ?? null;
+        if (!$is_superadmin) $requested_client_id = $session_client_id;
 
-        // Security: If not superadmin, FORCE the session's client_id
-        if (!$is_superadmin) {
-            $requested_client_id = $session_client_id;
-        }
-
-        $query = "SELECT * FROM assistants";
         if ($requested_client_id) {
-            $query .= " WHERE client_id = " . intval($requested_client_id);
-        } else if (!$is_superadmin) {
-            // Fallback for safety: if somehow session_client_id is null and not superadmin, return empty
-            echo json_encode(['status' => 'success', 'data' => []]);
-            exit;
+            $stmt = mysqli_prepare($conn, "SELECT * FROM assistants WHERE client_id = ? ORDER BY id DESC");
+            mysqli_stmt_bind_param($stmt, "i", $requested_client_id);
+        } else {
+            $stmt = mysqli_prepare($conn, "SELECT * FROM assistants ORDER BY id DESC");
         }
 
-        $query .= " ORDER BY id DESC";
-        $result = mysqli_query($conn, $query);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
         $data = [];
         if ($result) {
-            while ($row = mysqli_fetch_assoc($result)) {
-                $data[] = $row;
-            }
+            while ($row = mysqli_fetch_assoc($result)) $data[] = $row;
         }
-        echo json_encode(['status' => 'success', 'data' => $data]);
+        send_response('success', '', $data);
         break;
     case 'assistants_create':
         $client_id = !$is_superadmin ? $session_client_id : ($_POST['client_id'] ?? '');
@@ -552,15 +572,16 @@ switch ($action) {
         $voice_enabled = isset($_POST['voice_enabled']) ? intval($_POST['voice_enabled']) : 1;
         $stmt = mysqli_prepare($conn, "INSERT INTO assistants (client_id, name, system_prompt, gemini_model, temperature, max_output_tokens, response_style, voice_enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
         mysqli_stmt_bind_param($stmt, "isssdiis", $client_id, $name, $sp, $gemini_model, $temperature, $max_tokens, $response_style, $voice_enabled);
-        $ok = mysqli_stmt_execute($stmt);
-        if (!$ok) error_log('assistants_create error: ' . mysqli_error($conn));
-        echo json_encode(['status' => $ok ? 'success' : 'error']);
+        if (mysqli_stmt_execute($stmt)) send_response('success', 'Asistente creado.');
+        else {
+            log_error('assistants_create failed', ['error' => mysqli_error($conn)]);
+            send_response('error', 'Error al crear asistente.');
+        }
         break;
     case 'assistants_update':
         $id = $_POST['id'] ?? 0;
         if (!check_ast_owner($conn, $id)) {
-            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
-            exit;
+            send_response('error', 'No autorizado');
         }
         $name = $_POST['name'] ?? '';
         $sp = $_POST['system_prompt'] ?? '';
@@ -571,37 +592,36 @@ switch ($action) {
         $voice_enabled = isset($_POST['voice_enabled']) ? intval($_POST['voice_enabled']) : 1;
         $stmt = mysqli_prepare($conn, "UPDATE assistants SET name=?, system_prompt=?, gemini_model=?, temperature=?, max_output_tokens=?, response_style=?, voice_enabled=? WHERE id=?");
         mysqli_stmt_bind_param($stmt, "ssssdiis", $name, $sp, $gemini_model, $temperature, $max_tokens, $response_style, $voice_enabled, $id);
-        $ok = mysqli_stmt_execute($stmt);
-        if (!$ok) error_log('assistants_update error: ' . mysqli_error($conn));
-        echo json_encode(['status' => $ok ? 'success' : 'error']);
+        if (mysqli_stmt_execute($stmt)) send_response('success', 'Asistente actualizado.');
+        else {
+            log_error('assistants_update failed', ['id' => $id, 'error' => mysqli_error($conn)]);
+            send_response('error', 'Error al actualizar.');
+        }
         break;
     case 'assistants_delete':
         $id = $_POST['id'] ?? 0;
-        if (!check_ast_owner($conn, $id)) {
-            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
-            exit;
-        }
+        if (!check_ast_owner($conn, $id)) send_response('error', 'No autorizado');
         $stmt = mysqli_prepare($conn, "DELETE FROM assistants WHERE id=?");
         mysqli_stmt_bind_param($stmt, "i", $id);
-        echo json_encode(['status' => mysqli_stmt_execute($stmt) ? 'success' : 'error']);
+        if (mysqli_stmt_execute($stmt)) send_response('success', 'Asistente eliminado.');
+        else send_response('error', 'Error al eliminar.');
         break;
 
     // ---- Info Sources ----
     case 'info_list':
         $assistant_id = $_GET['assistant_id'] ?? null;
         if (!$assistant_id || !check_ast_owner($conn, $assistant_id)) {
-            echo json_encode(['status' => 'success', 'data' => []]);
-            exit;
+            send_response('success', '', []);
         }
-        $query = "SELECT * FROM information_sources WHERE assistant_id = " . intval($assistant_id) . " ORDER BY id DESC";
-        $result = mysqli_query($conn, $query);
+        $stmt = mysqli_prepare($conn, "SELECT * FROM information_sources WHERE assistant_id = ? ORDER BY id DESC");
+        mysqli_stmt_bind_param($stmt, "i", $assistant_id);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
         $data = [];
         if ($result) {
-            while ($row = mysqli_fetch_assoc($result)) {
-                $data[] = $row;
-            }
+            while ($row = mysqli_fetch_assoc($result)) $data[] = $row;
         }
-        echo json_encode(['status' => 'success', 'data' => $data]);
+        send_response('success', '', $data);
         break;
     case 'info_create':
         $assistant_id = $_POST['assistant_id'] ?? '';
@@ -617,17 +637,14 @@ switch ($action) {
         // Check if POST is empty but Content-Length is large (post_max_size exceeded)
         $content_length = (int) ($_SERVER['CONTENT_LENGTH'] ?? 0);
         if (empty($_POST) && $content_length > 0) {
-            echo json_encode(['status' => 'error', 'message' => "El archivo subido excede el límite máximo permitido por el servidor (post_max_size). Tamaño intentado: " . round($content_length / 1024 / 1024, 2) . " MB."]);
-            exit;
+            send_response('error', "El archivo subido excede el límite máximo permitido por el servidor (post_max_size). Tamaño intentado: " . round($content_length / 1024 / 1024, 2) . " MB.");
         }
 
         if (empty($assistant_id) || empty($title)) {
-            echo json_encode(['status' => 'error', 'message' => 'Faltan datos requeridos (Asistente o Título).']);
-            exit;
+            send_response('error', 'Faltan datos requeridos (Asistente o Título).');
         }
         if (!check_ast_owner($conn, $assistant_id)) {
-            echo json_encode(['status' => 'error', 'message' => 'No tienes permisos sobre este asistente.']);
-            exit;
+            send_response('error', 'No tienes permisos sobre este asistente.');
         }
 
         // --- Logic for Links ---
@@ -638,8 +655,7 @@ switch ($action) {
                 $parsed = parse_url($url);
                 $scheme = strtolower($parsed['scheme'] ?? '');
                 if (!in_array($scheme, ['http', 'https'], true)) {
-                    echo json_encode(['status' => 'error', 'message' => 'Solo se permiten URLs http y https.']);
-                    exit;
+                    send_response('error', 'Solo se permiten URLs http y https.');
                 }
                 $host = $parsed['host'] ?? '';
                 // Resolve hostname to IP for SSRF check
@@ -652,8 +668,7 @@ switch ($action) {
                     $ip === '::1' ||
                     strtolower($host) === 'localhost'
                 ) {
-                    echo json_encode(['status' => 'error', 'message' => 'No se puede acceder a recursos internos de red.']);
-                    exit;
+                    send_response('error', 'No se puede acceder a recursos internos de red.');
                 }
 
                 // Fetch with timeout and size limit
@@ -669,12 +684,10 @@ switch ($action) {
                     $content = preg_replace('/\s+/', ' ', $content); // compress spaces
                     $content = "Contenido extraído de URL ($url):\n\n" . mb_substr($content, 0, 50000); // Limit size
                 } else {
-                    echo json_encode(['status' => 'error', 'message' => 'No se pudo acceder a la URL proporcionada.']);
-                    exit;
+                    send_response('error', 'No se pudo acceder a la URL proporcionada.');
                 }
             } else {
-                echo json_encode(['status' => 'error', 'message' => 'URL inválida.']);
-                exit;
+                send_response('error', 'URL inválida.');
             }
         }
 
@@ -683,8 +696,11 @@ switch ($action) {
             $upload_base_dir = __DIR__ . '/uploads';
 
             // Need client_id for folder structure
-            $client_id_query = mysqli_query($conn, "SELECT client_id FROM assistants WHERE id = " . intval($assistant_id));
-            $client_id = mysqli_fetch_assoc($client_id_query)['client_id'] ?? 'unknown';
+            $ast_stmt = mysqli_prepare($conn, "SELECT client_id FROM assistants WHERE id = ?");
+            mysqli_stmt_bind_param($ast_stmt, "i", $assistant_id);
+            mysqli_stmt_execute($ast_stmt);
+            $client_id_res = mysqli_stmt_get_result($ast_stmt);
+            $client_id = mysqli_fetch_assoc($client_id_res)['client_id'] ?? 'unknown';
 
             $target_dir = $upload_base_dir . "/clients/{$client_id}/assistants/{$assistant_id}/";
             if (!file_exists($target_dir)) {
@@ -710,98 +726,92 @@ switch ($action) {
                 if ($uri) {
                     $gemini_uri = $uri;
                 } else {
-                    echo json_encode(['status' => 'error', 'message' => 'Error subiendo el archivo a Google Gemini API.']);
-                    exit;
+                    send_response('error', 'Error subiendo el archivo a Google Gemini API.');
                 }
             } else {
                 $upload_error_msg = error_get_last()['message'] ?? 'Desconocido';
-                echo json_encode(['status' => 'error', 'message' => "Error moviendo el archivo subido al directorio físico. Revisa los permisos de escritura del volumen. " . $upload_error_msg]);
-                exit;
+                send_response('error', "Error moviendo el archivo subido al directorio físico. Revisa los permisos de escritura del volumen. " . $upload_error_msg);
             }
         } else if ($type === 'file') {
             $err_code = $_FILES['file_upload']['error'] ?? 'Ningún archivo recibido (puede que exceda upload_max_filesize)';
-            echo json_encode(['status' => 'error', 'message' => "Error en la subida del archivo. Código PHP: $err_code."]);
-            exit;
+            send_response('error', "Error en la subida del archivo. Código PHP: $err_code.");
         }
 
         $stmt = mysqli_prepare($conn, "INSERT INTO information_sources (assistant_id, type, title, content_text, file_path, file_type, file_size, gemini_file_uri) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
         mysqli_stmt_bind_param($stmt, "isssssis", $assistant_id, $type, $title, $content, $file_path, $file_type, $file_size, $gemini_uri);
 
         if (mysqli_stmt_execute($stmt)) {
-            echo json_encode(['status' => 'success']);
+            send_response('success', 'Información registrada.');
         } else {
             // Rollback file upload if DB fails
             if ($file_path && file_exists(__DIR__ . '/' . $file_path)) {
                 unlink(__DIR__ . '/' . $file_path);
             }
-            echo json_encode(['status' => 'error', 'message' => 'Error guardando en base de datos.']);
+            send_response('error', 'Error guardando en base de datos.');
         }
         break;
     case 'info_update':
         $id = $_POST['id'] ?? 0;
         if (!check_item_owner($conn, 'information_sources', $id)) {
-            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
-            exit;
+            send_response('error', 'No autorizado');
         }
         $title = $_POST['title'] ?? '';
         $content = $_POST['content_text'] ?? '';
         $stmt = mysqli_prepare($conn, "UPDATE information_sources SET title=?, content_text=? WHERE id=?");
         mysqli_stmt_bind_param($stmt, "ssi", $title, $content, $id);
-        echo json_encode(['status' => mysqli_stmt_execute($stmt) ? 'success' : 'error']);
+        if (mysqli_stmt_execute($stmt)) send_response('success', 'Actualizado.');
+        else send_response('error', 'Error al actualizar.');
         break;
     case 'info_delete':
         $id = $_POST['id'] ?? 0;
         if (!check_item_owner($conn, 'information_sources', $id)) {
-            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
-            exit;
+            send_response('error', 'No autorizado');
         }
 
         // Before deleting, try to remove the physical file if it exists
-        $info_query = mysqli_query($conn, "SELECT file_path FROM information_sources WHERE id = " . intval($id));
-        if ($row = mysqli_fetch_assoc($info_query)) {
+        $info_stmt = mysqli_prepare($conn, "SELECT file_path FROM information_sources WHERE id = ?");
+        mysqli_stmt_bind_param($info_stmt, "i", $id);
+        mysqli_stmt_execute($info_stmt);
+        $info_res = mysqli_stmt_get_result($info_stmt);
+        if ($row = mysqli_fetch_assoc($info_res)) {
             if (!empty($row['file_path'])) {
                 $full_path = __DIR__ . '/' . $row['file_path'];
-                if (file_exists($full_path)) {
-                    unlink($full_path);
-                }
+                if (file_exists($full_path)) unlink($full_path);
             }
         }
 
         $stmt = mysqli_prepare($conn, "DELETE FROM information_sources WHERE id=?");
         mysqli_stmt_bind_param($stmt, "i", $id);
-        echo json_encode(['status' => mysqli_stmt_execute($stmt) ? 'success' : 'error']);
+        if (mysqli_stmt_execute($stmt)) send_response('success', 'Eliminado.');
+        else send_response('error', 'Error al eliminar.');
         break;
 
     // ---- Chatbot Rules ----
     case 'list':
         $assistant_id = $_GET['assistant_id'] ?? null;
         if ($assistant_id && !check_ast_owner($conn, $assistant_id)) {
-            echo json_encode(['status' => 'success', 'data' => []]);
-            exit;
+            send_response('success', '', []);
         }
 
-        $query = "SELECT * FROM chatbot";
         if ($assistant_id) {
-            $query .= " WHERE assistant_id = " . intval($assistant_id);
+            $stmt = mysqli_prepare($conn, "SELECT * FROM chatbot WHERE assistant_id = ? ORDER BY id DESC");
+            mysqli_stmt_bind_param($stmt, "i", $assistant_id);
         } else {
-            $query .= " WHERE assistant_id IS NULL";
+            $stmt = mysqli_prepare($conn, "SELECT * FROM chatbot WHERE assistant_id IS NULL ORDER BY id DESC");
         }
-        $query .= " ORDER BY id DESC";
-        $result = mysqli_query($conn, $query);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
         $data = [];
         if ($result) {
-            while ($row = mysqli_fetch_assoc($result)) {
-                $data[] = $row;
-            }
+            while ($row = mysqli_fetch_assoc($result)) $data[] = $row;
         }
-        echo json_encode(['status' => 'success', 'data' => $data]);
+        send_response('success', '', $data);
         break;
 
     case 'create':
         $assistant_id = empty($_POST['assistant_id']) ? null : $_POST['assistant_id'];
         if ($assistant_id && !check_ast_owner($conn, $assistant_id)) {
-            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
-            exit;
+            send_response('error', 'No autorizado');
         }
 
         $queries = $_POST['queries'] ?? '';
@@ -809,25 +819,23 @@ switch ($action) {
         $category = $_POST['category'] ?? 'general';
 
         if (empty($queries) || empty($replies)) {
-            echo json_encode(['status' => 'error', 'message' => 'Consultas y respuestas son obligatorias.']);
-            exit;
+            send_response('error', 'Consultas y respuestas son obligatorias.');
         }
 
         $stmt = mysqli_prepare($conn, "INSERT INTO chatbot (assistant_id, queries, replies, category) VALUES (?, ?, ?, ?)");
         mysqli_stmt_bind_param($stmt, "isss", $assistant_id, $queries, $replies, $category);
 
         if (mysqli_stmt_execute($stmt)) {
-            echo json_encode(['status' => 'success', 'message' => 'Regla agregada exitosamente.']);
+            send_response('success', 'Regla agregada exitosamente.');
         } else {
-            echo json_encode(['status' => 'error', 'message' => 'Error al agregar regla.']);
+            send_response('error', 'Error al agregar regla.');
         }
         break;
 
     case 'update':
         $id = $_POST['id'] ?? 0;
         if (!check_item_owner($conn, 'chatbot', $id)) {
-            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
-            exit;
+            send_response('error', 'No autorizado');
         }
 
         $queries = $_POST['queries'] ?? '';
@@ -838,25 +846,24 @@ switch ($action) {
         mysqli_stmt_bind_param($stmt, "sssi", $queries, $replies, $category, $id);
 
         if (mysqli_stmt_execute($stmt)) {
-            echo json_encode(['status' => 'success', 'message' => 'Regla actualizada exitosamente.']);
+            send_response('success', 'Regla actualizada exitosamente.');
         } else {
-            echo json_encode(['status' => 'error', 'message' => 'Error al actualizar regla.']);
+            send_response('error', 'Error al actualizar regla.');
         }
         break;
 
     case 'delete':
         $id = $_POST['id'] ?? 0;
         if (!check_item_owner($conn, 'chatbot', $id)) {
-            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
-            exit;
+            send_response('error', 'No autorizado');
         }
         $stmt = mysqli_prepare($conn, "DELETE FROM chatbot WHERE id=?");
         mysqli_stmt_bind_param($stmt, "i", $id);
 
         if (mysqli_stmt_execute($stmt)) {
-            echo json_encode(['status' => 'success', 'message' => 'Regla eliminada exitosamente.']);
+            send_response('success', 'Regla eliminada exitosamente.');
         } else {
-            echo json_encode(['status' => 'error', 'message' => 'Error al eliminar regla.']);
+            send_response('error', 'Error al eliminar regla.');
         }
         break;
 
@@ -864,57 +871,70 @@ switch ($action) {
     case 'logs':
         $assistant_id = $_GET['assistant_id'] ?? null;
         if ($assistant_id && !check_ast_owner($conn, $assistant_id)) {
-            echo json_encode(['status' => 'success', 'data' => []]);
-            exit;
+            send_response('success', '', []);
         }
 
-        $query = "SELECT * FROM conversation_logs";
-        if ($assistant_id) {
-            $query .= " WHERE assistant_id = " . intval($assistant_id);
-        } else {
-            $query .= " WHERE assistant_id IS NULL";
-        }
         $page   = max(1, intval($_GET['page'] ?? 1));
         $limit  = 50;
         $offset = ($page - 1) * $limit;
 
-        $query .= " ORDER BY id DESC LIMIT $limit OFFSET $offset";
-        $result = mysqli_query($conn, $query);
-        $data = [];
-        if ($result) {
-            while ($row = mysqli_fetch_assoc($result)) {
-                $data[] = $row;
-            }
+        if ($assistant_id) {
+            $stmt = mysqli_prepare($conn, "SELECT * FROM conversation_logs WHERE assistant_id = ? ORDER BY id DESC LIMIT ? OFFSET ?");
+            mysqli_stmt_bind_param($stmt, "iii", $assistant_id, $limit, $offset);
+            $count_stmt = mysqli_prepare($conn, "SELECT COUNT(*) as c FROM conversation_logs WHERE assistant_id = ?");
+            mysqli_stmt_bind_param($count_stmt, "i", $assistant_id);
+        } else {
+            $stmt = mysqli_prepare($conn, "SELECT * FROM conversation_logs WHERE assistant_id IS NULL ORDER BY id DESC LIMIT ? OFFSET ?");
+            mysqli_stmt_bind_param($stmt, "ii", $limit, $offset);
+            $count_stmt = mysqli_prepare($conn, "SELECT COUNT(*) as c FROM conversation_logs WHERE assistant_id IS NULL");
         }
 
-        // Total count for pagination UI
-        $where_total = $assistant_id ? "WHERE assistant_id = " . intval($assistant_id) : "WHERE assistant_id IS NULL";
-        $total_count = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as c FROM conversation_logs $where_total"))['c'] ?? 0;
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+        $data = [];
+        if ($result) {
+            while ($row = mysqli_fetch_assoc($result)) $data[] = $row;
+        }
 
-        echo json_encode(['status' => 'success', 'data' => $data, 'total' => (int) $total_count, 'page' => $page, 'per_page' => $limit]);
+        mysqli_stmt_execute($count_stmt);
+        $total_count = mysqli_fetch_assoc(mysqli_stmt_get_result($count_stmt))['c'] ?? 0;
+
+        send_response('success', '', [
+            'data' => $data,
+            'total' => (int) $total_count,
+            'page' => $page,
+            'per_page' => $limit
+        ]);
         break;
 
     case 'stats':
         $assistant_id = $_GET['assistant_id'] ?? null;
         if ($assistant_id && !check_ast_owner($conn, $assistant_id)) {
-            echo json_encode(['status' => 'success', 'data' => ['total_rules' => 0, 'total_interactions' => 0, 'failed_matches' => 0, 'accuracy' => 0]]);
-            exit;
+            send_response('success', '', ['total_rules' => 0, 'total_interactions' => 0, 'failed_matches' => 0, 'accuracy' => 0]);
         }
 
-        $where = $assistant_id ? "WHERE assistant_id = " . intval($assistant_id) : "WHERE assistant_id IS NULL";
+        if ($assistant_id) {
+            $q_rules = mysqli_prepare($conn, "SELECT COUNT(*) as c FROM chatbot WHERE assistant_id = ?");
+            $q_logs = mysqli_prepare($conn, "SELECT COUNT(*) as c FROM conversation_logs WHERE assistant_id = ?");
+            $q_failed = mysqli_prepare($conn, "SELECT COUNT(*) as c FROM conversation_logs WHERE assistant_id = ? AND matched=0");
+            mysqli_stmt_bind_param($q_rules, "i", $assistant_id);
+            mysqli_stmt_bind_param($q_logs, "i", $assistant_id);
+            mysqli_stmt_bind_param($q_failed, "i", $assistant_id);
+        } else {
+            $q_rules = mysqli_prepare($conn, "SELECT COUNT(*) as c FROM chatbot WHERE assistant_id IS NULL");
+            $q_logs = mysqli_prepare($conn, "SELECT COUNT(*) as c FROM conversation_logs WHERE assistant_id IS NULL");
+            $q_failed = mysqli_prepare($conn, "SELECT COUNT(*) as c FROM conversation_logs WHERE assistant_id IS NULL AND matched=0");
+        }
 
-        $total_rules = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as c FROM chatbot $where"))['c'] ?? 0;
-        $total_logs = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as c FROM conversation_logs $where"))['c'] ?? 0;
-        $failed_matches = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as c FROM conversation_logs $where AND matched=0"))['c'] ?? 0;
+        mysqli_stmt_execute($q_rules); $total_rules = mysqli_fetch_assoc(mysqli_stmt_get_result($q_rules))['c'] ?? 0;
+        mysqli_stmt_execute($q_logs); $total_logs = mysqli_fetch_assoc(mysqli_stmt_get_result($q_logs))['c'] ?? 0;
+        mysqli_stmt_execute($q_failed); $failed_matches = mysqli_fetch_assoc(mysqli_stmt_get_result($q_failed))['c'] ?? 0;
 
-        echo json_encode([
-            'status' => 'success',
-            'data' => [
-                'total_rules' => $total_rules,
-                'total_interactions' => $total_logs,
-                'failed_matches' => $failed_matches,
-                'accuracy' => $total_logs > 0 ? round((($total_logs - $failed_matches) / $total_logs) * 100) : 0
-            ]
+        send_response('success', '', [
+            'total_rules' => (int)$total_rules,
+            'total_interactions' => (int)$total_logs,
+            'failed_matches' => (int)$failed_matches,
+            'accuracy' => $total_logs > 0 ? round((($total_logs - $failed_matches) / $total_logs) * 100) : 0
         ]);
         break;
 
@@ -928,29 +948,35 @@ switch ($action) {
         $where = $assistant_id ? "assistant_id = " . intval($assistant_id) : "assistant_id IS NULL";
 
         // Get counts for the last 7 days
-        $query = "SELECT DATE(created_at) as date, COUNT(*) as count 
-                  FROM conversation_logs 
-                  WHERE $where AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-                  GROUP BY DATE(created_at) 
-                  ORDER BY date ASC";
-        $result = mysqli_query($conn, $query);
+        $sql = "SELECT DATE(created_at) as date, COUNT(*) as count 
+                FROM conversation_logs 
+                WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
+        
+        if ($assistant_id) {
+            $sql .= " AND assistant_id = ?";
+            $stmt = mysqli_prepare($conn, $sql . " GROUP BY DATE(created_at) ORDER BY date ASC");
+            mysqli_stmt_bind_param($stmt, "i", $assistant_id);
+        } else {
+            $sql .= " AND assistant_id IS NULL";
+            $stmt = mysqli_prepare($conn, $sql . " GROUP BY DATE(created_at) ORDER BY date ASC");
+        }
+        
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
         $labels = [];
         $values = [];
 
-        if ($result) {
-            while ($row = mysqli_fetch_assoc($result)) {
-                $labels[] = date('d M', strtotime($row['date']));
-                $values[] = (int) $row['count'];
-            }
+        while ($row = mysqli_fetch_assoc($result)) {
+            $labels[] = date('d M', strtotime($row['date']));
+            $values[] = (int) $row['count'];
         }
 
-        echo json_encode(['status' => 'success', 'labels' => $labels, 'values' => $values]);
+        send_response('success', '', ['labels' => $labels, 'values' => $values]);
         break;
     case 'calendar_settings_get':
         $req_client_id = $_GET['client_id'] ?? $session_client_id;
         if (!$is_superadmin && $req_client_id != $session_client_id) {
-            echo json_encode(['status' => 'error', 'message' => 'No autorizado para ver este cliente']);
-            exit;
+            send_response('error', 'No autorizado para ver este cliente');
         }
         $stmt = mysqli_prepare($conn, "SELECT calendar_id, available_days, start_time, end_time, slot_duration_minutes, timezone FROM calendar_settings WHERE client_id=?");
         mysqli_stmt_bind_param($stmt, "i", $req_client_id);
@@ -967,14 +993,13 @@ switch ($action) {
                 'timezone' => 'America/Santiago'
             ];
         }
-        echo json_encode(['status' => 'success', 'data' => $data]);
+        send_response('success', '', $data);
         break;
 
     case 'calendar_settings_update':
         $req_client_id = $_POST['client_id'] ?? $session_client_id;
         if (!$is_superadmin && $req_client_id != $session_client_id) {
-            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
-            exit;
+            send_response('error', 'No autorizado');
         }
         // $req_client_id was extracted correctly. Now processing form data:
         $calendar_id = $_POST['calendar_id'] ?? 'primary';
@@ -997,26 +1022,17 @@ switch ($action) {
     // ---- PDF Templates ----
     case 'pdf_templates_list':
         $req_client_id = $_GET['client_id'] ?? null;
-        if (!$is_superadmin) {
-            $req_client_id = $session_client_id;
-        }
+        if (!$is_superadmin) $req_client_id = $session_client_id;
         require_once 'pdf_helper.php';
         $helper = new PDFHelper($conn);
         $templates = $helper->list_templates($req_client_id);
-        echo json_encode(['status' => 'success', 'data' => $templates]);
+        send_response('success', '', $templates);
         break;
 
     case 'pdf_templates_analyze':
         $req_client_id = $_POST['client_id'] ?? $session_client_id;
-        if (!$is_superadmin && $req_client_id != $session_client_id) {
-            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
-            exit;
-        }
-
-        if (!isset($_FILES['template_file'])) {
-            echo json_encode(['status' => 'error', 'message' => 'Archivo no proporcionado']);
-            exit;
-        }
+        if (!$is_superadmin && $req_client_id != $session_client_id) send_response('error', 'No autorizado');
+        if (!isset($_FILES['template_file'])) send_response('error', 'Archivo no proporcionado');
 
         set_time_limit(300);
         $temp_dir = __DIR__ . "/uploads/temp/";
@@ -1027,43 +1043,31 @@ switch ($action) {
         $temp_filename = "analyze_" . time() . "_" . uniqid() . "." . $ext;
         $temp_path = $temp_dir . $temp_filename;
 
-        $log_dir = __DIR__ . '/persistent';
-        if (!is_dir($log_dir)) @mkdir($log_dir, 0755, true);
-        $log_file = $log_dir . '/pdf_analysis.log';
-
         if (move_uploaded_file($file['tmp_name'], $temp_path)) {
             $placeholders = [];
             if ($ext === 'pdf') {
                 require_once 'gemini_client.php';
                 $gemini = new GeminiClient();
                 $uri = $gemini->upload_file_to_gemini($temp_path, 'application/pdf', 'Análisis Temporal');
-                if ($uri) {
-                    $placeholders = $gemini->analyze_pdf_placeholders($uri, 'application/pdf');
-                } else {
-                    file_put_contents($log_file, date('[Y-m-d H:i:s]') . " PDF Analyze Error: Failed to upload example PDF to Gemini.\n", FILE_APPEND);
-                }
+                if ($uri) $placeholders = $gemini->analyze_pdf_placeholders($uri, 'application/pdf');
             } else {
                 $content = file_get_contents($temp_path);
                 preg_match_all('/\{\{(.*?)\}\}/', $content, $matches);
                 $placeholders = isset($matches[1]) ? array_unique($matches[1]) : [];
             }
-            file_put_contents($log_file, date('[Y-m-d H:i:s]') . " PDF Analyze Success: Found " . count($placeholders) . " fields for file " . $file['name'] . "\n", FILE_APPEND);
-            echo json_encode([
-                'status' => 'success', 
+            send_response('success', '', [
                 'detected_fields' => array_values($placeholders),
                 'temp_file' => "uploads/temp/" . $temp_filename
             ]);
         } else {
-            file_put_contents($log_file, date('[Y-m-d H:i:s]') . " PDF Analyze Error: Failed to move uploaded file to $temp_path\n", FILE_APPEND);
-            echo json_encode(['status' => 'error', 'message' => 'Error al procesar archivo temporal']);
+            send_response('error', 'Error al procesar archivo temporal');
         }
         break;
 
     case 'pdf_templates_save':
         $req_client_id = $_POST['client_id'] ?? $session_client_id;
         if (!$is_superadmin && $req_client_id != $session_client_id) {
-            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
-            exit;
+            send_response('error', 'No autorizado');
         }
 
         $name = $_POST['name'] ?? '';
@@ -1101,144 +1105,108 @@ switch ($action) {
         break;
 
     case 'pdf_templates_save_config':
-        // Save a canvas-designed template's JSON config to the DB
         $req_client_id = $_POST['client_id'] ?? $session_client_id;
-        if (!$is_superadmin && $req_client_id != $session_client_id) {
-            echo json_encode(['status' => 'error', 'message' => 'No autorizado']); exit;
-        }
+        if (!$is_superadmin && $req_client_id != $session_client_id) send_response('error', 'No autorizado');
         $name   = trim($_POST['name'] ?? '');
         $desc   = trim($_POST['description'] ?? '');
         $dtype  = trim($_POST['doc_type'] ?? 'generic');
         $config = $_POST['template_config'] ?? '';
         $id     = intval($_POST['id'] ?? 0);
 
-        if (empty($name) || empty($config)) {
-            echo json_encode(['status' => 'error', 'message' => 'Faltan datos (nombre o config)']); exit;
-        }
-
-        // Validate that config is valid JSON
+        if (empty($name) || empty($config)) send_response('error', 'Faltan datos (nombre o config)');
         $decoded = json_decode($config, true);
-        if (!$decoded) {
-            echo json_encode(['status' => 'error', 'message' => 'La configuracion no es JSON valido']); exit;
-        }
+        if (!$decoded) send_response('error', 'La configuracion no es JSON valido');
 
         // Extract placeholders from config fields for backward compat
         $fields = $decoded['fields'] ?? [];
         $ph_list = array_map(function($f) { return $f['name'] ?? ''; }, $fields);
         $ph_json = json_encode(array_values(array_filter($ph_list)));
-
         $client_id_int = intval($req_client_id);
+
         if ($id > 0) {
-            // Update existing
             $chk = mysqli_prepare($conn, 'SELECT client_id FROM pdf_templates WHERE id = ?');
             mysqli_stmt_bind_param($chk, 'i', $id); mysqli_stmt_execute($chk);
             $row = mysqli_fetch_assoc(mysqli_stmt_get_result($chk));
-            if (!$row || (!$is_superadmin && $row['client_id'] != $session_client_id)) {
-                echo json_encode(['status' => 'error', 'message' => 'No autorizado']); exit;
-            }
+            if (!$row || (!$is_superadmin && $row['client_id'] != $session_client_id)) send_response('error', 'No autorizado');
             $stmt = mysqli_prepare($conn, 'UPDATE pdf_templates SET name=?, description=?, doc_type=?, template_config=?, placeholders=? WHERE id=?');
-            if (!$stmt) { error_log('pdf_templates_save_config UPDATE error: ' . mysqli_error($conn)); echo json_encode(['status' => 'error', 'message' => 'Error interno al actualizar plantilla.']); exit; }
             mysqli_stmt_bind_param($stmt, 'sssssi', $name, $desc, $dtype, $config, $ph_json, $id);
         } else {
-            // Insert new
             $stmt = mysqli_prepare($conn, 'INSERT INTO pdf_templates (client_id, name, description, doc_type, template_config, placeholders, file_path) VALUES (?, ?, ?, ?, ?, ?, ?)');
-            if (!$stmt) { error_log('pdf_templates_save_config INSERT error: ' . mysqli_error($conn)); echo json_encode(['status' => 'error', 'message' => 'Error interno al crear plantilla.']); exit; }
             $fp = '';
             mysqli_stmt_bind_param($stmt, 'issssss', $client_id_int, $name, $desc, $dtype, $config, $ph_json, $fp);
         }
         if (mysqli_stmt_execute($stmt)) {
-            $new_id = $id ?: mysqli_insert_id($conn);
-            echo json_encode(['status' => 'success', 'id' => $new_id]);
+            send_response('success', 'Configuración guardada.', ['id' => $id ?: mysqli_insert_id($conn)]);
         } else {
-            error_log('pdf_templates_save_config execute error: ' . mysqli_error($conn));
-            echo json_encode(['status' => 'error', 'message' => 'Error al guardar configuración de plantilla.']);
+            log_error('pdf_templates_save_config error', ['error' => mysqli_error($conn)]);
+            send_response('error', 'Error al guardar configuración de plantilla.');
         }
         break;
 
     case 'pdf_templates_preview':
-        // Generate a preview PDF from canvas config (no DB recording)
         $req_client_id = $_GET['client_id'] ?? $_POST['client_id'] ?? $session_client_id;
-        if (!$is_superadmin && $req_client_id != $session_client_id) {
-            echo json_encode(['status' => 'error', 'message' => 'No autorizado']); exit;
-        }
-        $config_raw = $_POST['template_config'] ?? '';
-        $config = json_decode($config_raw, true);
-        if (!$config) {
-            echo json_encode(['status' => 'error', 'message' => 'Config invalida']); exit;
-        }
+        if (!$is_superadmin && $req_client_id != $session_client_id) send_response('error', 'No autorizado');
+        $config = json_decode($_POST['template_config'] ?? '', true);
+        if (!$config) send_response('error', 'Config invalida');
         require_once __DIR__ . '/pdf_helper.php';
         $helper = new PDFHelper($conn);
-        // Use sample data from config fields
         $sample_data = [];
-        foreach ($config['fields'] ?? [] as $f) {
-            $sample_data[$f['name']] = $f['label'] ?? $f['name'];
-        }
+        foreach ($config['fields'] ?? [] as $f) $sample_data[$f['name']] = $f['label'] ?? $f['name'];
         $result = $helper->generate_from_config($config, $sample_data, null, null, null, true);
-        echo json_encode(['status' => 'success', 'url' => $result['url'] ?? '']);
+        send_response('success', '', ['url' => $result['url'] ?? '']);
         break;
 
     case 'pdf_templates_logo_upload':
-        // Upload a logo for a canvas template
         $req_client_id = $_POST['client_id'] ?? $session_client_id;
-        if (!$is_superadmin && $req_client_id != $session_client_id) {
-            echo json_encode(['status' => 'error', 'message' => 'No autorizado']); exit;
-        }
-        if (!isset($_FILES['logo']) || $_FILES['logo']['error'] !== UPLOAD_ERR_OK) {
-            echo json_encode(['status' => 'error', 'message' => 'Sin archivo o error de subida']); exit;
-        }
+        if (!$is_superadmin && $req_client_id != $session_client_id) send_response('error', 'No autorizado');
+        if (!isset($_FILES['logo']) || $_FILES['logo']['error'] !== UPLOAD_ERR_OK) send_response('error', 'Sin archivo o error de subida');
         $allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
-        if (!in_array($_FILES['logo']['type'], $allowed)) {
-            echo json_encode(['status' => 'error', 'message' => 'Tipo de archivo no permitido']); exit;
-        }
+        if (!in_array($_FILES['logo']['type'], $allowed)) send_response('error', 'Tipo de archivo no permitido');
         $dir = __DIR__ . '/uploads/clients/' . intval($req_client_id) . '/logos/';
         if (!is_dir($dir)) @mkdir($dir, 0755, true);
-        $ext  = pathinfo($_FILES['logo']['name'], PATHINFO_EXTENSION);
-        $fname = 'logo_' . time() . '.' . strtolower($ext);
+        $ext = strtolower(pathinfo($_FILES['logo']['name'], PATHINFO_EXTENSION));
+        $fname = 'logo_' . time() . '.' . $ext;
         if (move_uploaded_file($_FILES['logo']['tmp_name'], $dir . $fname)) {
-            $url_path = 'uploads/clients/' . intval($req_client_id) . '/logos/' . $fname;
-            echo json_encode(['status' => 'success', 'url' => $url_path]);
+            send_response('success', '', ['url' => 'uploads/clients/' . intval($req_client_id) . '/logos/' . $fname]);
         } else {
-            echo json_encode(['status' => 'error', 'message' => 'Error al guardar']);
+            send_response('error', 'Error al guardar');
         }
         break;
 
     case 'pdf_generated_list':
         $req_client_id = $_GET['client_id'] ?? null;
-        $assistant_id = $_GET['assistant_id'] ?? null;
-        
-        $sql = "SELECT g.*, a.name as assistant_name, COALESCE(t.name, g.template_id) as template_name 
-                FROM generated_documents g
-                LEFT JOIN assistants a ON g.assistant_id = a.id
-                LEFT JOIN pdf_templates t ON g.template_id = CAST(t.id AS CHAR)
-                WHERE 1=1";
-        
-        if (!$is_superadmin) {
-            $sql .= " AND g.client_id = " . intval($session_client_id);
-        } else if ($req_client_id) {
-            $sql .= " AND g.client_id = " . intval($req_client_id);
-        }
-        
-        if ($assistant_id) $sql .= " AND g.assistant_id = " . intval($assistant_id);
+        $ast_id = $_GET['assistant_id'] ?? null;
+        $sql = "SELECT g.*, a.name as assistant_name, COALESCE(t.name, g.template_id) as template_name FROM generated_documents g LEFT JOIN assistants a ON g.assistant_id = a.id LEFT JOIN pdf_templates t ON g.template_id = CAST(t.id AS CHAR) WHERE 1=1";
+        $params = []; $types = "";
+        if (!$is_superadmin) { $sql .= " AND g.client_id = ?"; $params[] = $session_client_id; $types .= "i"; }
+        else if ($req_client_id) { $sql .= " AND g.client_id = ?"; $params[] = intval($req_client_id); $types .= "i"; }
+        if ($ast_id) { $sql .= " AND g.assistant_id = ?"; $params[] = intval($ast_id); $types .= "i"; }
         $sql .= " ORDER BY g.created_at DESC LIMIT 100";
-        
-        $q = mysqli_query($conn, $sql);
+        $stmt = mysqli_prepare($conn, $sql);
+        if (!empty($params)) mysqli_stmt_bind_param($stmt, $types, ...$params);
+        mysqli_stmt_execute($stmt);
+        $res = mysqli_stmt_get_result($stmt);
         $docs = [];
-        while($row = mysqli_fetch_assoc($q)) $docs[] = $row;
-        echo json_encode(['status' => 'success', 'data' => $docs]);
+        while($row = mysqli_fetch_assoc($res)) $docs[] = $row;
+        send_response('success', '', $docs);
         break;
 
     case 'pdf_generated_delete':
         $id = $_POST['id'] ?? 0;
-        $q = mysqli_query($conn, "SELECT file_name FROM generated_documents WHERE id = " . intval($id));
-        if ($row = mysqli_fetch_assoc($q)) {
-            // Delete file from storage
+        $stmt = mysqli_prepare($conn, "SELECT file_name, client_id FROM generated_documents WHERE id = ?");
+        mysqli_stmt_bind_param($stmt, "i", $id);
+        mysqli_stmt_execute($stmt);
+        $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+        if ($row) {
+            if (!$is_superadmin && $row['client_id'] != $session_client_id) send_response('error', 'No autorizado');
             $fpath = __DIR__ . '/uploads/' . $row['file_name'];
             if (file_exists($fpath)) @unlink($fpath);
-            
-            mysqli_query($conn, "DELETE FROM generated_documents WHERE id = " . intval($id));
-            echo json_encode(['status' => 'success']);
+            $del = mysqli_prepare($conn, "DELETE FROM generated_documents WHERE id = ?");
+            mysqli_stmt_bind_param($del, "i", $id);
+            mysqli_stmt_execute($del);
+            send_response('success', 'Documento eliminado.');
         } else {
-            echo json_encode(['status' => 'error', 'message' => 'No encontrado']);
+            send_response('error', 'No encontrado');
         }
         break;
 
@@ -1247,171 +1215,87 @@ switch ($action) {
         $chk = mysqli_prepare($conn, "SELECT client_id, file_path FROM pdf_templates WHERE id = ?");
         mysqli_stmt_bind_param($chk, "i", $id);
         mysqli_stmt_execute($chk);
-        $chk_res = mysqli_stmt_get_result($chk);
-        if ($row = mysqli_fetch_assoc($chk_res)) {
-            if (!$is_superadmin && $row['client_id'] != $session_client_id) {
-                echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
-                exit;
-            }
-            $fpath = __DIR__ . '/' . $row['file_path'];
-            if (file_exists($fpath)) {
-                unlink($fpath);
-            }
+        $row = mysqli_fetch_assoc(mysqli_stmt_get_result($chk));
+        if ($row) {
+            if (!$is_superadmin && $row['client_id'] != $session_client_id) send_response('error', 'No autorizado');
+            if ($row['file_path'] && file_exists(__DIR__ . '/' . $row['file_path'])) unlink(__DIR__ . '/' . $row['file_path']);
             $del = mysqli_prepare($conn, "DELETE FROM pdf_templates WHERE id = ?");
             mysqli_stmt_bind_param($del, "i", $id);
             mysqli_stmt_execute($del);
-            echo json_encode(['status' => 'success']);
+            send_response('success', 'Plantilla eliminada.');
         } else {
-            echo json_encode(['status' => 'error', 'message' => 'Plantilla no encontrada']);
+            send_response('error', 'Plantilla no encontrada');
         }
         break;
 
     case 'pdf_templates_rename':
-        $id       = intval($_POST['id'] ?? 0);
+        $id = intval($_POST['id'] ?? 0);
         $new_name = trim($_POST['name'] ?? '');
         $new_desc = trim($_POST['description'] ?? '');
-        if (empty($new_name)) {
-            echo json_encode(['status' => 'error', 'message' => 'El nombre es requerido']);
-            exit;
-        }
+        if (empty($new_name)) send_response('error', 'El nombre es requerido');
         $chk = mysqli_prepare($conn, "SELECT client_id FROM pdf_templates WHERE id = ?");
-        mysqli_stmt_bind_param($chk, "i", $id);
-        mysqli_stmt_execute($chk);
-        $chk_res = mysqli_stmt_get_result($chk);
-        if ($row = mysqli_fetch_assoc($chk_res)) {
-            if (!$is_superadmin && $row['client_id'] != $session_client_id) {
-                echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
-                exit;
-            }
+        mysqli_stmt_bind_param($chk, "i", $id); mysqli_stmt_execute($chk);
+        $row = mysqli_fetch_assoc(mysqli_stmt_get_result($chk));
+        if ($row) {
+            if (!$is_superadmin && $row['client_id'] != $session_client_id) send_response('error', 'No autorizado');
             $stmt = mysqli_prepare($conn, "UPDATE pdf_templates SET name = ?, description = ? WHERE id = ?");
             mysqli_stmt_bind_param($stmt, "ssi", $new_name, $new_desc, $id);
-            if (mysqli_stmt_execute($stmt)) {
-                echo json_encode(['status' => 'success']);
-            } else {
-                error_log('pdf_templates_rename error: ' . mysqli_error($conn));
-                echo json_encode(['status' => 'error', 'message' => 'Error al renombrar plantilla.']);
-            }
+            if (mysqli_stmt_execute($stmt)) send_response('success', 'Cambios guardados.');
+            else send_response('error', 'Error al renombrar plantilla.');
         } else {
-            echo json_encode(['status' => 'error', 'message' => 'Plantilla no encontrada']);
+            send_response('error', 'Plantilla no encontrada');
         }
         break;
-
-    case 'appointments_list':
-        $req_client_id = $_GET['client_id'] ?? $session_client_id;
-        if (!$is_superadmin && $req_client_id != $session_client_id) {
-            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
-            exit;
-        }
-        $ast_filter = $_GET['assistant_id'] ?? null;
-        $where = "a.client_id = " . intval($req_client_id);
-        if ($ast_filter)
-            $where .= " AND a.assistant_id = " . intval($ast_filter);
-        $query = "SELECT a.id, a.user_name, a.user_email, a.user_phone,
-                         a.appointment_date, a.appointment_time,
-                         a.google_event_id, a.google_calendar_id, a.status, a.created_at,
-                         ast.name AS assistant_name
-                  FROM appointments a
-                  JOIN assistants ast ON a.assistant_id = ast.id
-                  WHERE $where
-                  ORDER BY a.appointment_date DESC, a.appointment_time DESC
-                  LIMIT 200";
-        $result = mysqli_query($conn, $query);
-        $data = [];
-        if ($result) {
-            while ($row = mysqli_fetch_assoc($result))
-                $data[] = $row;
-        }
-        echo json_encode(['status' => 'success', 'data' => $data]);
-        break;
-
     // ---- WhatsApp Integration (Proxy to Node.js) ----
     case 'whatsapp_status':
         $ast_id = $_GET['assistant_id'] ?? null;
-        if (!$ast_id || !check_ast_owner($conn, $ast_id)) {
-            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
-            exit;
-        }
+        if (!$ast_id || !check_ast_owner($conn, $ast_id)) send_response('error', 'No autorizado');
         $res = @file_get_contents(WHATSAPP_API_URL . "/status/" . $ast_id);
-        if ($res === false) {
-            echo json_encode(['status' => 'offline', 'message' => 'Servicio de WhatsApp no disponible']);
-        } else {
-            echo $res;
-        }
+        if ($res === false) send_response('offline', 'Servicio de WhatsApp no disponible');
+        else { header('Content-Type: application/json'); echo $res; exit; }
         break;
 
     case 'whatsapp_qr':
         $ast_id = $_GET['assistant_id'] ?? null;
-        if (!$ast_id || !check_ast_owner($conn, $ast_id)) {
-            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
-            exit;
-        }
+        if (!$ast_id || !check_ast_owner($conn, $ast_id)) send_response('error', 'No autorizado');
         $res = @file_get_contents(WHATSAPP_API_URL . "/qr/" . $ast_id);
-        if ($res === false) {
-            echo json_encode(['status' => 'offline', 'message' => 'Servicio de WhatsApp no disponible']);
-        } else {
-            echo $res;
-        }
+        if ($res === false) send_response('offline', 'Servicio de WhatsApp no disponible');
+        else { header('Content-Type: application/json'); echo $res; exit; }
         break;
 
     case 'whatsapp_connect':
         $ast_id = $_POST['assistant_id'] ?? null;
-        if (!$ast_id || !check_ast_owner($conn, $ast_id)) {
-            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
-            exit;
-        }
-        // Use cURL for POST proxy
+        if (!$ast_id || !check_ast_owner($conn, $ast_id)) send_response('error', 'No autorizado');
         $ch = curl_init(WHATSAPP_API_URL . "/connect/" . $ast_id);
         curl_setopt($ch, CURLOPT_POST, 1);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         $res = curl_exec($ch);
-        if (curl_errno($ch)) {
-            echo json_encode(['status' => 'offline', 'message' => 'Servicio de WhatsApp no disponible']);
-        } else {
-            echo $res;
-        }
-        // curl_close is unnecessary in PHP 8.4+ and deprecated in 8.5
+        if (curl_errno($ch)) send_response('offline', 'Servicio de WhatsApp no disponible');
+        else { header('Content-Type: application/json'); echo $res; exit; }
         break;
 
     case 'whatsapp_disconnect':
         $ast_id = $_POST['assistant_id'] ?? null;
-        if (!$ast_id || !check_ast_owner($conn, $ast_id)) {
-            echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
-            exit;
-        }
+        if (!$ast_id || !check_ast_owner($conn, $ast_id)) send_response('error', 'No autorizado');
         $ch = curl_init(WHATSAPP_API_URL . "/disconnect/" . $ast_id);
         curl_setopt($ch, CURLOPT_POST, 1);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         $res = curl_exec($ch);
-        if (curl_errno($ch)) {
-            echo json_encode(['status' => 'offline', 'message' => 'Servicio de WhatsApp no disponible']);
-        } else {
-            echo $res;
-        }
-        // curl_close is unnecessary in PHP 8.4+ and deprecated in 8.5
+        if (curl_errno($ch)) send_response('offline', 'Servicio de WhatsApp no disponible');
+        else { header('Content-Type: application/json'); echo $res; exit; }
         break;
 
     case 'appointments_cancel':
         $appt_id = $_POST['id'] ?? 0;
-        // Fetch appointment data
-        $appt_query = mysqli_query($conn, "SELECT a.*, ci.access_token, ci.refresh_token, ci.expires_at
-            FROM appointments a
-            JOIN clients c ON a.client_id = c.id
-            LEFT JOIN client_integrations ci ON ci.client_id = a.client_id AND ci.provider = 'google_drive'
-            WHERE a.id = " . intval($appt_id));
-        $appt = mysqli_fetch_assoc($appt_query);
-        if (!$appt) {
-            echo json_encode(['status' => 'error', 'message' => 'Reserva no encontrada.']);
-            exit;
-        }
-        if (!$is_superadmin && $appt['client_id'] != $session_client_id) {
-            echo json_encode(['status' => 'error', 'message' => 'No autorizado.']);
-            exit;
-        }
+        $stmt = mysqli_prepare($conn, "SELECT a.*, ci.access_token, ci.refresh_token, ci.expires_at FROM appointments a JOIN clients c ON a.client_id = c.id LEFT JOIN client_integrations ci ON ci.client_id = a.client_id AND ci.provider = 'google_drive' WHERE a.id = ?");
+        mysqli_stmt_bind_param($stmt, "i", $appt_id);
+        mysqli_stmt_execute($stmt);
+        $appt = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+        if (!$appt) send_response('error', 'Reserva no encontrada.');
+        if (!$is_superadmin && $appt['client_id'] != $session_client_id) send_response('error', 'No autorizado.');
 
-        // Try to cancel in Google Calendar
         $google_cancelled = false;
         if ($appt['google_event_id'] && $appt['access_token']) {
-            // Refresh token if needed
             $access_token = $appt['access_token'];
             if (strtotime($appt['expires_at']) <= time() + 300 && $appt['refresh_token']) {
                 $ch = curl_init('https://oauth2.googleapis.com/token');
@@ -1424,103 +1308,60 @@ switch ($action) {
                     'grant_type' => 'refresh_token'
                 ]));
                 $ref_res = json_decode(curl_exec($ch), true);
-                if (!empty($ref_res['access_token']))
-                    $access_token = $ref_res['access_token'];
+                if (!empty($ref_res['access_token'])) $access_token = $ref_res['access_token'];
             }
             $cal_id = urlencode($appt['google_calendar_id'] ?: 'primary');
             $event_id = urlencode($appt['google_event_id']);
-            $del_url = "https://www.googleapis.com/calendar/v3/calendars/$cal_id/events/$event_id";
-            $ch = curl_init($del_url);
+            $ch = curl_init("https://www.googleapis.com/calendar/v3/calendars/$cal_id/events/$event_id");
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'DELETE');
             curl_setopt($ch, CURLOPT_HTTPHEADER, ["Authorization: Bearer $access_token"]);
             curl_exec($ch);
-            $del_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $google_cancelled = ($del_code === 204 || $del_code === 200);
+            $google_cancelled = (curl_getinfo($ch, CURLINFO_HTTP_CODE) === 204);
         }
 
-        // Update local status
-        $stmt = mysqli_prepare($conn, "UPDATE appointments SET status='cancelled' WHERE id=?");
-        mysqli_stmt_bind_param($stmt, "i", $appt_id);
-        mysqli_stmt_execute($stmt);
+        $upd = mysqli_prepare($conn, "UPDATE appointments SET status='cancelled' WHERE id=?");
+        mysqli_stmt_bind_param($upd, "i", $appt_id);
+        mysqli_stmt_execute($upd);
 
-        echo json_encode([
-            'status' => 'success',
-            'message' => $google_cancelled
-                ? 'Reserva cancelada en el sistema y en Google Calendar.'
-                : 'Reserva cancelada en el sistema (no se pudo eliminar de Google Calendar).'
-        ]);
+        send_response('success', $google_cancelled ? 'Reserva cancelada en el sistema y en Google Calendar.' : 'Reserva cancelada en el sistema (no se pudo eliminar de Google Calendar).');
         break;
 
     case 'pdf_templates_download':
         $id = $_GET['id'] ?? '';
-        if (empty($id)) {
-            echo json_encode(['status' => 'error', 'message' => 'ID de plantilla no proporcionado']);
-            exit;
-        }
+        if (empty($id)) send_response('error', 'ID de plantilla no proporcionado');
 
-        $file_path = '';
-        $display_name = '';
+        $file_path = ''; $display_name = '';
 
         if (is_numeric($id)) {
-            // Custom template from DB
             $stmt = mysqli_prepare($conn, "SELECT name, file_path, client_id FROM pdf_templates WHERE id = ?");
             mysqli_stmt_bind_param($stmt, "i", $id);
             mysqli_stmt_execute($stmt);
-            $res = mysqli_stmt_get_result($stmt);
-            if ($row = mysqli_fetch_assoc($res)) {
-                if (!$is_superadmin && $row['client_id'] != $session_client_id) {
-                    echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
-                    exit;
-                }
+            $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+            if ($row) {
+                if (!$is_superadmin && $row['client_id'] != $session_client_id) send_response('error', 'No autorizado');
                 $file_path = __DIR__ . '/' . $row['file_path'];
                 $display_name = $row['name'];
-                // Ensure display name has the correct extension
                 $ext = pathinfo($row['file_path'], PATHINFO_EXTENSION);
-                if (strtolower(pathinfo($display_name, PATHINFO_EXTENSION)) !== strtolower($ext)) {
-                    $display_name .= '.' . $ext;
-                }
-            } else {
-                echo json_encode(['status' => 'error', 'message' => 'Plantilla no encontrada']);
-                exit;
-            }
+                if (strtolower(pathinfo($display_name, PATHINFO_EXTENSION)) !== strtolower($ext)) $display_name .= '.' . $ext;
+            } else send_response('error', 'Plantilla no encontrada');
         } else {
-            // Static template from folder
-            // Sanitize filename
             $safe_id = basename($id);
             $file_path = __DIR__ . '/pdf_templates/' . $safe_id;
             $display_name = $safe_id;
-
-            if (!file_exists($file_path) || !is_file($file_path)) {
-                echo json_encode(['status' => 'error', 'message' => 'Archivo de plantilla no encontrado']);
-                exit;
-            }
+            if (!file_exists($file_path) || !is_file($file_path)) send_response('error', 'Archivo de plantilla no encontrado');
         }
 
         if (file_exists($file_path)) {
-            // Overwrite the JSON header set at the top
-            $mime = 'application/octet-stream';
-            $ext = strtolower(pathinfo($file_path, PATHINFO_EXTENSION));
-            if ($ext === 'pdf') $mime = 'application/pdf';
-            else if ($ext === 'html') $mime = 'text/html';
-            else if ($ext === 'txt') $mime = 'text/plain';
-
-            header('Content-Description: File Transfer');
+            $mime = (strtolower(pathinfo($file_path, PATHINFO_EXTENSION)) === 'pdf') ? 'application/pdf' : 'application/octet-stream';
             header('Content-Type: ' . $mime);
             header('Content-Disposition: attachment; filename="' . $display_name . '"');
-            header('Expires: 0');
-            header('Cache-Control: must-revalidate');
-            header('Pragma: public');
             header('Content-Length: ' . filesize($file_path));
-            
-            // Clear any previously buffered output
             if (ob_get_level()) ob_end_clean();
-            
             readfile($file_path);
             exit;
         } else {
-            echo json_encode(['status' => 'error', 'message' => 'El archivo físico no existe']);
-            exit;
+            send_response('error', 'El archivo no existe físicamente.');
         }
         break;
 
@@ -1528,11 +1369,17 @@ switch ($action) {
         $format = $_GET['format'] ?? 'csv';
         $ast_id = $_GET['assistant_id'] ?? null;
         
-        $query = "SELECT * FROM conversation_logs";
-        if ($ast_id) $query .= " WHERE assistant_id = " . intval($ast_id);
-        $query .= " ORDER BY created_at DESC";
+        $sql = "SELECT * FROM conversation_logs";
+        if ($ast_id) {
+            $sql .= " WHERE assistant_id = ?";
+            $stmt = mysqli_prepare($conn, $sql . " ORDER BY created_at DESC");
+            mysqli_stmt_bind_param($stmt, "i", $ast_id);
+        } else {
+            $stmt = mysqli_prepare($conn, $sql . " ORDER BY created_at DESC");
+        }
         
-        $res = mysqli_query($conn, $query);
+        mysqli_stmt_execute($stmt);
+        $res = mysqli_stmt_get_result($stmt);
         $data = [];
         while($row = mysqli_fetch_assoc($res)) $data[] = $row;
 
@@ -1556,91 +1403,113 @@ switch ($action) {
 
     case 'agents_list':
         $ast_id = $_GET['assistant_id'] ?? null;
-        if (!check_ast_owner($conn, $ast_id)) { echo json_encode(['status'=>'error','message'=>'No autorizado']); exit; }
-        $q = mysqli_query($conn, "SELECT * FROM authorized_agents WHERE assistant_id = " . intval($ast_id));
+        if (!check_ast_owner($conn, $ast_id)) send_response('error', 'No autorizado');
+        $stmt = mysqli_prepare($conn, "SELECT * FROM authorized_agents WHERE assistant_id = ?");
+        mysqli_stmt_bind_param($stmt, "i", $ast_id);
+        mysqli_stmt_execute($stmt);
+        $res = mysqli_stmt_get_result($stmt);
         $list = [];
-        while($r = mysqli_fetch_assoc($q)) $list[] = $r;
-        echo json_encode(['status'=>'success', 'data'=>$list]);
+        while($r = mysqli_fetch_assoc($res)) $list[] = $r;
+        send_response('success', '', $list);
         break;
 
     case 'agents_create':
         $ast_id = $_POST['assistant_id'] ?? null;
-        if (!check_ast_owner($conn, $ast_id)) { echo json_encode(['status'=>'error','message'=>'No autorizado']); exit; }
+        if (!check_ast_owner($conn, $ast_id)) send_response('error', 'No autorizado');
         $name = $_POST['agent_name'] ?? '';
         $phone = preg_replace('/\D/', '', $_POST['phone_number'] ?? '');
-        if (!$phone) { echo json_encode(['status'=>'error','message'=>'Teléfono inválido']); exit; }
+        if (!$phone) send_response('error', 'Teléfono inválido');
         
         $stmt = mysqli_prepare($conn, "INSERT INTO authorized_agents (assistant_id, agent_name, phone_number) VALUES (?, ?, ?)");
         mysqli_stmt_bind_param($stmt, "iss", $ast_id, $name, $phone);
-        if (mysqli_stmt_execute($stmt)) echo json_encode(['status'=>'success']);
-        else echo json_encode(['status'=>'error', 'message'=>mysqli_error($conn)]);
+        if (mysqli_stmt_execute($stmt)) send_response('success', 'Agente autorizado.');
+        else send_response('error', 'Error al autorizar agente.');
         break;
 
     case 'agents_delete':
         $id = $_POST['id'] ?? null;
-        // Verify ownership via assistant joined to agent
         if (!$is_superadmin) {
-            $q = mysqli_query($conn, "SELECT a.client_id FROM authorized_agents g JOIN assistants a ON g.assistant_id = a.id WHERE g.id = ".intval($id));
-            $r = mysqli_fetch_assoc($q);
-            if (!$r || $r['client_id'] != $session_client_id) { echo json_encode(['status'=>'error','message'=>'No autorizado']); exit; }
+            $stmt = mysqli_prepare($conn, "SELECT a.client_id FROM authorized_agents g JOIN assistants a ON g.assistant_id = a.id WHERE g.id = ?");
+            mysqli_stmt_bind_param($stmt, "i", $id);
+            mysqli_stmt_execute($stmt);
+            $r = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+            if (!$r || $r['client_id'] != $session_client_id) send_response('error', 'No autorizado');
         }
-        mysqli_query($conn, "DELETE FROM authorized_agents WHERE id = ".intval($id));
-        echo json_encode(['status'=>'success']);
+        $del = mysqli_prepare($conn, "DELETE FROM authorized_agents WHERE id = ?");
+        mysqli_stmt_bind_param($del, "i", $id);
+        if (mysqli_stmt_execute($del)) send_response('success', 'Agente eliminado.');
+        else send_response('error', 'Error al eliminar.');
         break;
 
     case 'flows_list':
         $ast_id = $_GET['assistant_id'] ?? null;
-        if (!check_ast_owner($conn, $ast_id)) { echo json_encode(['status'=>'error','message'=>'No autorizado']); exit; }
-        $q = mysqli_query($conn, "SELECT * FROM conversation_flows WHERE assistant_id = " . intval($ast_id));
+        if (!check_ast_owner($conn, $ast_id)) send_response('error', 'No autorizado');
+        $stmt = mysqli_prepare($conn, "SELECT * FROM conversation_flows WHERE assistant_id = ?");
+        mysqli_stmt_bind_param($stmt, "i", $ast_id);
+        mysqli_stmt_execute($stmt);
+        $res = mysqli_stmt_get_result($stmt);
         $list = [];
-        while($r = mysqli_fetch_assoc($q)) $list[] = $r;
-        echo json_encode(['status'=>'success', 'data'=>$list]);
+        while($r = mysqli_fetch_assoc($res)) $list[] = $r;
+        send_response('success', '', $list);
         break;
 
     case 'flows_create':
         $ast_id = $_POST['assistant_id'] ?? null;
-        if (!check_ast_owner($conn, $ast_id)) { echo json_encode(['status'=>'error','message'=>'No autorizado']); exit; }
+        if (!check_ast_owner($conn, $ast_id)) send_response('error', 'No autorizado');
         $name = $_POST['name'] ?? 'Nuevo Flujo';
         $trigger = $_POST['trigger_keyword'] ?? null;
         $stmt = mysqli_prepare($conn, "INSERT INTO conversation_flows (assistant_id, name, trigger_keyword) VALUES (?, ?, ?)");
         mysqli_stmt_bind_param($stmt, "iss", $ast_id, $name, $trigger);
-        if (mysqli_stmt_execute($stmt)) echo json_encode(['status'=>'success', 'id'=>mysqli_insert_id($conn)]);
-        else echo json_encode(['status'=>'error', 'message'=>mysqli_error($conn)]);
+        if (mysqli_stmt_execute($stmt)) send_response('success', 'Flujo creado.', ['id' => mysqli_insert_id($conn)]);
+        else send_response('error', 'Error al crear flujo.');
         break;
 
     case 'flows_delete':
         $id = $_POST['id'] ?? null;
         if (!$is_superadmin) {
-           $q = mysqli_query($conn, "SELECT a.client_id FROM conversation_flows f JOIN assistants a ON f.assistant_id = a.id WHERE f.id = ".intval($id));
-           $r = mysqli_fetch_assoc($q);
-           if (!$r || $r['client_id'] != $session_client_id) { echo json_encode(['status'=>'error','message'=>'No autorizado']); exit; }
+            $stmt = mysqli_prepare($conn, "SELECT a.client_id FROM conversation_flows f JOIN assistants a ON f.assistant_id = a.id WHERE f.id = ?");
+            mysqli_stmt_bind_param($stmt, "i", $id);
+            mysqli_stmt_execute($stmt);
+            $r = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+            if (!$r || $r['client_id'] != $session_client_id) send_response('error', 'No autorizado');
         }
-        mysqli_query($conn, "DELETE FROM conversation_flows WHERE id = ".intval($id));
-        mysqli_query($conn, "DELETE FROM flow_steps WHERE flow_id = ".intval($id));
-        echo json_encode(['status'=>'success']);
+        $del1 = mysqli_prepare($conn, "DELETE FROM conversation_flows WHERE id = ?");
+        mysqli_stmt_bind_param($del1, "i", $id);
+        mysqli_stmt_execute($del1);
+        $del2 = mysqli_prepare($conn, "DELETE FROM flow_steps WHERE flow_id = ?");
+        mysqli_stmt_bind_param($del2, "i", $id);
+        mysqli_stmt_execute($del2);
+        send_response('success', 'Flujo eliminado.');
         break;
 
     case 'flows_steps_list':
         $flow_id = $_GET['flow_id'] ?? null;
-        $q = mysqli_query($conn, "SELECT * FROM flow_steps WHERE flow_id = ".intval($flow_id)." ORDER BY step_order ASC");
+        $stmt = mysqli_prepare($conn, "SELECT * FROM flow_steps WHERE flow_id = ? ORDER BY step_order ASC");
+        mysqli_stmt_bind_param($stmt, "i", $flow_id);
+        mysqli_stmt_execute($stmt);
+        $res = mysqli_stmt_get_result($stmt);
         $list = [];
-        while($r = mysqli_fetch_assoc($q)) $list[] = $r;
-        echo json_encode(['status'=>'success', 'data'=>$list]);
+        while($r = mysqli_fetch_assoc($res)) $list[] = $r;
+        send_response('success', '', $list);
         break;
 
     case 'flows_steps_update':
         $flow_id = $_POST['flow_id'] ?? null;
         $steps = json_decode($_POST['steps'] ?? '[]', true);
-        if (!$flow_id || !is_array($steps)) { echo json_encode(['status'=>'error','message'=>'Datos inválidos']); exit; }
+        if (!$flow_id || !is_array($steps)) send_response('error', 'Datos inválidos');
         
-        // Ownership check
         if (!$is_superadmin) {
-            $q = mysqli_query($conn, "SELECT a.client_id FROM conversation_flows f JOIN assistants a ON f.assistant_id = a.id WHERE f.id = ".intval($flow_id));
-            $r = mysqli_fetch_assoc($q);
-            if (!$r || $r['client_id'] != $session_client_id) { echo json_encode(['status'=>'error','message'=>'No autorizado']); exit; }
+            $stmt = mysqli_prepare($conn, "SELECT a.client_id FROM conversation_flows f JOIN assistants a ON f.assistant_id = a.id WHERE f.id = ?");
+            mysqli_stmt_bind_param($stmt, "i", $flow_id);
+            mysqli_stmt_execute($stmt);
+            $r = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+            if (!$r || $r['client_id'] != $session_client_id) send_response('error', 'No autorizado');
         }
 
-        mysqli_query($conn, "DELETE FROM flow_steps WHERE flow_id = ".intval($flow_id));
+        $del = mysqli_prepare($conn, "DELETE FROM flow_steps WHERE flow_id = ?");
+        mysqli_stmt_bind_param($del, "i", $flow_id);
+        mysqli_stmt_execute($del);
+
         foreach($steps as $idx => $step) {
             $order = $idx + 1;
             $type = $step['step_type'] ?? 'text';
@@ -1651,12 +1520,11 @@ switch ($action) {
             mysqli_stmt_bind_param($stmt, "iisssi", $flow_id, $order, $type, $content, $config, $next);
             mysqli_stmt_execute($stmt);
         }
-        echo json_encode(['status'=>'success']);
+        send_response('success', 'Pasos actualizados.');
         break;
 
     default:
-
-        echo json_encode(['status' => 'error', 'message' => 'Acción no válida']);
+        send_response('error', 'Acción no válida');
         break;
 }
 ?>

@@ -1,16 +1,19 @@
 [phases.setup]
-nixPkgs = ["php83", "nginx", "nodejs_20"]
+nixPkgs = ["php83", "nginx", "nodejs_20", "ffmpeg", "cacert"]
 
 [phases.install]
 cmds = [
     "npm install --prefix whatsapp",
     "npm install -g pm2",
-    "mkdir -p /app/logs /app/uploads"
+    "mkdir -p /app/logs /app/uploads /app/persistent",
+    "chmod +x /app/start.sh"
 ]
 
 [phases.build]
-cmds = ["mkdir -p /etc/nginx/conf.d"]
+cmds = [
+    "mkdir -p /etc/nginx/conf.d",
+    "echo \"Nixpacks build complete\""
+]
 
 [start]
-cmd = "/app/start.sh"
-
+cmd = "bash /app/start.sh"
