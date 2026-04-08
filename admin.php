@@ -1543,7 +1543,6 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
                   }
                 }
 
-                // Populate clients for superadmin
                 if (window.IS_SUPERADMIN) {
                   const clientSelect = document.getElementById('ce-client-id');
                   if (clientSelect && window.clientsCache) {
@@ -1559,12 +1558,12 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
                 ceRenderSections();
                 ceRenderFields();
                 ceUpdateColorPreview();
-                document.getElementById('canvas-editor-modal').style.display = 'block';
+                $('#canvas-editor-modal').addClass('active');
                 document.body.style.overflow = 'hidden';
               };
 
               window.closeCanvasEditor = function() {
-                document.getElementById('canvas-editor-modal').style.display = 'none';
+                $('#canvas-editor-modal').removeClass('active');
                 document.body.style.overflow = '';
               };
 
@@ -1728,13 +1727,12 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
                 const config = ceBuildConfig();
                 const cont = document.getElementById('ce-preview-container');
                 cont.innerHTML = '<div style="text-align:center;padding:40px;color:rgba(255,255,255,0.5);"><i class="fa-solid fa-spinner fa-spin" style="font-size:32px;"></i><p>Generando PDF de ejemplo...</p></div>';
-                const csrfToken = '<?= $_SESSION["csrf_token"] ?? "" ?>';
                 $.ajax({
                   url: 'api.php?action=pdf_templates_preview',
                   type: 'POST',
                   data: { 
                     template_config: JSON.stringify(config), 
-                    csrf_token: csrfToken,
+                    csrf_token: CSRF_TOKEN,
                     client_id: getClientIdForAPI()
                   },
                   dataType: 'json',
@@ -1770,10 +1768,10 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
                   description: document.getElementById('ce-desc').value,
                   doc_type: document.getElementById('ce-doctype').value,
                   template_config: JSON.stringify(config),
-                  csrf_token: csrfToken,
+                  csrf_token: CSRF_TOKEN,
                   client_id: (window.IS_SUPERADMIN ? document.getElementById('ce-client-id').value : getClientIdForAPI()) || window._ceState.client_id
                 };
-                if (!postData.client_id) { alert('Debes seleccionar un cliente.'); return; }
+                if (!postData.client_id) { showToast('Debes seleccionar un cliente.', 'warning'); return; }
                 if (window._ceState.id) postData.id = window._ceState.id;
                 $.ajax({
                   url: 'api.php?action=pdf_templates_save_config',
@@ -1784,11 +1782,13 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
                     if (res.status === 'success') {
                       _ceState.id = res.id;
                       statusEl.style.color = '#10b981';
-                      statusEl.textContent = '✓ Guardado exitosamente (ID: ' + res.id + ')';
+                      statusEl.textContent = '✓ Guardado exitosamente';
+                      showToast('Plantilla guardada correctamente');
                       if (typeof loadPDFTemplates === 'function') loadPDFTemplates();
                     } else {
                       statusEl.style.color = '#ef4444';
                       statusEl.textContent = 'Error: ' + (res.message || 'desconocido');
+                      showToast(res.message || 'Error al guardar', 'error');
                     }
                   },
                   error: function(xhr) {
