@@ -3,6 +3,7 @@ require 'db.php';
 require 'auth.php';
 header('Content-Type: application/json');
 
+
 $action = isset($_GET['action']) ? $_GET['action'] : '';
 
 // Actions that REQUIRE authentication
@@ -941,8 +942,7 @@ switch ($action) {
     case 'chart_data':
         $assistant_id = $_GET['assistant_id'] ?? null;
         if ($assistant_id && !check_ast_owner($conn, $assistant_id)) {
-            echo json_encode(['status' => 'success', 'labels' => [], 'values' => []]);
-            exit;
+            send_response('success', '', ['labels' => [], 'values' => []]);
         }
 
         $where = $assistant_id ? "assistant_id = " . intval($assistant_id) : "assistant_id IS NULL";
