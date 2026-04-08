@@ -2938,8 +2938,8 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
                                 <td>
                                     <div class="actions">
                                         <button class="btn btn-sm" onclick="previewCampaign(${JSON.stringify(c).replace(/"/g, '&quot;')})" title="Vista Previa"><i class="fa-solid fa-eye"></i></button>
-                                        ${c.status === 'pending' ? `<button class="btn btn-sm btn-success" onclick="sendCampaign(${c.id})" title="Enviar ahora"><i class="fa-solid fa-paper-plane"></i></button>` : ''}
-                                        <button class="btn btn-sm btn-danger" onclick="deleteCampaign(${c.id})"><i class="fa-solid fa-trash"></i></button>
+                                        ${c.status === 'pending' ? `<button class="btn btn-sm btn-success" onclick="sendCampaign(${c.id}, this)" title="Enviar ahora"><i class="fa-solid fa-paper-plane"></i></button>` : ''}
+                                        <button class="btn btn-sm btn-danger" onclick="deleteCampaign(${c.id})" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
                                     </div>
                                 </td>
                             </tr>
@@ -2956,7 +2956,7 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
             });
         }
 
-        function sendCampaign(id) {
+        function sendCampaign(id, btnElement = null) {
             if (!currentAssistantId) {
                 showToast('Debes seleccionar un asistente (vincular WhatsApp) para realizar el envío.', 'warning');
                 return;
@@ -2964,9 +2964,9 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
             
             if (!confirm('¿Confirmas el envío masivo de esta campaña por WhatsApp?')) return;
 
-            var b = window.event ? window.event.currentTarget : null;
+            var b = btnElement;
             var originalHtml = "";
-            if (b && b.innerHTML) {
+            if (b) {
                 originalHtml = b.innerHTML;
                 b.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
                 b.disabled = true;
@@ -3670,7 +3670,7 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
                         let icon = isFolder ? '<i class="fa-solid fa-folder" style="color:#f59e0b"></i>' : '<i class="fa-brands fa-google-drive" style="color:#4285F4"></i>';
                         let actionBtn = isFolder
                             ? `<button class="btn btn-outline btn-sm" onclick="loadDriveFiles('${f.id}', '${f.name}')"><i class="fa-solid fa-folder-open"></i> Abrir</button>`
-                            : `<button class="btn btn-outline btn-sm" onclick="syncDriveFile('${f.id}', '${f.name}', '${f.mimeType}')"><i class="fa-solid fa-cloud-arrow-down"></i> Sincronizar</button>`;
+                            : `<button class="btn btn-outline btn-sm" onclick="syncDriveFile('${f.id}', '${f.name}', '${f.mimeType}', this)"><i class="fa-solid fa-cloud-arrow-down"></i> Sincronizar</button>`;
 
                         html += `<tr>
                              <td>${icon} <b>${f.name}</b></td>
@@ -3685,14 +3685,14 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
             }, 'json');
         }
 
-        function syncDriveFile(fileId, fileName, mimeType) {
+        function syncDriveFile(fileId, fileName, mimeType, btnElement = null) {
             if (!currentAssistantId) {
                 alert("Primero selecciona un Asistente en la parte superior ('Asistente Activo') al cual quieres sincronizar este archivo, o entra a un asistente específico.");
                 return;
             }
             let cid = getClientIdForAPI();
             if (confirm(`¿Sincronizar "${fileName}" al Asistente actual? (Esto creará una nueva Fuente de Información)`)) {
-                let btn = $(event.currentTarget);
+                let btn = $(btnElement);
                 let originalText = btn.html();
                 btn.html('<i class="fa-solid fa-spinner fa-spin"></i> Sincronizando...').prop('disabled', true);
 
