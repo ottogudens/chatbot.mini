@@ -195,12 +195,30 @@ if ($matched === 0 && (!empty($clean_msg) || $has_audio)) {
             $reply = str_replace('[HANDOVER]', '', $reply);
             $flowManager->pause(7200); // Pause for 2 hours
             
-            // Notify authorized agents
+            // Notify authorized agents via real WhatsApp message
             $agents = $flowManager->getAuthorizedAgents();
+            
+            // Get assistant name for better notification
+            $ast_name = "Asistente #$ast_id";
+            $stmt_ast = mysqli_prepare($conn, "SELECT name FROM assistants WHERE id = ?");
+            if ($stmt_ast) {
+                mysqli_stmt_bind_param($stmt_ast, "i", $ast_id);
+                mysqli_stmt_execute($stmt_ast);
+                $res_ast = mysqli_stmt_get_result($stmt_ast);
+                if ($row_ast = mysqli_fetch_assoc($res_ast)) {
+                    $ast_name = $row_ast['name'];
+                }
+            }
+
+            $notify_text = "🚨 *NOTIFICACIÓN DE TRASPASO*\n\n" .
+                          "El usuario *$remote_jid* requiere atención humana en el chat de:\n" .
+                          "🤖 *Asistente:* $ast_name\n\n" .
+                          "El bot ha sido pausado por 2 horas para este usuario. Por favor, atiende la solicitud lo antes posible.";
+
+            require_once 'whatsapp_helper.php';
             foreach ($agents as $agent_phone) {
-                // In a real scenario, we'd trigger a WhatsApp message to the agent here
-                // For now, let's log the notification
                 error_log("HANDOVER NOTIFICATION: User $remote_jid requires attention. Notifying agent $agent_phone.");
+                send_whatsapp_message($ast_id, $agent_phone, $notify_text);
             }
         }
     }

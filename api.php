@@ -1,6 +1,7 @@
 <?php
 require 'db.php';
 require 'auth.php';
+require_once 'whatsapp_helper.php';
 header('Content-Type: application/json');
 
 
@@ -509,31 +510,14 @@ switch ($action) {
         $baseUrl = (empty($_SERVER['HTTPS']) ? 'http' : 'https') . "://" . $_SERVER['HTTP_HOST'] . "/";
         
         foreach ($leads as $phone) {
-            $ch = curl_init(WHATSAPP_API_URL . "/send/" . intval($assistant_id));
-            $payload_data = [
-                'to' => $phone, 
-                'text' => $campaign['message']
-            ];
+            $mediaUrl = !empty($campaign['attachment_url']) ? ($baseUrl . $campaign['attachment_url']) : null;
+            $res = send_whatsapp_message($assistant_id, $phone, $campaign['message'], $mediaUrl, $campaign['attachment_type'] ?? 'document');
             
-            if (!empty($campaign['attachment_url'])) {
-                $payload_data['mediaUrl'] = $baseUrl . $campaign['attachment_url'];
-                $payload_data['mediaType'] = $campaign['attachment_type'];
-            }
-
-            $payload = json_encode($payload_data);
-            curl_setopt($ch, CURLOPT_POST, 1);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-            $res = curl_exec($ch);
-            $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            if (!curl_errno($ch) && $http_code === 200) {
+            if ($res['status'] === 'success') {
                 $success_count++;
             } else {
                 $error_count++;
             }
-            curl_close($ch);
             usleep(500000); // 0.5s delay
         }
 
