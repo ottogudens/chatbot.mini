@@ -99,7 +99,7 @@ class AIHandler
     /**
      * Fetch the last N conversation turns for context.
      */
-    private function loadHistory(int $limit = 5): array
+    private function loadHistory(int $limit = 10): array
     {
         $stmt = mysqli_prepare(
             $this->conn,

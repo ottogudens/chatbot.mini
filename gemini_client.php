@@ -273,12 +273,19 @@ class GeminiClient
                 "parts" => [["text" => $system_prompt]]
             ],
             "contents" => $contents,
+            "safetySettings" => [
+                ["category" => "HATE_SPEECH", "threshold" => "BLOCK_NONE"],
+                ["category" => "HARASSMENT", "threshold" => "BLOCK_NONE"],
+                ["category" => "SEXUALLY_EXPLICIT", "threshold" => "BLOCK_NONE"],
+                ["category" => "DANGEROUS_CONTENT", "threshold" => "BLOCK_NONE"]
+            ],
             "generationConfig" => array_filter([
                 "temperature" => (float) $temperature,
                 "maxOutputTokens" => (int) $max_tokens,
+                "responseMimeType" => $config['response_mime_type'] ?? "text/plain",
                 // Disable extended thinking for thinking models so tools/function calling work correctly
                 "thinkingConfig" => $this->is_thinking_model($model) ? ["thinkingBudget" => 0] : null,
-            ], fn($v) => $v !== null)
+            ], function($v) { return $v !== null; })
         ];
 
         if ($use_tools) {
@@ -441,26 +448,16 @@ class GeminiClient
 
         $response = $this->get_response($prompt, [], "Eres un analista de formularios y extractor de datos variables.", "", [
             ['uri' => $file_uri, 'mime_type' => $mime_type]
-        ], null, [], false);
+        ], null, ['response_mime_type' => 'application/json'], false);
 
         if (is_array($response) && $response['type'] === 'function_call') {
-            // Should not happen with this prompt, but handle just in case
             return [];
         }
 
-        // Extract JSON from response (Gemini might wrap it in markdown or add commentary)
         $clean_response = is_string($response) ? trim($response) : '';
-        
-        // Try to find the first [ and the last ]
-        $first_bracket = strpos($clean_response, '[');
-        $last_bracket = strrpos($clean_response, ']');
-        
-        if ($first_bracket !== false && $last_bracket !== false && $last_bracket > $first_bracket) {
-            $json_str = substr($clean_response, $first_bracket, $last_bracket - $first_bracket + 1);
-            $json = json_decode($json_str, true);
-            if (is_array($json)) {
-                return $json;
-            }
+        $json = json_decode($clean_response, true);
+        if (is_array($json)) {
+            return $json;
         }
 
         if (!empty($clean_response)) {
