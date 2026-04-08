@@ -200,7 +200,7 @@ if ($matched === 0 && (!empty($clean_msg) || $has_audio)) {
             foreach ($agents as $agent_phone) {
                 // In a real scenario, we'd trigger a WhatsApp message to the agent here
                 // For now, let's log the notification
-                error_log("HANDOVER NOTIVICATION: User $remote_jid requires attention. Notifying agent $agent_phone.");
+                error_log("HANDOVER NOTIFICATION: User $remote_jid requires attention. Notifying agent $agent_phone.");
             }
         }
     }
