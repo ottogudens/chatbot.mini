@@ -3359,17 +3359,17 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
         }
 
         function reloadAssistantDependantViews() {
-            loadStats();
-            initChart();
-            loadInfoSources();
-            loadRules();
-            syncVoiceToggleState();
-            loadLogs();
-            loadLeads();
-            loadCalendarSettings();
-            reloadWhatsAppIntegration();
-            loadAppointments();
-            loadGeneratedDocs();
+            try { loadStats(); } catch(e) { console.error("Error loading stats", e); }
+            try { initChart(); } catch(e) { console.error("Error init chart", e); }
+            try { loadInfoSources(); } catch(e) { console.error("Error loading sources", e); }
+            try { loadRules(); } catch(e) { console.error("Error loading rules", e); }
+            try { syncVoiceToggleState(); } catch(e) { console.error("Error sync voice", e); }
+            try { loadLogs(); } catch(e) { console.error("Error loading logs", e); }
+            try { loadLeads(); } catch(e) { console.error("Error loading leads", e); }
+            try { loadCalendarSettings(); } catch(e) { console.error("Error loading calendar settings", e); }
+            try { reloadWhatsAppIntegration(); } catch(e) { console.error("Error reload whatsapp", e); }
+            try { loadAppointments(); } catch(e) { console.error("Error loading appointments", e); }
+            try { loadGeneratedDocs(); } catch(e) { console.error("Error loading docs", e); }
         }
 
         function syncVoiceToggleState() {
@@ -4193,11 +4193,12 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
             $.get(u, function (res) {
                 if (res.status === 'success') {
                     let html = '';
-                    res.data.forEach(function(l) {
+                    let logs = (res.data && res.data.data) ? res.data.data : (Array.isArray(res.data) ? res.data : []);
+                    logs.forEach(function(l) {
                         let status = l.matched == 1 ? '<span class="badge success"><i class="fa-solid fa-check"></i> OK</span>' : '<span class="badge failed"><i class="fa-solid fa-xmark"></i> Fail</span>';
-                        html += `<tr><td style="font-size:12px">${l.created_at}</td><td>${l.user_message}</td><td style="max-width:400px; font-size:12px">${l.bot_reply.substring(0, 80)}...</td><td>${status}</td></tr>`;
+                        html += `<tr><td style="font-size:12px; white-space:nowrap">${l.created_at}</td><td>${escapeHtml(l.user_message)}</td><td style="max-width:400px; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap" title="${escapeHtml(l.bot_reply)}">${escapeHtml(l.bot_reply ? l.bot_reply.substring(0, 80) : '')}${l.bot_reply && l.bot_reply.length > 80 ? '...' : ''}</td><td>${status}</td></tr>`;
                     });
-                    $('#logs-table tbody').html(html || '<tr><td colspan="4" style="text-align:center;">No hay interacciones registradas.</td></tr>');
+                    $('#logs-table tbody').html(html || '<tr><td colspan="4" style="text-align:center; padding:20px; color:var(--text-muted);">No hay interacciones registradas aún.</td></tr>');
                 }
             }, 'json');
         }
