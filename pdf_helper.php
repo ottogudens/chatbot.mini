@@ -117,13 +117,15 @@ class PDFHelper
                         return $this->generate_from_config($config, $data, $client_id, $assistant_id, $template_id);
                     }
                 }
-                $template_path = __DIR__ . '/' . $row['file_path'];
+                // Sanitize DB-provided path
+                $template_path = __DIR__ . '/' . ltrim($row['file_path'], './');
             } else {
                 return ["error" => "Template DB ID not found: $template_id"];
             }
         } else {
-            // Static template
-            $template_path = $this->templates_dir . $template_id;
+            // Static template — STRONGLY SANITIZE to avoid Path Traversal
+            $safe_template_id = basename($template_id);
+            $template_path = $this->templates_dir . $safe_template_id;
         }
 
         if (!file_exists($template_path)) {

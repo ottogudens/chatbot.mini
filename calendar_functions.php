@@ -3,7 +3,8 @@ require_once 'db.php';
 
 function get_calendar_token($conn, $client_id)
 {
-    $stmt = mysqli_prepare($conn, "SELECT access_token, refresh_token, expires_at FROM client_integrations WHERE client_id = ? AND provider = 'google_drive'");
+    // Try google_drive first (legacy), or just google
+    $stmt = mysqli_prepare($conn, "SELECT access_token, refresh_token, expires_at FROM client_integrations WHERE client_id = ? AND provider IN ('google_drive', 'google_calendar', 'google') ORDER BY (provider = 'google_calendar') DESC LIMIT 1");
     mysqli_stmt_bind_param($stmt, "i", $client_id);
     mysqli_stmt_execute($stmt);
     $res = mysqli_stmt_get_result($stmt);

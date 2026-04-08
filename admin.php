@@ -4220,27 +4220,32 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
                                 for (let key in cd) captured += `<small><b>${key}:</b> ${cd[key]}</small><br>`;
                             } catch (e) { captured = l.captured_data; }
                         }
-                        let statusBadge = `<span class="badge" style="background:var(--primary); color:white;">${l.status}</span>`;
-                        if (l.status === 'nuevo') statusBadge = `<span class="badge" style="background:#3b82f6;">Nuevo</span>`;
-                        if (l.status === 'cerrado') statusBadge = `<span class="badge" style="background:#10b981;">Cerrado</span>`;
-                        if (l.status === 'descartado') statusBadge = `<span class="badge" style="background:#ef4444;">Descartado</span>`;
+                        
+                        let statusBadge = `<span class="badge" style="background:#6b7280; color:white;">${l.status}</span>`;
+                        if (l.status === 'nuevo') statusBadge = `<span class="badge" style="background:rgba(59,130,246,0.2); color:#3b82f6; border:1px solid rgba(59,130,246,0.3);">Nuevo</span>`;
+                        if (l.status === 'contactado') statusBadge = `<span class="badge" style="background:rgba(245,158,11,0.2); color:#f59e0b; border:1px solid rgba(245,158,11,0.3);">Contactado</span>`;
+                        if (l.status === 'ganado' || l.status === 'cerrado') statusBadge = `<span class="badge" style="background:rgba(16,185,129,0.2); color:#10b981; border:1px solid rgba(16,185,129,0.3);">Ganado</span>`;
+                        if (l.status === 'perdido' || l.status === 'descartado') statusBadge = `<span class="badge" style="background:rgba(239,68,68,0.2); color:#ef4444; border:1px solid rgba(239,68,68,0.3);">Perdido</span>`;
+                        if (l.status === 'cita') statusBadge = `<span class="badge" style="background:rgba(139,92,246,0.2); color:#8b5cf6; border:1px solid rgba(139,92,246,0.3);">Cita</span>`;
 
                         html += `<tr>
                             <td><input type="checkbox" class="lead-checkbox" value="${l.id}"></td>
                             <td>#${l.id}</td>
-                            <td><span style="font-size:11px;">${l.assistant_name || 'N/A'}</span></td>
-                            <td><b>${l.name || 'S/N'}</b></td>
-                            <td style="font-size:13px;">${contact || 'Sin contacto'}</td>
+                            <td><span style="font-size:11px; white-space:nowrap;">${l.assistant_name || 'N/A'}</span></td>
+                            <td><b>${escapeHtml(l.name || 'S/N')}</b></td>
+                            <td style="font-size:13px; white-space:nowrap;">${contact || 'Sin contacto'}</td>
                             <td>${statusBadge}</td>
-                            <td style="font-size:12px; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${l.notes || ''}</td>
+                            <td style="font-size:12px; max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(l.notes || '')}">${escapeHtml(l.notes || '')}</td>
                             <td><span style="font-size:11px;">${l.created_at}</span></td>
                             <td>
-                                <button class="btn btn-outline btn-sm" onclick='editLead(${JSON.stringify(l).replace(/'/g, "&#39;")})'><i class="fa-solid fa-pen"></i></button>
-                                <button class="btn btn-danger btn-sm" onclick="deleteLead(${l.id})"><i class="fa-solid fa-trash"></i></button>
+                                <div class="actions">
+                                    <button class="btn btn-outline btn-sm" onclick='editLead(${JSON.stringify(l).replace(/'/g, "&apos;")})'><i class="fa-solid fa-pen"></i></button>
+                                    <button class="btn btn-danger btn-sm" onclick="deleteLead(${l.id})"><i class="fa-solid fa-trash"></i></button>
+                                </div>
                             </td>
                         </tr>`;
                     });
-                    $('#leads-table tbody').html(html || '<tr><td colspan="8" style="text-align:center;">No hay prospectos capturados.</td></tr>');
+                    $('#leads-table tbody').html(html || '<tr><td colspan="9" style="text-align:center; padding:30px; color:var(--text-muted);">No hay prospectos capturados aún.</td></tr>');
                 }
             }, 'json');
         }
