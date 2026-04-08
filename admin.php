@@ -1568,8 +1568,14 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
               };
 
               window.ceSwitchTab = function(idx) {
-                document.querySelectorAll('#canvas-editor-modal .ce-tab').forEach((t,i) => t.classList.toggle('active', i===idx));
-                document.querySelectorAll('#canvas-editor-modal .ce-section').forEach((s,i) => s.classList.toggle('active', i===idx));
+                  var tabs = document.querySelectorAll('#canvas-editor-modal .ce-tab');
+                  var sections = document.querySelectorAll('#canvas-editor-modal .ce-section');
+                  for (var i = 0; i < tabs.length; i++) {
+                      tabs[i].classList.toggle('active', i === idx);
+                  }
+                  for (var j = 0; j < sections.length; j++) {
+                      sections[j].classList.toggle('active', j === idx);
+                  }
               };
 
               window.ceAddSection = function(type) {
@@ -1585,7 +1591,7 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
               window.ceRenderSections = function() {
                 const el = document.getElementById('ce-sections-list');
                 el.innerHTML = '';
-                _ceState.sections.forEach(function((sec, idx)) {
+                _ceState.sections.forEach(function(sec, idx) {
                   const meta = sectionMeta[sec.type] || { icon: 'fa-file', label: sec.type, color: '#888' };
                   const div = document.createElement('div');
                   div.className = 'section-block';
@@ -1599,7 +1605,7 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
                     extraHtml = `<label style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:8px;display:flex;align-items:center;gap:8px;"><input type="checkbox" ${sec.show_totals?'checked':''} onchange="_ceState.sections[${idx}].show_totals=this.checked"> Mostrar totales</label><label style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:6px;display:flex;align-items:center;gap:8px;">IVA% <input type="number" value="${sec.tax_rate||0}" min="0" max="100" oninput="_ceState.sections[${idx}].tax_rate=parseFloat(this.value)" style="width:60px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#fff;padding:4px 8px;"></label>`;
                   }
                   if (sec.type === 'checklist') {
-                    const items = (sec.items||[]).map((it,ii) => `<div class="checklist-item"><input value="${it.label}" placeholder="Ítem a verificar" oninput="_ceState.sections[${idx}].items[${ii}].label=this.value;_ceState.sections[${idx}].items[${ii}].key=this.value.toLowerCase().replace(/\\s+/g,'_')" ><button onclick="_ceState.sections[${idx}].items.splice(${ii},1);ceRenderSections()" style="background:none;border:none;color:#ef4444;cursor:pointer;"><i class="fa-solid fa-times"></i></button></div>`).join('');
+                    const items = (sec.items||[]).map(function(it,ii) { return `<div class="checklist-item"><input value="${it.label}" placeholder="Ítem a verificar" oninput="_ceState.sections[${idx}].items[${ii}].label=this.value;_ceState.sections[${idx}].items[${ii}].key=this.value.toLowerCase().replace(/\\s+/g,'_')" ><button onclick="_ceState.sections[${idx}].items.splice(${ii},1);ceRenderSections()" style="background:none;border:none;color:#ef4444;cursor:pointer;"><i class="fa-solid fa-times"></i></button></div>`; }).join('');
                     extraHtml = `<div style="margin-top:8px;">${items}</div><button onclick="_ceState.sections[${idx}].items=(_ceState.sections[${idx}].items||[]);_ceState.sections[${idx}].items.push({key:'nuevo',label:'Nuevo ítem'});ceRenderSections()" style="background:none;border:1px dashed rgba(255,255,255,0.3);color:rgba(255,255,255,0.6);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;margin-top:6px;"><i class="fa-solid fa-plus"></i> Agregar ítem</button>`;
                   }
                   if (sec.type === 'client_info' || sec.type === 'vehicle_info' || sec.type === 'general_info') {
@@ -1614,9 +1620,9 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
 
               function ceLinkSectionFields() {
                 // Automatically link defined fields to the first client_info / vehicle_info / general_info section
-                const clientFields = _ceState.fields.filter(f => f.section === 'client_info' || !f.section).map(f => f.name);
-                const vehicleFields = _ceState.fields.filter(f => f.section === 'vehicle_info').map(f => f.name);
-                _ceState.sections.forEach(function((sec, idx)) {
+                const clientFields = _ceState.fields.filter(function(f) { return f.section === 'client_info' || !f.section; }).map(function(f) { return f.name; });
+                const vehicleFields = _ceState.fields.filter(function(f) { return f.section === 'vehicle_info'; }).map(function(f) { return f.name; });
+                _ceState.sections.forEach(function(sec, idx) {
                   if (sec.type === 'client_info') _ceState.sections[idx].fields = clientFields;
                   if (sec.type === 'vehicle_info') _ceState.sections[idx].fields = vehicleFields;
                   if (sec.type === 'general_info') _ceState.sections[idx].fields = _ceState.fields.map(function(f) { return f.name; });
@@ -1635,7 +1641,7 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
                   el.innerHTML = '<div style="color:rgba(255,255,255,0.4);font-size:13px;padding:20px;">Sin campos definidos. Agrega campos para que la IA sepa qué datos solicitar.</div>';
                   return;
                 }
-                _ceState.fields.forEach(function((f, idx)) {
+                _ceState.fields.forEach(function(f, idx) {
                   const row = document.createElement('div');
                   row.className = 'field-row';
                   row.innerHTML = `
@@ -1809,7 +1815,7 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
               // Allow editing existing canvas template from the card
               window.openCanvasEditorTemplate = function(tplId) {
                 $.get('api.php?action=pdf_templates_list', function(res) {
-                  const tpl = (res.data||[]).find(t => String(t.id) === String(tplId));
+                  const tpl = (res.data||[]).find(function(t) { return String(t.id) === String(tplId); });
                   if (tpl) openCanvasEditor(tpl);
                 }, 'json');
               };
@@ -3057,7 +3063,7 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
 
         function deleteFlow(id) {
             if (!confirm('\u00bfSeguro que quieres eliminar este flujo y todos sus pasos?')) return;
-            $.post('api.php?action=flows_delete', { id }, function(res) {
+            $.post('api.php?action=flows_delete', { id: id }, function(res) {
                 if (res.status === 'success') loadFlows();
             });
         }
@@ -3072,12 +3078,12 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
             $('#flow-steps-container').html('<div style=\"text-align:center; padding:20px;\"><i class=\"fa-solid fa-spinner fa-spin\"></i> Cargando pasos...</div>');
             $('#flow-builder-modal').fadeIn(200).css('display','flex');
             
-            $.get(`api.php?action=flows_steps_list&flow_id=${id}`, function(res) {
+            $.get('api.php?action=flows_steps_list&flow_id=' + id, function(res) {
                 if (res.status === 'success') {
-                    currentFlowSteps = res.data.map(s => ({
-                        ...s,
-                        interactive_config: s.interactive_config ? JSON.parse(s.interactive_config) : { interactive: { buttons: [] }, branches: {} }
-                    }));
+                    currentFlowSteps = res.data.map(function(s) {
+                        var config = s.interactive_config ? JSON.parse(s.interactive_config) : { interactive: { buttons: [] }, branches: {} };
+                        return $.extend({}, s, { interactive_config: config });
+                    });
                     renderFlowSteps();
                 }
             });
@@ -3101,7 +3107,7 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
                 return;
             }
 
-            currentFlowSteps.forEach(function((s, idx)) {
+            currentFlowSteps.forEach(function(s, idx) {
                 const isInteractive = s.step_type !== 'text';
                 let interactiveHtml = '';
 
@@ -3111,13 +3117,13 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
                         <div style=\"margin-top:10px; padding:10px; background:rgba(0,0,0,0.2); border-radius:8px;\">
                             <label style=\"font-size:11px; color:var(--primary);\">BOTONES (M\u00e1x 3)</label>
                             <div style=\"display:flex; flex-direction:column; gap:8px; margin-top:8px;\">
-                                ${buttons.map((b, bi) => `
+                                ${buttons.map(function(b, bi) { return `
                                     <div style=\"display:flex; gap:8px;\">
                                         <input type=\"text\" placeholder=\"ID\" style=\"width:80px;\" value=\"${b.buttonId}\" oninput=\"currentFlowSteps[${idx}].interactive_config.interactive.buttons[${bi}].buttonId=this.value\">
                                         <input type=\"text\" placeholder=\"Texto del Bot\u00f3n\" style=\"flex:1;\" value=\"${b.buttonText.displayText}\" oninput=\"currentFlowSteps[${idx}].interactive_config.interactive.buttons[${bi}].buttonText.displayText=this.value\">
                                         <button class=\"btn btn-sm btn-danger\" onclick=\"currentFlowSteps[${idx}].interactive_config.interactive.buttons.splice(${bi},1);renderFlowSteps()\"><i class=\"fa-solid fa-times\"></i></button>
                                     </div>
-                                `).join('')}
+                                `; }).join('')}
                                 ${buttons.length < 3 ? `<button class=\"btn btn-sm btn-outline\" onclick=\"currentFlowSteps[${idx}].interactive_config.interactive.buttons.push({buttonId:'id_'+Date.now(), buttonText:{displayText:'Opci\u00f3n'}});renderFlowSteps()\">+ Agregar Bot\u00f3n</button>` : ''}
                             </div>
                         </div>
@@ -3327,7 +3333,7 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
                 return;
             }
             $('#voice-settings-panel').css('opacity', '1').css('pointer-events', 'auto');
-            const ast = assistantsCache.find(a => a.id == currentAssistantId);
+            const ast = assistantsCache.find(function(a) { return a.id == currentAssistantId; });
             if (ast) {
                 const isEnabled = ast.voice_enabled == 1;
                 $('#integration-voice-toggle').prop('checked', isEnabled);
@@ -3337,7 +3343,7 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
 
         function toggleVoiceFromIntegration(enabled) {
             if (!currentAssistantId) return;
-            const ast = assistantsCache.find(a => a.id == currentAssistantId);
+            const ast = assistantsCache.find(function(a) { return a.id == currentAssistantId; });
             if (!ast) return;
 
             // Prepare save data (reuse assistant update logic)
@@ -4312,7 +4318,7 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
                 const fields = (t.placeholders || []);
                 const visFields = fields.slice(0, 5);
                 const extraCount = fields.length - visFields.length;
-                let tagsHtml = visFields.map(p => `<span class="tpl-field-tag">{{${p}}}</span>`).join('');
+                let tagsHtml = visFields.map(function(p) { return `<span class="tpl-field-tag">{{${p}}}</span>`; }).join('');
                 if (extraCount > 0) tagsHtml += `<span class="tpl-field-tag more">+${extraCount} más</span>`;
                 if (!fields.length) tagsHtml = '<small style="color:var(--text-muted);font-size:11px;">Sin campos detectados</small>';
 
@@ -4359,7 +4365,7 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
             const search = $('#tpl-search').val().toLowerCase().trim();
             const type   = $('#tpl-filter-type').val().toLowerCase();
             const source = $('#tpl-filter-source').val();
-            const filtered = _tplData.filter(t => {
+            const filtered = _tplData.filter(function(t) {
                 const name  = (t.name || '').toLowerCase();
                 const ext   = String(t.id).split('.').pop().toLowerCase();
                 const matchName   = !search || name.includes(search);
@@ -4456,7 +4462,7 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
                         if (!res.detected_fields || res.detected_fields.length === 0) {
                             $('#placeholder-tags').html('<p style="color:var(--text-muted); font-size:13px; font-style:italic; margin-bottom:10px;">No se detectaron campos automáticamente. Puedes agregarlos manualmente abajo con el botón (+).</p>');
                         } else {
-                            res.detected_fields.forEach(f => addFieldTag(f));
+                            res.detected_fields.forEach(function(f) { addFieldTag(f); });
                         }
                         $('#pdf-template-step-1').hide();
                         $('#pdf-template-step-2').show();
