@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["php83", "nginx", "nodejs_20", "ffmpeg", "cacert"]
+nixPkgs = ["php83", "nginx", "nodejs_20", "ffmpeg"]
 
 [phases.install]
 cmds = [
