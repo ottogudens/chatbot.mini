@@ -40,7 +40,7 @@ http {
         }
         
         # Block internal core logic and migration files
-        location ~ ^/(db|auth|check_schema|migrate|AIHandler|ChatbotRouter|FlowManager|calendar_functions|gemini_client|pdf_helper|models)\.php$ {
+        location ~ ^/(db|check_schema|migrate|AIHandler|ChatbotRouter|FlowManager|calendar_functions|gemini_client|pdf_helper|models)\.php$ {
             deny all;
             return 404;
         }
