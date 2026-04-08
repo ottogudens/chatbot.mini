@@ -2926,15 +2926,18 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
                         else if (c.status === 'sent') statusHtml = '<span class="status-badge status-online">Enviada</span>';
                         else statusHtml = '<span class="status-badge status-error">Error</span>';
 
+                        const snippet = c.message ? (c.message.length > 40 ? c.message.substring(0, 40) + '...' : c.message) : '---';
                         tbody.append(`
                             <tr>
                                 <td>${c.id}</td>
                                 <td><b>${escapeHtml(c.name)}</b></td>
+                                <td style="font-size:11px; color:var(--text-muted);">${escapeHtml(snippet)}</td>
                                 <td>${targetLabel}</td>
                                 <td>${statusHtml}</td>
                                 <td>${escapeHtml(c.sent_at || '---')}</td>
                                 <td>
                                     <div class="actions">
+                                        <button class="btn btn-sm" onclick="previewCampaign(${JSON.stringify(c).replace(/"/g, '&quot;')})" title="Vista Previa"><i class="fa-solid fa-eye"></i></button>
                                         ${c.status === 'pending' ? `<button class="btn btn-sm btn-success" onclick="sendCampaign(${c.id})" title="Enviar ahora"><i class="fa-solid fa-paper-plane"></i></button>` : ''}
                                         <button class="btn btn-sm btn-danger" onclick="deleteCampaign(${c.id})"><i class="fa-solid fa-trash"></i></button>
                                     </div>
@@ -2959,8 +2962,6 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
                 return;
             }
             
-            var selectedLeads = [];
-
             if (!confirm('¿Confirmas el envío masivo de esta campaña por WhatsApp?')) return;
 
             var b = window.event ? window.event.currentTarget : null;
@@ -2974,7 +2975,6 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
             $.post('api.php?action=campaigns_send', {
                 "id": id,
                 "assistant_id": currentAssistantId,
-                "lead_ids": selectedLeads.join(","),
                 "csrf_token": CSRF_TOKEN
             }, function(res) {
                 if (b) {
@@ -2982,12 +2982,39 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
                     b.disabled = false;
                 }
                 if (res.status === 'success') {
-                    showToast(res.sent + ' mensajes enviados. Errores: ' + res.failed, res.failed > 0 ? 'warning' : 'success');
+                    showToast(res.data.sent + ' mensajes enviados. Errores: ' + res.data.failed, res.data.failed > 0 ? 'warning' : 'success');
                     loadCampaigns();
                 } else {
                     showToast(res.message || 'Error al enviar campaña', 'error');
                 }
             }, 'json');
+        }
+
+        function previewCampaign(c) {
+            let mediaHtml = '';
+            if (c.attachment_url) {
+                if (c.attachment_type === 'image') {
+                    mediaHtml = '<img src="' + c.attachment_url + '" style="max-width:100%; border-radius:8px; margin-bottom:15px; border:1px solid rgba(255,255,255,0.1);">';
+                } else {
+                    mediaHtml = '<div style="padding:15px; background:rgba(255,255,255,0.05); border-radius:8px; margin-bottom:15px; display:flex; align-items:center; gap:10px;"><i class="fa-solid fa-file-pdf" style="font-size:24px; color:#ef4444;"></i> Documento Adjunto</div>';
+                }
+            }
+            
+            const html = '<div style="text-align:left;">' + mediaHtml + '<div style="white-space:pre-wrap; color:rgba(255,255,255,0.9); font-size:14px; line-height:1.6; background:rgba(0,0,0,0.2); padding:15px; border-radius:8px;">' + escapeHtml(c.message) + '</div></div>';
+            
+            Swal.fire({
+                title: 'Vista Previa: ' + c.name,
+                html: html,
+                background: '#121212',
+                color: '#fff',
+                confirmButtonColor: 'var(--primary)',
+                confirmButtonText: 'Cerrar',
+                width: '500px',
+                customClass: {
+                    container: 'premium-swal-container',
+                    popup: 'premium-dark-card'
+                }
+            });
         }
 
         // --- Lead Selection Logic ---

@@ -498,6 +498,10 @@ switch ($action) {
         }
 
         if (empty($leads)) send_response('error', 'No hay destinatarios válidos seleccionados');
+        
+        // Optimize for long execution
+        set_time_limit(0);
+        ignore_user_abort(true);
 
         // 2. Sending Loop (via Proxy to whatsapp.js)
         $success_count = 0;
@@ -529,6 +533,8 @@ switch ($action) {
             } else {
                 $error_count++;
             }
+            curl_close($ch);
+            usleep(500000); // 0.5s delay
         }
 
         $new_status = ($error_count === 0) ? 'sent' : 'error';
