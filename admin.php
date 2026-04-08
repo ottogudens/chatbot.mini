@@ -4283,11 +4283,11 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
             let u = 'api.php?action=stats';
             if (currentAssistantId) u += '&assistant_id=' + currentAssistantId;
             $.get(u, function (res) {
-                if (res.status === 'success') {
+                if (res && res.status === 'success' && res.data) {
                     $('#stats-container').html(
-                        '<div class="card"><div class="card-icon"><i class="fa-solid fa-book-open"></i></div><div class="card-info"><h3>' + res.data.total_rules + '</h3><p>Reglas / Contexto</p></div></div>' +
-                        '<div class="card"><div class="card-icon"><i class="fa-solid fa-comments"></i></div><div class="card-info"><h3>' + res.data.total_interactions + '</h3><p>Interacciones</p></div></div>' +
-                        '<div class="card"><div class="card-icon"><i class="fa-solid fa-bullseye"></i></div><div class="card-info"><h3>' + res.data.accuracy + '%</h3><p>Precisión</p></div></div>'
+                        '<div class="card"><div class="card-icon"><i class="fa-solid fa-book-open"></i></div><div class="card-info"><h3>' + (res.data.total_rules || 0) + '</h3><p>Reglas / Contexto</p></div></div>' +
+                        '<div class="card"><div class="card-icon"><i class="fa-solid fa-comments"></i></div><div class="card-info"><h3>' + (res.data.total_interactions || 0) + '</h3><p>Interacciones</p></div></div>' +
+                        '<div class="card"><div class="card-icon"><i class="fa-solid fa-bullseye"></i></div><div class="card-info"><h3>' + (res.data.accuracy || 0) + '%</h3><p>Precisión</p></div></div>'
                     );
                 } else {
                     $('#stats-container').html('<div class="card" style="grid-column: 1/-1; color: var(--danger);"><p><i class="fa-solid fa-triangle-exclamation"></i> Error: ' + (res.message || 'No se pudieron cargar las estadísticas') + '</p></div>');
@@ -4302,21 +4302,25 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
             let u = 'api.php?action=chart_data';
             if (currentAssistantId) u += '&assistant_id=' + currentAssistantId;
             $.get(u, function (res) {
-                if (res.status === 'success') {
-                    const canvas = document.getElementById('activityChart');
-                    if (!canvas) return;
-                    if (activityChart) activityChart.destroy();
-                    activityChart = new Chart(canvas.getContext('2d'), {
-                        type: 'line',
-                        data: {
-                            labels: res.data.labels,
-                            datasets: [{ label: 'Interacciones', data: res.data.values, borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)', borderWidth: 3, fill: true, tension: 0.4 }]
-                        },
-                        options: {
-                            responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-                            scales: { y: { beginAtZero: true, grid: { color: 'rgba(255, 255, 255, 0.05)' } }, x: { grid: { display: false } } }
-                        }
-                    });
+                try {
+                    if (res && res.status === 'success' && res.data && res.data.labels) {
+                        const canvas = document.getElementById('activityChart');
+                        if (!canvas) return;
+                        if (activityChart) activityChart.destroy();
+                        activityChart = new Chart(canvas.getContext('2d'), {
+                            type: 'line',
+                            data: {
+                                labels: res.data.labels,
+                                datasets: [{ label: 'Interacciones', data: res.data.values || [], borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)', borderWidth: 3, fill: true, tension: 0.4 }]
+                            },
+                            options: {
+                                responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+                                scales: { y: { beginAtZero: true, grid: { color: 'rgba(255, 255, 255, 0.05)' } }, x: { grid: { display: false } } }
+                            }
+                        });
+                    }
+                } catch (e) {
+                    console.error("Error initializing chart:", e);
                 }
             }, 'json').fail(function() {
                 console.warn('No se pudo cargar el gráfico de actividad.');

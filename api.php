@@ -917,9 +917,17 @@ switch ($action) {
             $q_failed = mysqli_prepare($conn, "SELECT COUNT(*) as c FROM conversation_logs WHERE assistant_id IS NULL AND matched=0");
         }
 
-        mysqli_stmt_execute($q_rules); $total_rules = mysqli_fetch_assoc(mysqli_stmt_get_result($q_rules))['c'] ?? 0;
-        mysqli_stmt_execute($q_logs); $total_logs = mysqli_fetch_assoc(mysqli_stmt_get_result($q_logs))['c'] ?? 0;
-        mysqli_stmt_execute($q_failed); $failed_matches = mysqli_fetch_assoc(mysqli_stmt_get_result($q_failed))['c'] ?? 0;
+        mysqli_stmt_execute($q_rules); 
+        $res_rules = mysqli_stmt_get_result($q_rules);
+        $total_rules = ($res_rules) ? (mysqli_fetch_assoc($res_rules)['c'] ?? 0) : 0;
+
+        mysqli_stmt_execute($q_logs); 
+        $res_logs = mysqli_stmt_get_result($q_logs);
+        $total_logs = ($res_logs) ? (mysqli_fetch_assoc($res_logs)['c'] ?? 0) : 0;
+
+        mysqli_stmt_execute($q_failed); 
+        $res_failed = mysqli_stmt_get_result($q_failed);
+        $failed_matches = ($res_failed) ? (mysqli_fetch_assoc($res_failed)['c'] ?? 0) : 0;
 
         send_response('success', '', [
             'total_rules' => (int)$total_rules,
@@ -956,9 +964,11 @@ switch ($action) {
         $labels = [];
         $values = [];
 
-        while ($row = mysqli_fetch_assoc($result)) {
-            $labels[] = date('d M', strtotime($row['date']));
-            $values[] = (int) $row['count'];
+        if ($result) {
+            while ($row = mysqli_fetch_assoc($result)) {
+                $labels[] = date('d M', strtotime($row['date']));
+                $values[] = (int) $row['count'];
+            }
         }
 
         send_response('success', '', ['labels' => $labels, 'values' => $values]);
