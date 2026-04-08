@@ -40,6 +40,7 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         const SUPPORT_ASSISTANT_ID = <?php echo json_encode($support_assistant_id); ?>;
     </script>
@@ -3062,7 +3063,7 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
             $('#flow-id').val('');
             $('#flow-form')[0].reset();
             $('#flow-modal-title').text('Nuevo Flujo');
-            $('#flow-modal').fadeIn(200).css('display','flex');
+            $('#flow-modal').addClass('active');
         }
 
         function saveFlow(e) {
@@ -3229,7 +3230,7 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
         function openAgentModal() {
             let aid = getActiveAssistantId();
             if(!aid) { showToast('Selecciona un asistente primero', 'warning'); return; }
-            $('#agent-modal').fadeIn(200).css('display','flex');
+            $('#agent-modal').addClass('active');
         }
 
         function saveAgent(e) {
@@ -3366,6 +3367,8 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
             try { syncVoiceToggleState(); } catch(e) { console.error("Error sync voice", e); }
             try { loadLogs(); } catch(e) { console.error("Error loading logs", e); }
             try { loadLeads(); } catch(e) { console.error("Error loading leads", e); }
+            try { loadFlows(); } catch(e) { console.error("Error loading flows", e); }
+            try { loadAgents(); } catch(e) { console.error("Error loading agents", e); }
             try { loadCalendarSettings(); } catch(e) { console.error("Error loading calendar settings", e); }
             try { reloadWhatsAppIntegration(); } catch(e) { console.error("Error reload whatsapp", e); }
             try { loadAppointments(); } catch(e) { console.error("Error loading appointments", e); }
