@@ -2295,11 +2295,11 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
             <form onsubmit="saveAgent(event)">
                 <div class="form-group">
                     <label>Nombre del Agente</label>
-                    <input type="text" id="agent-name" required placeholder="Ej: Soporte Técnico">
+                    <input type="text" id="agent-name" name="agent_name" required placeholder="Ej: Soporte Técnico">
                 </div>
                 <div class="form-group">
                     <label>Número de WhatsApp</label>
-                    <input type="text" id="agent-phone" required placeholder="Ej: 56912345678">
+                    <input type="text" id="agent-phone" name="phone_number" required placeholder="Ej: 56912345678">
                     <p style="font-size:11px; color:var(--text-muted); margin-top:4px;">Incluye código de país sin el signo '+'.</p>
                 </div>
                 <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
@@ -3179,11 +3179,18 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
                             <tr>
                                 <td><b>${escapeHtml(a.agent_name)}</b></td>
                                 <td>+${a.phone_number}</td>
-                                <td><span class=\"status-badge status-online\">Autorizado</span></td>
                                 <td>
-                                    <button class=\"btn btn-sm btn-danger\" onclick=\"deleteAgent(${a.id})\"><i class=\"fa-solid fa-user-minus\"></i> Revocar</button>
+                                    <span class="status-badge ${a.is_active == 1 ? 'status-online' : 'status-offline'}">
+                                        ${a.is_active == 1 ? 'Activo' : 'Inactivo'}
+                                    </span>
                                 </td>
-                            </div>
+                                <td>
+                                    <button class="btn btn-sm btn-outline" onclick="toggleAgentStatus(${a.id}, ${a.is_active})">
+                                        <i class="fa-solid ${a.is_active == 1 ? 'fa-pause' : 'fa-play'}"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" onclick="deleteAgent(${a.id})"><i class="fa-solid fa-user-minus"></i></button>
+                                </td>
+                            </tr>
                         `);
                     });
                 } else {
@@ -3223,8 +3230,19 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
 
         function deleteAgent(id) {
             if (!confirm('\u00bfRealmente deseas revocar la autorizaci\u00f3n de este agente? No podr\u00e1 recibir transferencias.')) return;
-            $.post('api.php?action=agents_delete', { id }, function(res) {
+            $.post('api.php?action=agents_delete', { id: id }, function(res) {
                 if (res.status === 'success') loadAgents();
+            });
+        }
+
+        function toggleAgentStatus(id, currentStatus) {
+            let nextStatus = currentStatus == 1 ? 0 : 1;
+            $.post('api.php?action=agents_toggle', { id: id, is_active: nextStatus }, function(res) {
+                if (res.status === 'success') {
+                    loadAgents();
+                } else {
+                    showToast(res.message, 'error');
+                }
             });
         }
 

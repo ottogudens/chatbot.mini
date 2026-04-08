@@ -1441,6 +1441,22 @@ switch ($action) {
         else send_response('error', 'Error al eliminar.');
         break;
 
+    case 'agents_toggle':
+        $id = $_POST['id'] ?? null;
+        $status = $_POST['is_active'] ?? 1;
+        if (!$is_superadmin) {
+            $stmt = mysqli_prepare($conn, "SELECT a.client_id FROM authorized_agents g JOIN assistants a ON g.assistant_id = a.id WHERE g.id = ?");
+            mysqli_stmt_bind_param($stmt, "i", $id);
+            mysqli_stmt_execute($stmt);
+            $r = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+            if (!$r || $r['client_id'] != $session_client_id) send_response('error', 'No autorizado');
+        }
+        $upd = mysqli_prepare($conn, "UPDATE authorized_agents SET is_active = ? WHERE id = ?");
+        mysqli_stmt_bind_param($upd, "ii", $status, $id);
+        if (mysqli_stmt_execute($upd)) send_response('success', 'Estado del agente actualizado.');
+        else send_response('error', 'Error al actualizar estado.');
+        break;
+
     case 'flows_list':
         $ast_id = $_GET['assistant_id'] ?? null;
         if (!check_ast_owner($conn, $ast_id)) send_response('error', 'No autorizado');
