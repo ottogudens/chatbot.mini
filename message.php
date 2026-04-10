@@ -11,7 +11,7 @@
 
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
 
 require 'db.php';
 require_once 'ChatbotRouter.php';
@@ -199,10 +199,11 @@ if ($matched === 0 && (!empty($clean_msg) || $has_audio)) {
             $agents = $flowManager->getAuthorizedAgents();
             
             // Get assistant name for better notification
-            $ast_name = "Asistente #$ast_id";
+            // FIX: Corregida variable $ast_id → $assistant_id (era undefined en este scope)
+            $ast_name = "Asistente #$assistant_id";
             $stmt_ast = mysqli_prepare($conn, "SELECT name FROM assistants WHERE id = ?");
             if ($stmt_ast) {
-                mysqli_stmt_bind_param($stmt_ast, "i", $ast_id);
+                mysqli_stmt_bind_param($stmt_ast, "i", $assistant_id);
                 mysqli_stmt_execute($stmt_ast);
                 $res_ast = mysqli_stmt_get_result($stmt_ast);
                 if ($row_ast = mysqli_fetch_assoc($res_ast)) {
@@ -239,19 +240,22 @@ if ($matched === 0 || $reply === null) {
 
 // ─── 8. Format & respond ─────────────────────────────────────────────────────
 
-$reply = nl2br((string) $reply);
-
+// FIX: nl2br() movido para aplicarse SOLO en la respuesta JSON al cliente.
+// El INSERT usa $reply sin HTML para mantener los logs de BD limpios (útil en exports CSV/JSON).
 $stmt = mysqli_prepare($conn,
     "INSERT INTO conversation_logs (assistant_id, user_message, bot_reply, matched) VALUES (?, ?, ?, ?)"
 );
 mysqli_stmt_bind_param($stmt, "issi", $assistant_id, $user_msg, $reply, $matched);
 mysqli_stmt_execute($stmt);
 
+// Aplicar nl2br solo al output HTML del cliente
+$reply_html = nl2br((string) $reply);
+
 echo json_encode([
-    'reply'       => $reply,
+    'reply'       => $reply_html,
     'matched'     => (bool) $matched,
     'suggestions' => $suggestions,
     'interactive' => $interactive,
     'type'        => $type,
     'timestamp'   => date('H:i'),
-]);
+], JSON_UNESCAPED_UNICODE);

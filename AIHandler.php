@@ -98,20 +98,27 @@ class AIHandler
 
     /**
      * Fetch the last N conversation turns for context.
+     * FIX: LIMIT siempre fue un int fijo, pero se interpolaba en el SQL.
+     *      Ahora se usa bind_param con el int para cumplir el estándar de prepared statements.
      */
     private function loadHistory(int $limit = 10): array
     {
+        // Clamp the limit to prevent unbounded context windows.
+        $limit = max(1, min($limit, 30));
+
         $stmt = mysqli_prepare(
             $this->conn,
             $this->assistant_id
-                ? "SELECT user_message, bot_reply FROM conversation_logs WHERE assistant_id = ? ORDER BY id DESC LIMIT $limit"
-                : "SELECT user_message, bot_reply FROM conversation_logs WHERE assistant_id IS NULL ORDER BY id DESC LIMIT $limit"
+                ? "SELECT user_message, bot_reply FROM conversation_logs WHERE assistant_id = ? ORDER BY id DESC LIMIT ?"
+                : "SELECT user_message, bot_reply FROM conversation_logs WHERE assistant_id IS NULL ORDER BY id DESC LIMIT ?"
         );
 
         $history = [];
         if ($stmt) {
             if ($this->assistant_id) {
-                mysqli_stmt_bind_param($stmt, "i", $this->assistant_id);
+                mysqli_stmt_bind_param($stmt, "ii", $this->assistant_id, $limit);
+            } else {
+                mysqli_stmt_bind_param($stmt, "i", $limit);
             }
             mysqli_stmt_execute($stmt);
             $result = mysqli_stmt_get_result($stmt);

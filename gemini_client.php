@@ -366,7 +366,8 @@ class GeminiClient
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+        // Performance: gemini-2.5-flash con thinking puede tardar hasta 60-90s en requests complejos.
+        curl_setopt($ch, CURLOPT_TIMEOUT, 90);
 
         $response = curl_exec($ch);
         $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -400,7 +401,7 @@ class GeminiClient
                 curl_setopt($ch2, CURLOPT_POST, true);
                 curl_setopt($ch2, CURLOPT_POSTFIELDS, json_encode($data));
                 curl_setopt($ch2, CURLOPT_SSL_VERIFYPEER, true);
-                curl_setopt($ch2, CURLOPT_TIMEOUT, 60);
+                curl_setopt($ch2, CURLOPT_TIMEOUT, 90); // thinking models need up to 90s
 
                 $response = curl_exec($ch2);
                 $http_code = curl_getinfo($ch2, CURLINFO_HTTP_CODE);
@@ -409,8 +410,11 @@ class GeminiClient
         }
 
         if ($http_code !== 200) {
-            error_log("Gemini API Error: " . $response);
-            return "API Error ($http_code): " . $response;
+            // SEC: Truncar el body del error para no exponer internals del proyecto Google en logs.
+            $safe_error = substr($response, 0, 500);
+            error_log("Gemini API Error (HTTP $http_code): " . $safe_error);
+            // Devolver mensaje generico al handler; el detalle queda en el log del servidor.
+            return "Lo siento, ocurrió un error temporal al procesar tu solicitud. Por favor, inténtalo de nuevo.";
         }
 
         $result = json_decode($response, true);
