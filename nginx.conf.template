@@ -9,14 +9,35 @@ events {
 http {
     include /app/nginx/mime.types;
     default_type application/octet-stream;
-    
+
     access_log /tmp/nginx_access.log;
-    
-    client_max_body_size 512M;
+
+    # ── Optimizaciones de Rendimiento ────────────────────────────────────────
+    sendfile        on;
+    tcp_nopush      on;
+    tcp_nodelay     on;
     keepalive_timeout 65;
-    proxy_read_timeout 300;
-    proxy_connect_timeout 300;
-    proxy_send_timeout 300;
+
+    # Timeouts generosos para respuestas de Gemini API (pueden tardar 20-60s)
+    client_max_body_size    512M;
+    proxy_read_timeout      300;
+    proxy_connect_timeout   300;
+    proxy_send_timeout      300;
+    fastcgi_read_timeout    300;
+
+    # ── Compresión Gzip ──────────────────────────────────────────────────────
+    # BENEFICIO: Reduce el ancho de banda hasta un 70% en JSON y HTML.
+    # Crítico en Railway donde el egress de tráfico tiene costo.
+    gzip              on;
+    gzip_vary         on;
+    gzip_proxied      any;
+    gzip_comp_level   5;
+    gzip_min_length   1024;
+    gzip_types
+        text/plain text/css text/xml text/javascript
+        application/json application/javascript application/xml
+        application/x-font-ttf font/woff font/woff2
+        image/svg+xml;
 
     server {
         listen ${PORT};
@@ -24,50 +45,96 @@ http {
         root /app;
         index index.php index.html;
 
-        # SEC: Security headers
-        add_header X-Content-Type-Options "nosniff" always;
-        add_header X-Frame-Options "SAMEORIGIN" always;
-        add_header X-XSS-Protection "1; mode=block" always;
-        add_header Referrer-Policy "no-referrer-when-downgrade" always;
-        add_header Content-Security-Policy "default-src 'self' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://code.jquery.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https:; connect-src 'self' https://generativelanguage.googleapis.com https://cdn.jsdelivr.net https://*.gstatic.com;" always;
+        # ── Headers de Seguridad ─────────────────────────────────────────────
+        add_header X-Content-Type-Options  "nosniff"                always;
+        add_header X-Frame-Options         "SAMEORIGIN"             always;
+        add_header X-XSS-Protection        "1; mode=block"          always;
+        add_header Referrer-Policy         "strict-origin-when-cross-origin" always;
+        # HSTS: Forzar HTTPS una vez desplegado en Railway con dominio custom.
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        # Restricciones de APIs del navegador (privacy & security).
+        add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+        # CSP mejorado: permite conexión con Gemini API y Google Fonts.
+        add_header Content-Security-Policy
+            "default-src 'self' https:; \
+             script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; \
+             style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; \
+             font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; \
+             img-src 'self' data: blob: https:; \
+             connect-src 'self' https://generativelanguage.googleapis.com https://cdn.jsdelivr.net https://*.gstatic.com; \
+             frame-ancestors 'none';" always;
 
         server_tokens off;
 
-        # SEC: Block access to sensitive files
+        # ── Bloqueos de Seguridad ─────────────────────────────────────────────
+
+        # SEC: Bloquear archivos de configuración y entorno sensibles.
         location ~ /\.(env|git|gitignore|user\.ini) {
             deny all;
             return 404;
         }
-        
-        # Block internal core logic and migration files
-        location ~ ^/(db|check_schema|migrate|AIHandler|ChatbotRouter|FlowManager|calendar_functions|gemini_client|pdf_helper|models)\.php$ {
+
+        # SEC: Bloquear acceso directo a todos los archivos de lógica PHP interna.
+        # Incluye el nuevo Database.php en el patrón.
+        location ~ ^/(Database|db|check_schema|migrate\d*|AIHandler|ChatbotRouter|FlowManager|calendar_functions|gemini_client|pdf_helper|models|whatsapp_helper|api_drive|auth)\b.*\.php$ {
             deny all;
             return 404;
         }
 
-        # Block other sensitive system files
-        location ~ ^/(php-fpm\.conf|nixpacks\.toml|start\.sh|exclude_git\.txt|nginx\.conf\.template|composer\.json|composer\.lock|package\.json|package-lock\.json)$ {
+        # SEC: Bloquear archivos de infraestructura y configuración.
+        location ~ ^/(php-fpm\.conf|nixpacks\.toml|start\.sh|exclude_git\.txt|nginx\.conf\.template|railway\.json|package\.json|package-lock\.json|composer\.json|composer\.lock|\.user\.ini)$ {
             deny all;
             return 404;
         }
 
-        # SEC: Disable PHP execution in uploads directory
-        location /uploads {
+        # SEC: Impedir ejecución de PHP en el directorio de uploads.
+        location /uploads/ {
             location ~ \.php$ {
                 deny all;
+                return 403;
             }
         }
 
+        # SEC: Bloquear acceso completo al directorio de sesiones de WhatsApp.
+        location /whatsapp/sessions/ {
+            deny all;
+            return 404;
+        }
+
+        # ── Assets Estáticos con Cache ────────────────────────────────────────
+        # BENEFICIO: Reduce peticiones a PHP-FPM para archivos estáticos.
+        location ~* \.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|webp)$ {
+            expires 7d;
+            add_header Cache-Control "public, immutable";
+            try_files $uri =404;
+        }
+
+        # ── Ruteo Principal ───────────────────────────────────────────────────
+        # BENEFICIO: Separa el ruteo de la SPA del admin de la landing page.
+        # Las rutas /admin* caen en admin.php (SPA con manejo de rutas en JS).
+        location /admin {
+            try_files $uri $uri/ /admin.php?$query_string;
+        }
+
+        # Ruteo general: primero busca el archivo, si no existe, enruta a index.php.
         location / {
             try_files $uri $uri/ /index.php?$query_string;
         }
 
+        # ── PHP-FPM ───────────────────────────────────────────────────────────
         location ~ \.php$ {
-            fastcgi_pass 127.0.0.1:9001;
+            # Prevenir PHP en rutas no esperadas (doble check de seguridad).
+            try_files $uri =404;
+            fastcgi_pass  127.0.0.1:9001;
             fastcgi_index index.php;
-            include /app/nginx/fastcgi_params;
+            include       /app/nginx/fastcgi_params;
             fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
             fastcgi_read_timeout 300;
+
+            # Buffers optimizados para respuestas largas de Gemini (streaming).
+            fastcgi_buffer_size          32k;
+            fastcgi_buffers          16  32k;
+            fastcgi_busy_buffers_size   64k;
         }
     }
 }

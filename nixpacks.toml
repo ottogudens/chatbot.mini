@@ -1,19 +1,53 @@
+# nixpacks.toml — Skale IA
+# ============================================================
+# Build determinístico para Railway (Nixpacks).
+# Se especifican todas las extensiones PHP explícitamente para
+# evitar fallos silenciosos en producción por dependencias faltantes.
+
 [phases.setup]
-nixPkgs = ["php83", "nginx", "nodejs_20", "ffmpeg"]
+nixPkgs = [
+    # ── Runtime principal ──────────────────────────────────────
+    "php83",           # Intérprete PHP 8.3
+    "php83Extensions.curl",      # cURL: llamadas a Gemini API, Google APIs
+    "php83Extensions.gd",        # GD: procesamiento de imágenes en PDFs
+    "php83Extensions.mbstring",  # mbstring: manejo de UTF-8 / emojis en WhatsApp
+    "php83Extensions.openssl",   # OpenSSL: HTTPS y firma de tokens
+    "php83Extensions.json",      # JSON: serialización nativa (Gemini responses)
+    "php83Extensions.mysqli",    # MySQLi: conexión a Railway MySQL
+    "php83Extensions.pdo",       # PDO: compatibilidad futura / ORMs
+    "php83Extensions.pdo_mysql", # PDO MySQL driver
+    "php83Extensions.zip",       # ZIP: empaquetado de PDFs para descarga
+    "php83Extensions.fileinfo",  # fileinfo: validación segura de uploads
+    # ── Servidor Web ──────────────────────────────────────────
+    "nginx",           # Servidor HTTP principal
+    # ── Runtime Node.js (Bridge de WhatsApp) ──────────────────
+    "nodejs_20",       # Node 20 LTS para whatsapp-web.js / Baileys
+    # ── Utilidades de sistema ─────────────────────────────────
+    "ffmpeg",          # FFmpeg: procesamiento de audio/vídeo en WhatsApp
+    "bash",            # Asegurar que bash esté disponible para start.sh
+]
 
 [phases.install]
 cmds = [
-    "npm install --prefix whatsapp",
+    # Instalar dependencias del bridge de WhatsApp
+    "npm install --prefix whatsapp --omit=dev",
+    # Instalar PM2 globalmente para supervivencia del bridge Node
     "npm install -g pm2",
+    # Crear directorios de trabajo necesarios en tiempo de build
     "mkdir -p /app/logs /app/uploads /app/persistent",
-    "chmod +x /app/start.sh"
+    # Asegurar permisos de ejecución del script de arranque
+    "chmod +x /app/start.sh",
 ]
 
 [phases.build]
 cmds = [
+    # Preparar el directorio de configuración de Nginx
     "mkdir -p /etc/nginx/conf.d",
-    "echo \"Nixpacks build complete\""
+    # Verificar que el template de Nginx exista (falla el build si no)
+    "test -f /app/nginx.conf.template || (echo 'ERROR: nginx.conf.template no encontrado' && exit 1)",
+    "echo 'Build Skale IA completado correctamente'",
 ]
 
 [start]
 cmd = "bash /app/start.sh"
+

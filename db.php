@@ -1,76 +1,96 @@
 <?php
-// Set local timezone (Chile)
+/**
+ * db.php — Skale IA Bootstrap de Base de Datos
+ * ============================================================
+ * Bootstrap de conexión: inicializa la clase Database (Singleton)
+ * y expone $conn como variable global para compatibilidad con código legado.
+ *
+ * ARQUITECTURA:
+ *   La lógica de conexión reside en Database.php.
+ *   Este archivo actúa como puente durante la migración gradual.
+ *   Objetivo final: todos los módulos usarán Database::getInstance().
+ */
+
+// Zona horaria del sistema (Chile)
 date_default_timezone_set('America/Santiago');
 
-// Configuración de la base de datos adaptable (Local y Railway)
-$db_host = getenv('MYSQLHOST') ?: getenv('MYSQL_HOST') ?: "localhost";
-$db_user = getenv('MYSQLUSER') ?: getenv('MYSQL_USER') ?: "root";
-$db_pass = getenv('MYSQLPASSWORD') ?: getenv('MYSQL_PASSWORD') ?: "";
-$db_name = getenv('MYSQLDATABASE') ?: getenv('MYSQL_DATABASE') ?: "chatbot";
-$db_port = getenv('MYSQLPORT') ?: getenv('MYSQL_PORT') ?: "3306";
+// ── Cargar la clase Singleton ────────────────────────────────────────────────
+require_once __DIR__ . '/Database.php';
 
-// Force 127.0.0.1 if localhost to avoid unix socket errors in some environments
-if ($db_host === "localhost" && !getenv('MYSQLHOST')) {
-    // $db_host = "127.0.0.1";
-}
-
+// ── Inicializar la conexión y manejar errores de arranque ───────────────────
 try {
-    // Basic connectivity check
-    if (!$db_host || $db_host === "localhost") {
-        // If we are on Railway and host is localhost, something is wrong with env vars
-    }
+    $db   = Database::getInstance();
+    // COMPAT: Exponer $conn global para el código legado (api.php, message.php, etc.)
+    // TODO: Reemplazar usos de $conn por $db->getConnection() progresivamente.
+    $conn = $db->getConnection();
 
-    $conn = mysqli_connect($db_host, $db_user, $db_pass, $db_name, $db_port);
+} catch (\RuntimeException $e) {
+    // SEC: El error real ya fue loggeado por la clase Database.
+    // Solo mostramos un mensaje genérico al exterior.
+    error_log("[db.php] Fallo en bootstrap de BD: " . $e->getMessage());
 
-    if (!$conn) {
-        throw new Exception(mysqli_connect_error() . " (Host: $db_host, Port: $db_port)");
-    }
+    // Detectar si la petición espera JSON (AJAX/API) o HTML (navegador).
+    $is_api_request = (
+        (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) &&
+            strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') ||
+        str_contains($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') ||
+        str_contains($_SERVER['REQUEST_URI'] ?? '', 'api.php') ||
+        str_contains($_SERVER['REQUEST_URI'] ?? '', 'message.php')
+    );
 
-    mysqli_set_charset($conn, "utf8mb4");
-} catch (Exception $e) {
-    // SEC: Log full error internally, never expose DB details to user
-    error_log("DB Connection Error: " . $e->getMessage());
-    
-    $is_ajax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') || 
-               (strpos($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') !== false) ||
-               (strpos($_SERVER['REQUEST_URI'] ?? '', 'api.php') !== false) ||
-               (strpos($_SERVER['REQUEST_URI'] ?? '', 'message.php') !== false);
-
-    if ($is_ajax) {
-        header('Content-Type: application/json');
+    if ($is_api_request) {
+        header('Content-Type: application/json; charset=utf-8');
+        http_response_code(503);
         die(json_encode([
-            "status" => "error",
-            "error" => true, 
-            "message" => "Error de conexión a la base de datos. Verifique la configuración del servidor."
+            'status'  => 'error',
+            'error'   => true,
+            'message' => 'Servicio temporalmente no disponible. Por favor, inténtalo de nuevo en unos momentos.',
         ]));
     }
 
-    // Fallback for direct browser access (HTML)
-    die("<div style='color:red; font-family:sans-serif; padding:20px; border:1px solid red; background:#fff5f5; border-radius:8px; max-width:600px; margin:20px auto;'>
-            <h3>⚠️ Error de Base de Datos</h3>
-            <p>No se pudo conectar a la base de datos. Contacta al administrador del sistema.</p>
-            <small style='color:#666;'>Detalle técnico: La conexión ha sido rechazada o el servidor no responde.</small>
-          </div>");
+    // Respuesta HTML para acceso directo desde navegador.
+    http_response_code(503);
+    die("
+        <div style='color:#c0392b; font-family:system-ui,sans-serif; padding:24px;
+                    border:1px solid #e74c3c; background:#fff5f5; border-radius:10px;
+                    max-width:560px; margin:40px auto; box-shadow:0 2px 8px rgba(0,0,0,.08);'>
+            <h3 style='margin-top:0'>⚠️ Error de Base de Datos</h3>
+            <p>No se pudo conectar al servidor de datos.<br>Por favor, contacta al administrador.</p>
+        </div>
+    ");
 }
 
+// ── Helpers de respuesta y logging (usados globalmente) ─────────────────────
+
 /**
- * Standardized API response function.
+ * Emite una respuesta JSON estandarizada y termina la ejecución.
+ *
+ * @param string     $status  'success' | 'error' | 'warning'
+ * @param string     $message Mensaje legible para el cliente.
+ * @param array|null $data    Payload adicional (opcional).
  */
-function send_response($status, $message = '', $data = null) {
+function send_response(string $status, string $message = '', $data = null): void
+{
     if (!headers_sent()) {
-        header('Content-Type: application/json');
+        header('Content-Type: application/json; charset=utf-8');
     }
-    $response = ['status' => $status, 'message' => $message];
-    if ($data !== null) $response['data'] = $data;
-    echo json_encode($response);
+    $payload = ['status' => $status, 'message' => $message];
+    if ($data !== null) {
+        $payload['data'] = $data;
+    }
+    echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
 }
 
 /**
- * Internal logging function with context.
+ * Loggea un mensaje con contexto opcional en el error_log de PHP.
+ * Railway captura stdout/stderr de PHP-FPM automáticamente.
+ *
+ * @param string $message Descripción del error o evento.
+ * @param array  $context Datos adicionales para debugging.
  */
-function log_error($message, $context = []) {
-    $ctx_str = !empty($context) ? " | Context: " . json_encode($context) : "";
-    error_log("[SkaleBot] " . $message . $ctx_str);
+function log_error(string $message, array $context = []): void
+{
+    $ctx_str = !empty($context) ? ' | Context: ' . json_encode($context, JSON_UNESCAPED_UNICODE) : '';
+    error_log('[Skale IA] ' . $message . $ctx_str);
 }
-?>

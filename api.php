@@ -2,7 +2,7 @@
 require 'db.php';
 require 'auth.php';
 require_once 'whatsapp_helper.php';
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
 
 
 $action = isset($_GET['action']) ? $_GET['action'] : '';
@@ -426,7 +426,7 @@ switch ($action) {
                 mkdir($upload_dir, 0755, true);
             }
             $orig_name = $_FILES['attachment']['name'];
-            $ext = pathinfo($orig_name, PATHINFO_EXTENSION);
+            $ext = strtolower(pathinfo($orig_name, PATHINFO_EXTENSION));
             $safe_name = time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
             $target_file = $upload_dir . $safe_name;
 
@@ -439,7 +439,12 @@ switch ($action) {
             }
         }
 
-        if (mysqli_stmt_execute($stmt)) send_response('success', 'Campaña creada.');
+        // FIX: El INSERT estaba ausente — $stmt nunca fue preparado antes de este punto.
+        // Se prepara aquí explícitamente con todos los campos de la tabla.
+        $stmt = mysqli_prepare($conn, "INSERT INTO marketing_campaigns (client_id, name, message, target_type, attachment_url, attachment_type, status) VALUES (?, ?, ?, ?, ?, ?, 'draft')");
+        mysqli_stmt_bind_param($stmt, "isssss", $cid, $name, $message, $target_type, $attachment_url, $attachment_type);
+
+        if (mysqli_stmt_execute($stmt)) send_response('success', 'Campaña creada.', ['id' => mysqli_insert_id($conn)]);
         else {
             log_error('campaigns_create error', ['error' => mysqli_error($conn)]);
             send_response('error', 'Error al crear la campaña.');
@@ -943,22 +948,21 @@ switch ($action) {
             send_response('success', '', ['labels' => [], 'values' => []]);
         }
 
-        $where = $assistant_id ? "assistant_id = " . intval($assistant_id) : "assistant_id IS NULL";
-
-        // Get counts for the last 7 days
-        $sql = "SELECT DATE(created_at) as date, COUNT(*) as count 
-                FROM conversation_logs 
+        // FIX: Eliminada la variable $where que se interpolaba directamente en el SQL.
+        // Ahora se usan prepared statements en ambas ramas para prevenir inyección.
+        $sql = "SELECT DATE(created_at) as date, COUNT(*) as count
+                FROM conversation_logs
                 WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
-        
+
         if ($assistant_id) {
-            $sql .= " AND assistant_id = ?";
-            $stmt = mysqli_prepare($conn, $sql . " GROUP BY DATE(created_at) ORDER BY date ASC");
+            $sql .= " AND assistant_id = ? GROUP BY DATE(created_at) ORDER BY date ASC";
+            $stmt = mysqli_prepare($conn, $sql);
             mysqli_stmt_bind_param($stmt, "i", $assistant_id);
         } else {
-            $sql .= " AND assistant_id IS NULL";
-            $stmt = mysqli_prepare($conn, $sql . " GROUP BY DATE(created_at) ORDER BY date ASC");
+            $sql .= " AND assistant_id IS NULL GROUP BY DATE(created_at) ORDER BY date ASC";
+            $stmt = mysqli_prepare($conn, $sql);
         }
-        
+
         mysqli_stmt_execute($stmt);
         $result = mysqli_stmt_get_result($stmt);
         $labels = [];
@@ -1011,11 +1015,12 @@ switch ($action) {
 
         $stmt = mysqli_prepare($conn, "INSERT INTO calendar_settings (client_id, calendar_id, available_days, start_time, end_time, slot_duration_minutes, timezone) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE calendar_id=VALUES(calendar_id), available_days=VALUES(available_days), start_time=VALUES(start_time), end_time=VALUES(end_time), slot_duration_minutes=VALUES(slot_duration_minutes), timezone=VALUES(timezone)");
         mysqli_stmt_bind_param($stmt, "issssis", $req_client_id, $calendar_id, $available_days, $start_time, $end_time, $slot_duration_minutes, $timezone);
+        // FIX: Unificada respuesta con send_response() para consistencia y charset correcto.
         if (mysqli_stmt_execute($stmt)) {
-            echo json_encode(['status' => 'success']);
+            send_response('success', 'Configuración de calendario guardada.');
         } else {
-            error_log('calendar_settings_update error: ' . mysqli_error($conn));
-            echo json_encode(['status' => 'error', 'message' => 'Error guardando configuraciones.']);
+            log_error('calendar_settings_update error', ['error' => mysqli_error($conn)]);
+            send_response('error', 'Error al guardar configuración de calendario.');
         }
         break;
 
