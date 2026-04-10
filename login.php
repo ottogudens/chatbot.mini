@@ -10,17 +10,24 @@ if (isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true
 
 $error = "";
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $user = $_POST['username'] ?? '';
-    $pass = $_POST['password'] ?? '';
+    // SEC FIX: Sanitizar inputs antes de pasarlos a attempt_login().
+    // trim() elimina espacios/tabs accidentales; mb_substr() previene inputs
+    // excesivamente largos que podrían causar timing attacks o errores de BD.
+    $user = mb_substr(trim($_POST['username'] ?? ''), 0, 254);
+    $pass = mb_substr(trim($_POST['password'] ?? ''), 0, 1024);
 
-    $login_result = attempt_login($user, $pass, $conn);
-    if ($login_result === true) {
-        header("Location: admin.php");
-        exit;
-    } elseif (is_array($login_result) && ($login_result['error'] ?? '') === 'rate_limited') {
-        $error = "Demasiados intentos fallidos. Intenta nuevamente en {$login_result['remaining']} minuto(s).";
+    if (empty($user) || empty($pass)) {
+        $error = "Usuario y contraseña son requeridos.";
     } else {
-        $error = "Usuario o contraseña incorrectos.";
+        $login_result = attempt_login($user, $pass, $conn);
+        if ($login_result === true) {
+            header("Location: admin.php");
+            exit;
+        } elseif (is_array($login_result) && ($login_result['error'] ?? '') === 'rate_limited') {
+            $error = "Demasiados intentos fallidos. Intenta nuevamente en {$login_result['remaining']} minuto(s).";
+        } else {
+            $error = "Usuario o contraseña incorrectos.";
+        }
     }
 }
 ?>
@@ -222,7 +229,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php if ($error): ?>
             <div class="error-msg">
                 <i class="fa-solid fa-triangle-exclamation"></i>
-                <?php echo htmlspecialchars($error); ?>
+                <!-- SEC FIX: ENT_QUOTES|ENT_SUBSTITUTE asegura protección XSS
+                     incluso dentro de atributos HTML (comillas simples y dobles). -->
+                <?php echo htmlspecialchars($error, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?>
             </div>
         <?php endif; ?>
 
