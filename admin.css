@@ -541,6 +541,46 @@ tr:hover td {
     color: #fca5a5;
 }
 
+.badge.new {
+    background: var(--primary);
+    color: #000;
+}
+
+/* Modificadores Tab especiales */
+.nav-tab.help-link i { color: #60a5fa; }
+.nav-tab.support-link { margin-top: 5px; }
+.nav-tab.support-link i { color: #10b981; }
+
+/* Modificadores botones especiales */
+.btn-accent {
+    background: rgba(139, 92, 246, 0.1);
+    color: var(--primary);
+    border: 1px solid var(--primary);
+}
+.btn-accent:hover {
+    background: rgba(139, 92, 246, 0.2);
+}
+.btn-icon {
+    padding: 6px 10px;
+    height: 32px;
+}
+.w-full { width: 100%; }
+.justify-center { justify-content: center; }
+
+/* Selectores pequeños */
+.form-select-sm {
+    background: var(--input-bg);
+    border: 1px solid var(--glass-border);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    outline: none;
+    cursor: pointer;
+    transition: border-color var(--transition);
+}
+.form-select-sm:focus { border-color: var(--primary); }
+
 /* ─────────────────────────────────────────────────────────────────
    FORMULARIOS (inputs, selects, textareas)
    ───────────────────────────────────────────────────────────────── */

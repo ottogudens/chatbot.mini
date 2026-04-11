@@ -82,7 +82,7 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
 
             <div class="sidebar-category">Marketing</div>
             <button class="nav-tab" data-target="leads-tab"><i class="fa-solid fa-address-book"></i> Prospectos</button>
-            <button class="nav-tab" data-target="campaigns-tab"><i class="fa-solid fa-bullhorn"></i> Campañas <span class="badge" style="background:var(--primary); color:#000; font-size:9px; padding:2px 5px; margin-left:5px;">NUEVO</span></button>
+            <button class="nav-tab" data-target="campaigns-tab"><i class="fa-solid fa-bullhorn"></i> Campañas <span class="badge new">NUEVO</span></button>
 
             <div class="sidebar-category">Operaciones</div>
             <button class="nav-tab" data-target="integrations-tab"><i class="fa-brands fa-google-drive"></i> Integraciones</button>
@@ -92,14 +92,14 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
             <button class="nav-tab" data-target="pdf-generated-tab"><i class="fa-solid fa-file-invoice"></i> Documentos Gen.</button>
 
             <div class="sidebar-category">Soporte</div>
-            <button class="nav-tab" data-target="help-tab" style="color:#60a5fa;"><i class="fa-solid fa-circle-info"></i> Centro de Ayuda</button>
-            <button class="nav-tab" onclick="openSupportChat()" style="color:#10b981; margin-top:5px;">
+            <button class="nav-tab help-link" data-target="help-tab"><i class="fa-solid fa-circle-info"></i> Centro de Ayuda</button>
+            <button class="nav-tab support-link" onclick="openSupportChat()">
                 <i class="fa-solid fa-robot"></i> <b>Manual Virtual</b>
             </button>
         </nav>
 
         <div class="sidebar-footer">
-            <a href="auth.php?action=logout" class="btn btn-danger" style="width:100%; justify-content:center;">
+            <a href="auth.php?action=logout" class="btn btn-danger w-full justify-center">
                 <i class="fa-solid fa-right-from-bracket"></i> Salir
             </a>
         </div>
@@ -117,19 +117,16 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
                 <label for="global-assistant-select" style="font-size:13px; color:var(--text-muted); font-weight:500;">
                     <i class="fa-solid fa-headset"></i> Asistente Activo:
                 </label>
-                <select id="global-assistant-select"
-                    style="background:var(--input-bg); border:1px solid var(--glass-border); color:white; padding:6px 12px; border-radius:6px; font-size:13px; outline:none;">
+                <select id="global-assistant-select" class="form-select-sm">
                     <option value="">Global (Todos)</option>
                     <!-- Populated by JS -->
                 </select>
-                <button class="btn btn-outline" style="padding: 6px 10px; height:32px;" onclick="copyChatLink()"
-                    title="Copiar Link del Chat">
+                <button class="btn btn-outline btn-icon" onclick="copyChatLink()" title="Copiar Link del Chat">
                     <i class="fa-solid fa-link"></i>
                 </button>
             </div>
             <div class="header-actions">
-                <a href="index.php" class="btn" id="btn-chat-link"
-                    style="background:rgba(139, 92, 246, 0.1); color:var(--primary); border:1px solid var(--primary);">
+                <a href="index.php" class="btn btn-accent" id="btn-chat-link">
                     <i class="fa-solid fa-comment-dots"></i> <span>Ir al Chat</span>
                 </a>
             </div>
