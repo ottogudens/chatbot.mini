@@ -2551,15 +2551,24 @@ if ($res_support && mysqli_num_rows($res_support) > 0) {
 
                 if (s.step_type === 'buttons') {
                     const buttons = s.interactive_config.interactive.buttons || [];
+                    if (!s.interactive_config.branches) s.interactive_config.branches = {};
+                    
                     interactiveHtml = `
-                        <div style=\"margin-top:10px; padding:10px; background:rgba(0,0,0,0.2); border-radius:8px;\">
-                            <label style=\"font-size:11px; color:var(--primary);\">BOTONES (M\u00e1x 3)</label>
-                            <div style=\"display:flex; flex-direction:column; gap:8px; margin-top:8px;\">
-                                ${buttons.map(function(b, bi) { return `
-                                    <div style=\"display:flex; gap:8px;\">
-                                        <input type=\"text\" placeholder=\"ID\" style=\"width:80px;\" value=\"${b.buttonId}\" oninput=\"currentFlowSteps[${idx}].interactive_config.interactive.buttons[${bi}].buttonId=this.value\">
-                                        <input type=\"text\" placeholder=\"Texto del Bot\u00f3n\" style=\"flex:1;\" value=\"${b.buttonText.displayText}\" oninput=\"currentFlowSteps[${idx}].interactive_config.interactive.buttons[${bi}].buttonText.displayText=this.value\">
-                                        <button class=\"btn btn-sm btn-danger\" onclick=\"currentFlowSteps[${idx}].interactive_config.interactive.buttons.splice(${bi},1);renderFlowSteps()\"><i class=\"fa-solid fa-times\"></i></button>
+                        <div style="margin-top:10px; padding:10px; background:rgba(0,0,0,0.2); border-radius:8px;">
+                            <label style="font-size:11px; color:var(--primary);">BOTONES (Máx 3) — Y hacia dónde continúan</label>
+                            <div style="display:flex; flex-direction:column; gap:8px; margin-top:8px;">
+                                ${buttons.map(function(b, bi) { 
+                                    let bId = b.buttonId;
+                                    let currentTarget = s.interactive_config.branches[bId] || '';
+                                    return `
+                                    <div style="display:flex; gap:8px; align-items:center;">
+                                        <input type="text" placeholder="ID (Ej: m1_btn1)" style="width:100px; background:var(--input-bg); border:1px solid var(--glass-border); color:white; border-radius:6px; padding:6px 12px; font-size:13px;" value="${bId}" oninput="var oldId='${bId}'; currentFlowSteps[${idx}].interactive_config.interactive.buttons[${bi}].buttonId=this.value; currentFlowSteps[${idx}].interactive_config.branches[this.value] = currentFlowSteps[${idx}].interactive_config.branches[oldId]; delete currentFlowSteps[${idx}].interactive_config.branches[oldId];">
+                                        <input type="text" placeholder="Texto Visual" style="flex:1; background:var(--input-bg); border:1px solid var(--glass-border); color:white; border-radius:6px; padding:6px 12px; font-size:13px;" value="${b.buttonText.displayText}" oninput="currentFlowSteps[${idx}].interactive_config.interactive.buttons[${bi}].buttonText.displayText=this.value">
+                                        <select style="width:120px; background:var(--input-bg); border:1px solid var(--glass-border); color:var(--primary); align-self:stretch; border-radius:6px; font-size:12px; font-weight:600; outline:none; cursor:pointer;" onchange="currentFlowSteps[${idx}].interactive_config.branches[currentFlowSteps[${idx}].interactive_config.interactive.buttons[${bi}].buttonId] = this.value">
+                                            <option value="">Ir a Paso...</option>
+                                            ${currentFlowSteps.map((_, sIdx) => `<option value="${sIdx+1}" ${currentTarget == (sIdx+1) ? 'selected' : ''}>Paso ${sIdx+1}</option>`).join('')}
+                                        </select>
+                                        <button class="btn btn-sm btn-danger" style="height:32px;" onclick="delete currentFlowSteps[${idx}].interactive_config.branches['${bId}']; currentFlowSteps[${idx}].interactive_config.interactive.buttons.splice(${bi},1); renderFlowSteps()"><i class="fa-solid fa-times"></i></button>
                                     </div>
                                 `; }).join('')}
                                 ${buttons.length < 3 ? `<button class=\"btn btn-sm btn-outline\" onclick=\"currentFlowSteps[${idx}].interactive_config.interactive.buttons.push({buttonId:'id_'+Date.now(), buttonText:{displayText:'Opci\u00f3n'}});renderFlowSteps()\">+ Agregar Bot\u00f3n</button>` : ''}

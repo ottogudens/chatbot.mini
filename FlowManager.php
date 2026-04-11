@@ -88,11 +88,11 @@ class FlowManager {
     public function process($text, $interactive_id = null) {
         $state = $this->getState();
         $flow_id = null;
-        $step_id = null;
+        $step_order = null;
 
         if ($state && $state['current_flow_id']) {
             $flow_id = $state['current_flow_id'];
-            $step_id = $state['current_step_id'];
+            $step_order = $state['current_step_id']; // This now stores the step_order geographically
         } else {
             $flow_id = $this->findTrigger($text);
         }
@@ -100,9 +100,9 @@ class FlowManager {
         if (!$flow_id) return null;
 
         // Determine next step
-        $next_step = $this->getNextStep($flow_id, $step_id, $interactive_id);
+        $next_step = $this->getNextStep($flow_id, $step_order, $interactive_id);
         if ($next_step) {
-            $this->saveState($flow_id, $next_step['id']);
+            $this->saveState($flow_id, $next_step['step_order']);
             return $this->formatMessage($next_step);
         } else {
             // End of flow
@@ -111,8 +111,8 @@ class FlowManager {
         }
     }
 
-    private function getNextStep($flow_id, $current_step_id, $interactive_id) {
-        if ($current_step_id === null) {
+    private function getNextStep($flow_id, $current_step_order, $interactive_id) {
+        if ($current_step_order === null) {
             // Start of flow: get step with lowest order
             $stmt = mysqli_prepare($this->conn, "SELECT * FROM flow_steps WHERE flow_id = ? ORDER BY step_order ASC LIMIT 1");
             mysqli_stmt_bind_param($stmt, "i", $flow_id);
@@ -122,36 +122,32 @@ class FlowManager {
 
         // Logical branching based on interactive_id (button/list ID)
         if ($interactive_id) {
-            // Check current step config for next_step mapping
-            $stmt = mysqli_prepare($this->conn, "SELECT interactive_config, next_step_id FROM flow_steps WHERE id = ?");
-            mysqli_stmt_bind_param($stmt, "i", $current_step_id);
+            // Check current step config for next_step mapping (using step_order branch mapping)
+            $stmt = mysqli_prepare($this->conn, "SELECT interactive_config FROM flow_steps WHERE flow_id = ? AND step_order = ?");
+            mysqli_stmt_bind_param($stmt, "ii", $flow_id, $current_step_order);
             mysqli_stmt_execute($stmt);
             $curr = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
-            $config = json_decode($curr['interactive_config'] ?? '[]', true);
             
-            if (isset($config['branches'][$interactive_id])) {
-                $nid = intval($config['branches'][$interactive_id]);
-                $stmt2 = mysqli_prepare($this->conn, "SELECT * FROM flow_steps WHERE id = ?");
-                mysqli_stmt_bind_param($stmt2, "i", $nid);
-                mysqli_stmt_execute($stmt2);
-                return mysqli_fetch_assoc(mysqli_stmt_get_result($stmt2));
+            if ($curr) {
+                $config = json_decode($curr['interactive_config'] ?? '[]', true);
+                if (isset($config['branches'][$interactive_id])) {
+                    $target_order = intval($config['branches'][$interactive_id]);
+                    if ($target_order > 0) {
+                        $stmt2 = mysqli_prepare($this->conn, "SELECT * FROM flow_steps WHERE flow_id = ? AND step_order = ?");
+                        mysqli_stmt_bind_param($stmt2, "ii", $flow_id, $target_order);
+                        mysqli_stmt_execute($stmt2);
+                        return mysqli_fetch_assoc(mysqli_stmt_get_result($stmt2));
+                    }
+                }
             }
         }
 
-        // Default next step
-        $stmt = mysqli_prepare($this->conn, "SELECT next_step_id FROM flow_steps WHERE id = ?");
-        mysqli_stmt_bind_param($stmt, "i", $current_step_id);
+        // Default next step: sequential progression (current + 1)
+        $next_order = $current_step_order + 1;
+        $stmt = mysqli_prepare($this->conn, "SELECT * FROM flow_steps WHERE flow_id = ? AND step_order = ?");
+        mysqli_stmt_bind_param($stmt, "ii", $flow_id, $next_order);
         mysqli_stmt_execute($stmt);
-        $curr = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
-        if ($curr && $curr['next_step_id']) {
-            $nid = $curr['next_step_id'];
-            $stmt2 = mysqli_prepare($this->conn, "SELECT * FROM flow_steps WHERE id = ?");
-            mysqli_stmt_bind_param($stmt2, "i", $nid);
-            mysqli_stmt_execute($stmt2);
-            return mysqli_fetch_assoc(mysqli_stmt_get_result($stmt2));
-        }
-
-        return null;
+        return mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
     }
 
     private function saveState($flow_id, $step_id) {
