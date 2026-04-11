@@ -12,13 +12,11 @@ http {
 
     access_log /tmp/nginx_access.log;
 
-    # ── Optimizaciones de Rendimiento ────────────────────────────────────────
+    # ── Rendimiento ──────────────────────────────────────────────────────────
     sendfile        on;
     tcp_nopush      on;
     tcp_nodelay     on;
     keepalive_timeout 65;
-
-    # Timeouts generosos para respuestas de Gemini API (pueden tardar 20-60s)
     client_max_body_size    512M;
     proxy_read_timeout      300;
     proxy_connect_timeout   300;
@@ -26,8 +24,6 @@ http {
     fastcgi_read_timeout    300;
 
     # ── Compresión Gzip ──────────────────────────────────────────────────────
-    # BENEFICIO: Reduce el ancho de banda hasta un 70% en JSON y HTML.
-    # Crítico en Railway donde el egress de tráfico tiene costo.
     gzip              on;
     gzip_vary         on;
     gzip_proxied      any;
@@ -39,34 +35,23 @@ http {
         application/x-font-ttf font/woff font/woff2
         image/svg+xml;
 
+    # ── CSP como variable para reutilización sin repetición ─────────────────
+    # NOTA CRÍTICA: Las directivas add_header multilínea con \ NO funcionan en
+    # Railway/nixpacks. Se usa una sola línea para garantizar que el header
+    # llegue completo al browser. Si el browser recibe solo "default-src 'self' https:"
+    # es porque el resto de la línea fue truncado al hacer el envío del header.
+    map $uri $csp_header {
+        default "default-src 'self' https: data:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://code.jquery.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob: https:; connect-src 'self' https://generativelanguage.googleapis.com https://cdn.jsdelivr.net https://*.gstatic.com; frame-ancestors 'none';";
+    }
+
     server {
         listen ${PORT};
         server_name localhost;
         root /app;
         index index.php index.html;
-
-        # ── Headers de Seguridad ─────────────────────────────────────────────
-        add_header X-Content-Type-Options  "nosniff"                always;
-        add_header X-Frame-Options         "SAMEORIGIN"             always;
-        add_header X-XSS-Protection        "1; mode=block"          always;
-        add_header Referrer-Policy         "strict-origin-when-cross-origin" always;
-        # HSTS: Forzar HTTPS una vez desplegado en Railway con dominio custom.
-        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-        # Restricciones de APIs del navegador (privacy & security).
-        add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
-        # CSP mejorado: permite conexión con Gemini API y Google Fonts.
-        add_header Content-Security-Policy
-            "default-src 'self' https:; \
-             script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; \
-             style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; \
-             font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; \
-             img-src 'self' data: blob: https:; \
-             connect-src 'self' https://generativelanguage.googleapis.com https://cdn.jsdelivr.net https://*.gstatic.com; \
-             frame-ancestors 'none';" always;
-
         server_tokens off;
 
-        # ── Bloqueos de Seguridad ─────────────────────────────────────────────
+        # ── Bloqueos de Seguridad ────────────────────────────────────────────
 
         # SEC: Bloquear archivos de configuración y entorno sensibles.
         location ~ /\.(env|git|gitignore|user\.ini) {
@@ -74,23 +59,21 @@ http {
             return 404;
         }
 
-        # SEC: Bloquear acceso directo a todos los archivos de lógica PHP interna.
-        # NOTA: auth.php NO está en esta lista porque es público:
-        #   - Maneja logout via GET: auth.php?action=logout
-        #   - Debe ser accesible directamente por el navegador
-        # Solo se bloquean módulos que nunca deben ser endpoints HTTP.
+        # SEC: Bloquear acceso directo a módulos PHP internos.
+        # IMPORTANTE: auth.php NO está aquí - es un endpoint HTTP público
+        # (maneja auth.php?action=logout directamente desde el browser).
         location ~ ^/(Database|db|check_schema|migrate\d*|AIHandler|ChatbotRouter|FlowManager|calendar_functions|gemini_client|pdf_helper|models|whatsapp_helper|api_drive)\b.*\.php$ {
             deny all;
             return 404;
         }
 
-        # SEC: Bloquear archivos de infraestructura y configuración.
+        # SEC: Bloquear archivos de infraestructura.
         location ~ ^/(php-fpm\.conf|nixpacks\.toml|start\.sh|exclude_git\.txt|nginx\.conf\.template|railway\.json|package\.json|package-lock\.json|composer\.json|composer\.lock|\.user\.ini)$ {
             deny all;
             return 404;
         }
 
-        # SEC: Impedir ejecución de PHP en el directorio de uploads.
+        # SEC: Sin ejecución PHP en uploads.
         location /uploads/ {
             location ~ \.php$ {
                 deny all;
@@ -98,48 +81,40 @@ http {
             }
         }
 
-        # SEC: Bloquear acceso completo al directorio de sesiones de WhatsApp.
+        # SEC: Sin acceso a sesiones de WhatsApp.
         location /whatsapp/sessions/ {
             deny all;
             return 404;
         }
 
-        # ── Assets Estáticos con Cache ────────────────────────────────────────
-        # NOTA NGINX: Cuando un location hijo define add_header, los headers
-        # del bloque server{} padre se pierden completamente (comportamiento de Nginx).
-        # Por eso repetimos los headers de seguridad críticos en este bloque.
+        # ── Assets Estáticos ─────────────────────────────────────────────────
+        # NOTA: Este bloque define sus propios add_header (caché), por lo que
+        # NO hereda del server{}. Se repiten los headers de seguridad aquí.
         location ~* \.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|webp)$ {
             expires 7d;
-            add_header Cache-Control "public, immutable"                      always;
-            # SEC: headers repetidos explícitamente (el bloque padre los pierde)
-            add_header X-Content-Type-Options  "nosniff"                      always;
-            add_header X-Frame-Options         "SAMEORIGIN"                   always;
-            add_header Content-Security-Policy
-                "default-src 'self' https:; \
-                 script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; \
-                 style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; \
-                 font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; \
-                 img-src 'self' data: blob: https:; \
-                 connect-src 'self' https://generativelanguage.googleapis.com https://cdn.jsdelivr.net https://*.gstatic.com; \
-                 frame-ancestors 'none';"                                     always;
+            add_header Cache-Control          "public, immutable"     always;
+            add_header X-Content-Type-Options "nosniff"               always;
+            add_header X-Frame-Options        "SAMEORIGIN"            always;
+            add_header Content-Security-Policy $csp_header            always;
             try_files $uri =404;
         }
 
-        # ── Ruteo Principal ───────────────────────────────────────────────────
-        # BENEFICIO: Separa el ruteo de la SPA del admin de la landing page.
-        # Las rutas /admin* caen en admin.php (SPA con manejo de rutas en JS).
+        # ── Ruteo Principal ──────────────────────────────────────────────────
         location /admin {
             try_files $uri $uri/ /admin.php?$query_string;
         }
 
-        # Ruteo general: primero busca el archivo, si no existe, enruta a index.php.
         location / {
             try_files $uri $uri/ /index.php?$query_string;
         }
 
-        # ── PHP-FPM ───────────────────────────────────────────────────────────
+        # ── PHP-FPM ──────────────────────────────────────────────────────────
+        # CRÍTICO: Este bloque define sus propios add_header, por lo que NO
+        # hereda del server{}. Los headers de seguridad DEBEN repetirse aquí
+        # para que login.php, admin.php y todos los archivos PHP los reciban.
+        # Sin esto, el browser aplica solo "default-src 'self' https:" y bloquea
+        # los estilos y scripts inline (CSP violation en consola).
         location ~ \.php$ {
-            # Prevenir PHP en rutas no esperadas (doble check de seguridad).
             try_files $uri =404;
             fastcgi_pass  127.0.0.1:9001;
             fastcgi_index index.php;
@@ -147,10 +122,20 @@ http {
             fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
             fastcgi_read_timeout 300;
 
-            # Buffers optimizados para respuestas largas de Gemini (streaming).
-            fastcgi_buffer_size          32k;
-            fastcgi_buffers          16  32k;
-            fastcgi_busy_buffers_size   64k;
+            # Buffers para respuestas largas de Gemini.
+            fastcgi_buffer_size         32k;
+            fastcgi_buffers         16  32k;
+            fastcgi_busy_buffers_size  64k;
+
+            # SEC HEADERS — repetidos explícitamente porque este bloque child
+            # rompe la herencia de add_header del bloque server{} padre.
+            add_header X-Content-Type-Options   "nosniff"                              always;
+            add_header X-Frame-Options          "SAMEORIGIN"                           always;
+            add_header X-XSS-Protection         "1; mode=block"                        always;
+            add_header Referrer-Policy          "strict-origin-when-cross-origin"      always;
+            add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+            add_header Permissions-Policy       "camera=(), microphone=(), geolocation=()" always;
+            add_header Content-Security-Policy  $csp_header                            always;
         }
     }
 }
