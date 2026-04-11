@@ -1,4 +1,8 @@
 <?php
+// PRODUCCIÓN: Buffer de salida para prevenir output prematuro
+// que rompa el parseo HTML/CSS en el browser.
+ob_start();
+
 require_once 'auth.php';
 require_once 'db.php';
 check_auth();

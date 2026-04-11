@@ -75,8 +75,11 @@ http {
         }
 
         # SEC: Bloquear acceso directo a todos los archivos de lógica PHP interna.
-        # Incluye el nuevo Database.php en el patrón.
-        location ~ ^/(Database|db|check_schema|migrate\d*|AIHandler|ChatbotRouter|FlowManager|calendar_functions|gemini_client|pdf_helper|models|whatsapp_helper|api_drive|auth)\b.*\.php$ {
+        # NOTA: auth.php NO está en esta lista porque es público:
+        #   - Maneja logout via GET: auth.php?action=logout
+        #   - Debe ser accesible directamente por el navegador
+        # Solo se bloquean módulos que nunca deben ser endpoints HTTP.
+        location ~ ^/(Database|db|check_schema|migrate\d*|AIHandler|ChatbotRouter|FlowManager|calendar_functions|gemini_client|pdf_helper|models|whatsapp_helper|api_drive)\b.*\.php$ {
             deny all;
             return 404;
         }

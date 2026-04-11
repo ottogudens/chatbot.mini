@@ -1,4 +1,9 @@
 <?php
+// PRODUCCIÓN: Iniciar buffer de salida inmediatamente.
+// Previene que warnings de db.php/auth.php aparezcan antes del DOCTYPE
+// y rompan el parseo CSS del navegador.
+ob_start();
+
 require_once 'db.php';
 require_once 'auth.php';
 
