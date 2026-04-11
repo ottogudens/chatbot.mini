@@ -1,5 +1,10 @@
 <?php
-require_once 'db.php';
+/**
+ * FlowManager.php
+ * Gestiona el estado de flujos conversacionales y el modo handover humano.
+ * El constructor recibe $conn desde el contexto que lo instancia (message.php),
+ * por lo que NO se require db.php aquí — evita doble inicialización.
+ */
 
 class FlowManager {
     private $conn;
@@ -7,9 +12,11 @@ class FlowManager {
     private $remote_jid;
 
     public function __construct($conn, $assistant_id, $remote_jid) {
-        $this->conn = $conn;
+        $this->conn         = $conn;
         $this->assistant_id = intval($assistant_id);
-        $this->remote_jid = $remote_jid; // Store raw, will use with prepared statements
+        // SEC: Clamp remote_jid para prevenir valores excesivamente largos en BD.
+        // Los JIDs de WhatsApp tienen formato "521234567890@s.whatsapp.net" (~50 chars).
+        $this->remote_jid   = mb_substr((string)$remote_jid, 0, 100);
     }
 
     /**
