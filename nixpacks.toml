@@ -12,7 +12,9 @@ nixPkgs = [
     "php83Extensions.gd",        # GD: procesamiento de imágenes en PDFs
     "php83Extensions.mbstring",  # mbstring: manejo de UTF-8 / emojis en WhatsApp
     "php83Extensions.openssl",   # OpenSSL: HTTPS y firma de tokens
-    "php83Extensions.json",      # JSON: serialización nativa (Gemini responses)
+    # NOTE: php83Extensions.json omitido intencionalmente.
+    # Desde PHP 8.0 (RFC aprobado), JSON es parte del CORE del interprete.
+    # No existe como extension separable en Nixpkgs -> causa build failure.
     "php83Extensions.mysqli",    # MySQLi: conexión a Railway MySQL
     "php83Extensions.pdo",       # PDO: compatibilidad futura / ORMs
     "php83Extensions.pdo_mysql", # PDO MySQL driver
