@@ -60,9 +60,10 @@ http {
         }
 
         # SEC: Bloquear acceso directo a módulos PHP internos.
-        # IMPORTANTE: auth.php NO está aquí - es un endpoint HTTP público
+        # IMPORTANTE: auth.php NO está aquí - es un endpoint HTTP público.
+        # IMPORTANTE: api_drive.php tampoco - es un endpoint AJAX directo.
         # (maneja auth.php?action=logout directamente desde el browser).
-        location ~ ^/(Database|db|check_schema|migrate\d*|AIHandler|ChatbotRouter|FlowManager|calendar_functions|gemini_client|pdf_helper|models|whatsapp_helper|api_drive)\b.*\.php$ {
+        location ~ ^/(Database|db|check_schema|migrate\d*|AIHandler|ChatbotRouter|FlowManager|calendar_functions|gemini_client|pdf_helper|models|whatsapp_helper)\b.*\.php$ {
             deny all;
             return 404;
         }
