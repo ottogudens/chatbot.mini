@@ -38,8 +38,10 @@ if ($assistant_id) {
     <meta name="apple-mobile-web-app-title" content="<?php echo $bot_name; ?>">
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
     <link rel="icon" type="image/png" href="/icons/icon-192.png">
-    <!-- Google Fonts: Inter -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Google Fonts: Inter + Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
@@ -196,12 +198,37 @@ if ($assistant_id) {
             loadHistory();
             scrollToBottom(); // Scroll to bottom after loading history
 
+            // Confirm personalizado (reemplaza confirm() nativo que bloquea el hilo
+            // y no respeta el tema dark/light del chat).
+            function showConfirm(message, onConfirm) {
+                const overlay = $(`
+                    <div class="sk-confirm-overlay" role="dialog" aria-modal="true">
+                        <div class="sk-confirm-box">
+                            <span class="icon" aria-hidden="true">🗑️</span>
+                            <h3>¿Borrar historial?</h3>
+                            <p>${escapeHtml(message)}</p>
+                            <div class="sk-confirm-actions">
+                                <button class="sk-btn-cancel" id="sk-cancel">Cancelar</button>
+                                <button class="sk-btn-confirm" id="sk-ok">Borrar</button>
+                            </div>
+                        </div>
+                    </div>
+                `);
+                $('body').append(overlay);
+                overlay.find('#sk-cancel').on('click', () => overlay.remove());
+                overlay.find('#sk-ok').on('click', () => { overlay.remove(); onConfirm(); });
+                // Cerrar con Escape
+                $(document).one('keydown.confirm', (e) => {
+                    if (e.key === 'Escape') overlay.remove();
+                });
+            }
+
             // Clear Chat Logic
             $('#clear-chat').on('click', function () {
-                if (confirm('¿Seguro que quieres borrar todo el historial?')) {
+                showConfirm('Esta acción eliminará todo el historial de conversación.', () => {
                     localStorage.removeItem(STORAGE_KEY);
-                    location.reload(); // Reload to show fresh state with initial greeting
-                }
+                    location.reload();
+                });
             });
 
             // Theme Toggle Logic — OPT-4: persist theme in localStorage
@@ -226,10 +253,17 @@ if ($assistant_id) {
                 }
             });
 
-            // Auto-scroll function
-            function scrollToBottom() {
+            // Auto-scroll inteligente:
+            // Solo hace scroll automático si el usuario ya está cerca del final
+            // (dentro de 120px). Si el usuario scrolleó hacia arriba a leer
+            // historial, no lo interrumpimos.
+            function scrollToBottom(force = false) {
                 const chatBox = $("#chat-box");
-                chatBox.animate({ scrollTop: chatBox.prop("scrollHeight") }, 400);
+                const el = chatBox[0];
+                const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+                if (force || nearBottom) {
+                    chatBox.animate({ scrollTop: el.scrollHeight }, 350);
+                }
             }
 
             // Enter key support
@@ -283,19 +317,20 @@ if ($assistant_id) {
 
                         // Add suggestions if available
                         if (result.suggestions && result.suggestions.length > 0) {
-                            let suggHtml = '';
-                            result.suggestions.forEach(sugg => {
-                                suggHtml += `<button class="sugg-btn">${escapeHtml(sugg)}</button>`;
-                            });
-                            $("#suggestions-area").html(suggHtml);
-                        }
+                                let suggHtml = '';
+                                result.suggestions.forEach(sugg => {
+                                    // escapeHtml aplicado SIEMPRE en sugerencias del servidor
+                                    suggHtml += `<button class="sugg-btn">${escapeHtml(sugg)}</button>`;
+                                });
+                                $("#suggestions-area").html(suggHtml);
+                            }
 
                         scrollToBottom();
                     },
                     error: function () {
-                        // Fallback on error
                         $("#typing-indicator").addClass('hidden');
-                        appendMessage('bot', '<span style="color:var(--danger)">Error de conexión con el servidor.</span>', timeString, false); // Don't save errors
+                        // Error sin HTML inline — clase CSS maneja el color
+                        appendMessage('bot', 'Error de conexión. Por favor intenta de nuevo.', timeString, false);
                         scrollToBottom();
                     }
                 });
