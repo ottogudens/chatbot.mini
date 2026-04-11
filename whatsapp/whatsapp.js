@@ -23,13 +23,45 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-app.use(cors());
+
+// SEC FIX: CORS restringido. Este bridge solo es llamado por el propio backend PHP
+// (Nginx en Railway, mismo contenedor). CORS abierto (cors()) no tiene sentido
+// para un servicio interno y expone endpoints a peticiones cross-origin arbitrarias.
+// Permitimos solo llamadas desde localhost/127.0.0.1 o desde un APP_URL configurado.
+const ALLOWED_ORIGINS = [
+    'http://localhost',
+    'http://127.0.0.1',
+    process.env.APP_URL,
+].filter(Boolean);
+
+app.use(cors({
+    origin: (origin, callback) => {
+        // Permitir requests sin origin (Nginx interno, curl, PHP)
+        if (!origin || ALLOWED_ORIGINS.some(o => origin.startsWith(o))) {
+            return callback(null, true);
+        }
+        return callback(new Error('CORS: origin not allowed'));
+    }
+}));
 app.use(express.json());
 
-// SEC: Authentication middleware for mutating endpoints
+// SEC FIX: El token NO tiene fallback hardcodeado.
+// Si INTERNAL_TOKEN no está configurado en Railway, el bridge arranca sin autenticación
+// pero emitirá un warning claro en los logs. El fallback 'local_secret_123' del código
+// original aparecía en el repositorio Git — cualquiera podía leerlo.
 const BRIDGE_TOKEN = process.env.INTERNAL_TOKEN || '';
+if (!BRIDGE_TOKEN) {
+    console.warn('[SECURITY WARNING] INTERNAL_TOKEN no está configurado. El bridge acepta cualquier petición POST. Configura esta variable en Railway.');
+}
+
+// SEC: Helper para sanitizar el assistant ID (solo dígitos, sin path traversal)
+function sanitizeId(id) {
+    if (!id || !/^\d+$/.test(String(id))) return null;
+    return String(id);
+}
+
+// SEC: Authentication middleware para endpoints mutantes
 function authMiddleware(req, res, next) {
-    // Only enforce on POST (mutating) endpoints
     if (req.method === 'POST') {
         const token = req.headers['x-internal-token'] || req.body?.internal_token || '';
         if (!BRIDGE_TOKEN || token !== BRIDGE_TOKEN) {
@@ -39,26 +71,39 @@ function authMiddleware(req, res, next) {
     next();
 }
 
-// SEC: Simple in-memory rate limiter (per IP, 60 requests per minute)
+// SEC FIX: Rate limiter refactorizado.
+// - req.connection.remoteAddress está deprecated en Node 18+; usar req.socket.remoteAddress.
+// - Se añade límite de memory: limpiar entradas antiguas para evitar memory leak
+//   en procesos de larga duración con muchas IPs únicas.
 const rateLimitMap = new Map();
+const RATE_WINDOW_MS = 60000; // 1 minuto
+const RATE_MAX_REQS  = 60;
+const RATE_MAX_ENTRIES = 5000; // evitar crecimiento ilimitado del Map
+
 function rateLimiter(req, res, next) {
-    const ip = req.ip || req.connection.remoteAddress;
+    // FIX: req.socket.remoteAddress reemplaza req.connection.remoteAddress (deprecated Node 18+)
+    const ip = req.ip || req.socket?.remoteAddress || 'unknown';
     const now = Date.now();
-    const windowMs = 60000; // 1 minute
-    const maxReqs = 60;
+
+    // Limpiar entradas expiradas si el Map crece demasiado
+    if (rateLimitMap.size > RATE_MAX_ENTRIES) {
+        for (const [key, entry] of rateLimitMap.entries()) {
+            if (now - entry.start > RATE_WINDOW_MS) rateLimitMap.delete(key);
+        }
+    }
 
     if (!rateLimitMap.has(ip)) {
         rateLimitMap.set(ip, { count: 1, start: now });
         return next();
     }
     const entry = rateLimitMap.get(ip);
-    if (now - entry.start > windowMs) {
+    if (now - entry.start > RATE_WINDOW_MS) {
         entry.count = 1;
         entry.start = now;
         return next();
     }
     entry.count++;
-    if (entry.count > maxReqs) {
+    if (entry.count > RATE_MAX_REQS) {
         return res.status(429).json({ status: 'error', message: 'Too many requests' });
     }
     next();
@@ -66,13 +111,14 @@ function rateLimiter(req, res, next) {
 
 app.use(rateLimiter);
 app.use(authMiddleware);
+
 const logger = P({ level: 'silent' });
 const sessions = {};
 const qrData = {};
 
 const AUTH_BASE_DIR = path.join(__dirname, 'sessions');
 if (!fs.existsSync(AUTH_BASE_DIR)) {
-    fs.mkdirSync(AUTH_BASE_DIR);
+    fs.mkdirSync(AUTH_BASE_DIR, { recursive: true });
 }
 
 async function startSession(assistantId) {
@@ -112,7 +158,6 @@ async function startSession(assistantId) {
                 startSession(assistantId);
             } else {
                 delete sessions[assistantId];
-                // Remove session dir if logged out
                 if (lastDisconnect.error?.output?.statusCode === DisconnectReason.loggedOut) {
                     fs.rmSync(sessionDir, { recursive: true, force: true });
                 }
@@ -129,19 +174,13 @@ async function startSession(assistantId) {
             for (const msg of m.messages) {
                 if (!msg.key.fromMe && msg.message) {
                     const from = msg.key.remoteJid;
-                    // Avoid processing group messages if not intended
+                    // Ignorar mensajes de grupos
                     if (from.endsWith('@g.us')) {
                         continue;
                     }
 
-                    // Log the structure to see what's coming
                     const msgType = Object.keys(msg.message)[0];
 
-                    // M4: Detect audio in all its forms:
-                    // - Direct: audioMessage
-                    // - Ephemeral (disappearing): ephemeralMessage wrapping audioMessage
-                    // - View-once voice: viewOnceMessage wrapping audioMessage
-                    // - Forwarded: contextInfo.quotedMessage is not audio, but forwarded body may be
                     const innerMsg =
                         msg.message?.ephemeralMessage?.message ||
                         msg.message?.viewOnceMessage?.message ||
@@ -152,26 +191,23 @@ async function startSession(assistantId) {
                     const isAudio =
                         msgType === 'audioMessage' ||
                         msgType === 'pttMessage' ||
-                        (innerMsg && (innerMsg.audioMessage || innerMsg.pttMessage)) !== undefined && (innerMsg?.audioMessage || innerMsg?.pttMessage) != null;
+                        (innerMsg && (innerMsg.audioMessage || innerMsg.pttMessage)) !== undefined &&
+                        (innerMsg?.audioMessage || innerMsg?.pttMessage) != null;
 
-                    // Broad text extraction
                     let text = msg.message.conversation ||
                         msg.message.extendedTextMessage?.text ||
                         '';
 
-                    // Extract interactive response ID (Button/List selection)
-                    let interactiveId = 
+                    let interactiveId =
                         msg.message.buttonsResponseMessage?.selectedButtonId ||
                         msg.message.listResponseMessage?.singleSelectReply?.selectedRowId ||
                         msg.message.templateButtonReplyMessage?.selectedId ||
                         null;
 
-                    // If it has an interactive ID but no text, use the ID as text for matching
                     if (interactiveId && !text) {
                         text = interactiveId;
                     }
 
-                    // If it's an ephemeral message, extract from content
                     if (msgType === 'ephemeralMessage') {
                         text = msg.message.ephemeralMessage.message?.conversation ||
                             msg.message.ephemeralMessage.message?.extendedTextMessage?.text || '';
@@ -181,11 +217,11 @@ async function startSession(assistantId) {
                         console.log(`[Assistant ${assistantId}] Mensaje de ${from}: ${isAudio ? "[AUDIO]" : `"${text}"`}`);
 
                         try {
-                            // Resolve backend URL:
-                            // - APP_PORT = the Railway PORT (Nginx/PHP port, e.g. 8080)
-                            // - BACKEND_URL can include ${PORT} as a placeholder, or use APP_PORT directly
-                            const rawBackendUrl = process.env.BACKEND_URL || 'http://localhost:${PORT}/message.php';
+                            // FIX: BACKEND_URL sin interpolación literal de string JS.
+                            // El .env usa ${PORT} como placeholder custom que reemplazamos aquí.
+                            // Si BACKEND_URL no está configurado, usamos el puerto del proceso.
                             const appPort = process.env.APP_PORT || process.env.PORT || '80';
+                            const rawBackendUrl = process.env.BACKEND_URL || `http://localhost:${appPort}/message.php`;
                             const backendUrl = rawBackendUrl.replace('${PORT}', appPort);
 
                             const formData = new FormData();
@@ -195,14 +231,12 @@ async function startSession(assistantId) {
                             if (interactiveId) {
                                 formData.append('interactive_id', interactiveId);
                             }
-                            // Security token for internal communication
-                            const token = process.env.INTERNAL_TOKEN || 'local_secret_123';
-                            formData.append('internal_token', token);
+                            // SEC: INTERNAL_TOKEN sin fallback hardcodeado
+                            formData.append('internal_token', BRIDGE_TOKEN);
 
                             if (isAudio) {
                                 try {
                                     console.log(`[Assistant ${assistantId}] Descargando audio...`);
-                                    const messageContent = msgType === 'ephemeralMessage' ? msg.message.ephemeralMessage.message : msg.message;
                                     const buffer = await downloadMediaMessage(
                                         msg,
                                         'buffer',
@@ -223,7 +257,9 @@ async function startSession(assistantId) {
 
                             const response = await axios.post(backendUrl, formData, {
                                 headers: formData.getHeaders(),
-                                timeout: 45000 // Increased timeout for audio processing
+                                // FIX: Timeout incrementado a 100s para cubrir el ciclo completo:
+                                // audio download → Gemini upload (90s max) → PHP response → reply.
+                                timeout: 100000
                             });
 
                             if (response.data && response.data.reply) {
@@ -231,9 +267,8 @@ async function startSession(assistantId) {
                                     .replace(/<br\s*\/?>/gi, '\n')
                                     .replace(/&nbsp;/g, ' ')
                                     .trim();
-                                
+
                                 if (response.data.type === 'buttons' && response.data.interactive) {
-                                    // Send Buttons
                                     await sock.sendMessage(from, {
                                         text: cleanReply,
                                         buttons: response.data.interactive.buttons,
@@ -241,7 +276,6 @@ async function startSession(assistantId) {
                                         headerType: 1
                                     });
                                 } else if (response.data.type === 'list' && response.data.interactive) {
-                                    // Send List
                                     await sock.sendMessage(from, {
                                         text: cleanReply,
                                         sections: response.data.interactive.sections,
@@ -249,7 +283,6 @@ async function startSession(assistantId) {
                                         buttonText: response.data.interactive.buttonText ?? 'Ver opciones'
                                     });
                                 } else {
-                                    // Default Text
                                     await sock.sendMessage(from, { text: cleanReply });
                                 }
                             }
@@ -265,28 +298,31 @@ async function startSession(assistantId) {
     return sock;
 }
 
-// REST API
-app.get('/status/:id', async (req, res) => {
-    const id = req.params.id;
-    const sock = sessions[id];
+// ─── REST API ─────────────────────────────────────────────────────────────────
 
-    if (!sock) {
-        return res.json({ status: 'disconnected' });
-    }
+// SEC FIX: Sanitizar :id en TODAS las rutas para prevenir Path Traversal.
+// El id se usa para construir directorio: sessions/assistant_${id}
+// Sin sanitización: /connect/../../etc podría navegar el filesystem.
+
+app.get('/status/:id', async (req, res) => {
+    const id = sanitizeId(req.params.id);
+    if (!id) return res.status(400).json({ status: 'error', message: 'Invalid ID' });
+
+    const sock = sessions[id];
+    if (!sock) return res.json({ status: 'disconnected' });
 
     const state = sock.user ? 'connected' : (qrData[id] ? 'connecting' : 'disconnected');
     res.json({ status: state });
 });
 
 app.get('/qr/:id', async (req, res) => {
-    const id = req.params.id;
-    const qr = qrData[id];
+    const id = sanitizeId(req.params.id);
+    if (!id) return res.status(400).json({ status: 'error', message: 'Invalid ID' });
 
+    const qr = qrData[id];
     if (!qr) {
         const sock = sessions[id];
-        if (sock && sock.user) {
-            return res.json({ status: 'connected' });
-        }
+        if (sock && sock.user) return res.json({ status: 'connected' });
         return res.json({ status: 'no_qr' });
     }
 
@@ -299,7 +335,9 @@ app.get('/qr/:id', async (req, res) => {
 });
 
 app.post('/connect/:id', async (req, res) => {
-    const id = req.params.id;
+    const id = sanitizeId(req.params.id);
+    if (!id) return res.status(400).json({ status: 'error', message: 'Invalid ID' });
+
     try {
         await startSession(id);
         res.json({ status: 'initializing' });
@@ -309,7 +347,9 @@ app.post('/connect/:id', async (req, res) => {
 });
 
 app.post('/disconnect/:id', async (req, res) => {
-    const id = req.params.id;
+    const id = sanitizeId(req.params.id);
+    if (!id) return res.status(400).json({ status: 'error', message: 'Invalid ID' });
+
     const sock = sessions[id];
     if (sock) {
         await sock.logout();
@@ -322,7 +362,9 @@ app.post('/disconnect/:id', async (req, res) => {
 });
 
 app.post('/send/:id', async (req, res) => {
-    const id = req.params.id;
+    const id = sanitizeId(req.params.id);
+    if (!id) return res.status(400).json({ status: 'error', message: 'Invalid ID' });
+
     const { to, text, mediaUrl, mediaType } = req.body;
     const sock = sessions[id];
 
@@ -335,7 +377,12 @@ app.post('/send/:id', async (req, res) => {
     }
 
     try {
+        // SEC FIX: Validar que el número de teléfono tenga entre 7-15 dígitos (estándar E.164)
+        // para prevenir que strings largos construyan JIDs inválidos o excesivos.
         const cleanNumber = to.replace(/\D/g, '');
+        if (cleanNumber.length < 7 || cleanNumber.length > 15) {
+            return res.status(400).json({ status: 'error', message: 'Número de teléfono inválido' });
+        }
         const jid = `${cleanNumber}@s.whatsapp.net`;
 
         if (mediaUrl) {
@@ -347,11 +394,10 @@ app.post('/send/:id', async (req, res) => {
             } else if (mediaType === 'video') {
                 sendOptions.video = { url: mediaUrl };
             } else {
-                // Default to document for everything else
                 const fileName = path.basename(mediaUrl.split('?')[0]) || 'documento';
                 sendOptions.document = { url: mediaUrl };
                 sendOptions.fileName = fileName;
-                sendOptions.mimetype = 'application/octet-stream'; // Let Baileys/WhatsApp handle it or refine
+                sendOptions.mimetype = 'application/octet-stream';
             }
 
             await sock.sendMessage(jid, sendOptions);
@@ -365,19 +411,25 @@ app.post('/send/:id', async (req, res) => {
     }
 });
 
-// Auto-start existing sessions on launch
+// Auto-start existing sessions on launch.
+// FIX: Se restauran con un pequeño stagger (500ms entre cada una) para evitar
+// que 20+ asistentes intenten conectar simultáneamente al boot y saturen
+// los sockets de Baileys y el ancho de banda de WhatsApp.
 if (fs.existsSync(AUTH_BASE_DIR)) {
-    const dirs = fs.readdirSync(AUTH_BASE_DIR);
-    dirs.forEach(dir => {
-        if (dir.startsWith('assistant_')) {
-            const id = dir.replace('assistant_', '');
-            console.log(`Restaurando sesión para asistente ${id}...`);
-            startSession(id);
+    const dirs = fs.readdirSync(AUTH_BASE_DIR).filter(d => d.startsWith('assistant_'));
+    dirs.forEach((dir, index) => {
+        const id = dir.replace('assistant_', '');
+        const safeId = sanitizeId(id);
+        if (safeId) {
+            setTimeout(() => {
+                console.log(`Restaurando sesión para asistente ${safeId}...`);
+                startSession(safeId);
+            }, index * 500); // 500ms stagger entre sesiones
         }
     });
 }
 
-const WHATSAPP_SERVICE_PORT = 3001;
+const WHATSAPP_SERVICE_PORT = parseInt(process.env.WHATSAPP_PORT || '3001', 10);
 app.listen(WHATSAPP_SERVICE_PORT, '127.0.0.1', () => {
     console.log(`Servidor WhatsApp API ejecutándose internamente en puerto ${WHATSAPP_SERVICE_PORT}`);
 });
